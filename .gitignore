@@ -1,0 +1,43 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.pem
+Thumbs.db
+
+# Environment variables
+.env
+.env*.local
+.env.*
+!.env.example
+
+# SQLite data directory
+/data/*.db
+/data/*.db-journal
+/data/*.db-wal
+/data/*.db-shm
+!/data/.gitkeep
+
+# Graphify cache
+graphify-out/cache/
+
+# Public uploads
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

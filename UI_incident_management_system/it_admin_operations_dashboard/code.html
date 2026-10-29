@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"primary":"#0284c7","primary-container":"#e0f2fe","on-primary":"#ffffff","on-primary-container":"#0369a1","secondary":"#0ea5e9","secondary-container":"#f0f9ff","on-secondary":"#ffffff","surface":"#ffffff","surface-container-lowest":"#ffffff","surface-container-low":"#f8fafc","surface-container":"#f0f9ff","surface-container-high":"#e2e8f0","surface-container-highest":"#cbd5e1","on-surface":"#0f172a","on-surface-variant":"#64748b","background":"#f0f7fd","outline":"#cbd5e1","outline-variant":"#e2e8f0","tertiary":"#0284c7","tertiary-container":"#e0f2fe","error":"#ef4444","error-container":"#fee2e2"},"borderRadius":{"DEFAULT":"0.5rem","lg":"1rem","xl":"1.5rem","full":"9999px"},"fontFamily":{"headline":["Inter"],"display":["Inter"],"body":["Inter"],"label":["JetBrains Mono","monospace"]},"fontSize":{}}}}</script></head><body class="bg-slate-50 text-slate-800 font-body antialiased selection:bg-sky-100 selection:text-sky-900"><header class="fixed top-0 left-0 right-0 w-full z-50 bg-white/90 backdrop-blur-xl border-b border-sky-100/80 shadow-[0_1px_3px_rgba(2,132,199,0.06)]"><div class="h-16 w-full px-6 lg:px-8 flex items-center justify-between gap-6"><div class="flex items-center gap-6 shrink-0"><div class="flex items-center gap-3"><img alt="IncidentHub Brand Mark" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X-tcQDzsOsvjKI_sF3xIiY057sGj6UfOPcktY1h7gRqHdDZAyIu7IoZiP5ykMG2sYdiBZAA3S2mXwbhKAbwEoz-F56Rds6gCPF-6YeobXmPLTEhUFfCfnGXQSYF7CiL0tVk-uydbGUg5lqv1DhgJUs8HX1_emwwaFZUwNahYSI-mm6DKCYgTUpdxcA6gfLiR_4YBbFNPBaXvB2e2uhHo3sqBEs_p5qQinNZlkDteS1rqC2T6oWifdANg"/><div class="flex items-center gap-2"><span class="font-headline font-bold text-base tracking-tight text-slate-900">IncidentHub</span><span class="px-2.5 py-0.5 text-[11px] font-label font-semibold bg-sky-50 text-sky-700 rounded-full ring-1 ring-sky-200">MCP &amp; AI Ready v1.0</span></div></div><nav class="hidden xl:flex items-center gap-1"><a class="px-3 py-1.5 text-xs text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-colors rounded-lg font-medium" data-path="report-incident" href="#">Report Incident</a><a aria-current="page" class="px-3.5 py-1.5 transition-colors bg-sky-600 text-white font-semibold text-xs rounded-lg shadow-sm shadow-sky-600/20" data-path="operations-triage" href="#">Operations Triage</a><a class="px-3 py-1.5 text-xs text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-colors rounded-lg font-medium" data-path="incident-detail-mcp" href="#">Incident Detail &amp; MCP</a><a class="px-3 py-1.5 text-xs text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-colors rounded-lg font-medium" data-path="architecture-topology" href="#">Architecture &amp; Topology</a></nav></div><div class="flex items-center gap-3 shrink-0"><div class="hidden md:flex items-center gap-2"><div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/90 text-[11px] text-slate-600 border border-slate-200/80"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span class="font-medium">Teams Webhook: Active</span></div><div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 text-[11px] text-sky-700 border border-sky-200/80 shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span><span class="font-medium">MCP Engine: Standby</span></div><div class="hidden 2xl:flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-[11px] text-slate-500 font-label border border-slate-200">Prod (Docker Node 26)</div></div><div class="w-8 h-8 rounded-full bg-sky-600 hover:bg-sky-700 transition-colors flex items-center justify-center cursor-pointer shadow-sm text-white"><span class="material-symbols-outlined text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-gradient-to-b from-[#f0f7fe] via-[#f8fafc] to-[#f0f7fd] min-h-screen"><div class="flex flex-col w-full">
+<div class="w-full px-6 lg:px-10 py-8 max-w-[1680px] mx-auto space-y-7">
+<!-- Top Bar: Title & High-Velocity Telemetry -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<div class="space-y-1.5">
+<div class="flex items-center gap-3">
+<span class="text-[11px] font-label font-bold tracking-wider text-sky-700 uppercase bg-sky-100/80 border border-sky-200/80 px-2.5 py-0.5 rounded-full">Telemetry Engine Live</span>
+<span class="text-xs text-slate-500 flex items-center gap-1.5 font-label">
+<span class="w-2 h-2 rounded-full bg-sky-500 animate-ping"></span>
+            Sync stream: 120ms tick
+          </span>
+</div>
+<h1 class="text-2xl lg:text-3xl font-headline font-bold text-slate-900 tracking-tight flex items-center gap-3">
+          IT Operations Triage &amp; Incident Matrix
+          <span class="text-xs font-normal text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded shadow-xs">SQLite Write-Ahead Log: Active</span>
+</h1>
+</div>
+<!-- Quick Action Pipeline Controls -->
+<div class="flex items-center flex-wrap gap-2.5">
+<button class="px-3.5 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-2 shadow-xs transition-all duration-200">
+<span class="material-symbols-outlined text-[17px] text-sky-600">download</span>
+<span>Export MCP (JSONL)</span>
+</button>
+<button class="px-3.5 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-2 shadow-xs transition-all duration-200">
+<span class="material-symbols-outlined text-[17px] text-sky-600">groups</span>
+<span>Batch Assign</span>
+</button>
+<button class="px-4 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700 text-xs font-semibold flex items-center gap-2 shadow-sm shadow-sky-600/30 transition-all duration-200" id="refreshBtn">
+<span class="material-symbols-outlined text-[17px] animate-spin" id="refreshIcon" style="animation-duration: 3s;">sync</span>
+<span>Sync SQLite Stream</span>
+</button>
+</div>
+</div>
+<!-- Frosted Metric KPI Cards (5 Cards Glacier Grid) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+<!-- Metric 1: Total Active -->
+<div class="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div>
+<p class="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Active Incidents</p>
+<div class="flex items-baseline gap-2 mt-2">
+<span class="text-3xl font-headline font-bold text-slate-900">14</span>
+<span class="text-xs font-semibold text-sky-600 flex items-center font-label">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span> +3 today
+              </span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
+<span class="material-symbols-outlined text-[20px]">layers</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+<span>Target baseline &lt; 20</span>
+<span class="text-sky-700 font-mono font-semibold bg-sky-50 px-1.5 py-0.5 rounded">Load: 70%</span>
+</div>
+</div>
+<!-- Metric 2: High Urgency / Blocker -->
+<div class="relative overflow-hidden rounded-xl bg-white border border-red-100 p-5 shadow-sm hover:shadow-md hover:border-red-200 transition-all duration-300 group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div>
+<p class="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Critical • P1 Blocker</p>
+<div class="flex items-baseline gap-2.5 mt-2">
+<span class="text-3xl font-headline font-bold text-rose-600">2</span>
+<span class="flex h-2.5 w-2.5 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
+<span class="material-symbols-outlined text-[20px]">emergency_heat</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+<span class="text-slate-500">Incident bridge open</span>
+<span class="text-rose-700 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">War Room #1</span>
+</div>
+</div>
+<!-- Metric 3: MTTA & SLA -->
+<div class="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div>
+<p class="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Mean Ack Time (MTTA)</p>
+<div class="flex items-baseline gap-2 mt-2">
+<span class="text-3xl font-headline font-bold text-slate-900">4.8</span>
+<span class="text-xs text-slate-500 font-medium">mins</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
+<span class="material-symbols-outlined text-[20px]">timer</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+<span class="font-medium text-slate-600">94% SLA intact</span>
+</div>
+<span class="text-sky-700 font-mono font-medium bg-sky-50 px-1.5 py-0.5 rounded">&lt; 5m goal</span>
+</div>
+</div>
+<!-- Metric 4: Teams Dispatch -->
+<div class="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div>
+<p class="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Teams Webhook Rate</p>
+<div class="flex items-baseline gap-2 mt-2">
+<span class="text-3xl font-headline font-bold text-slate-900">100%</span>
+<span class="text-xs text-sky-600 font-medium">24 / 24</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
+<span class="material-symbols-outlined text-[20px]">forum</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+<span>Latency: 284ms</span>
+<span class="text-emerald-700 font-mono font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">0 failed</span>
+</div>
+</div>
+<!-- Metric 5: MCP Knowledge Index -->
+<div class="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div>
+<p class="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">MCP Vector Corpus</p>
+<div class="flex items-baseline gap-2 mt-2">
+<span class="text-3xl font-headline font-bold text-sky-800">842</span>
+<span class="text-xs text-slate-500 font-medium">resolutions</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
+<span class="material-symbols-outlined text-[20px]">smart_toy</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+<span>Indexed embeddings</span>
+<span class="text-sky-700 font-mono font-medium bg-sky-50 px-1.5 py-0.5 rounded">Model 2024.11</span>
+</div>
+</div>
+</div>
+<!-- Filter & Precision Search Strip -->
+<div class="rounded-xl bg-white border border-slate-200/90 p-4 shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+<!-- Search Input -->
+<div class="relative flex-1 min-w-[280px]">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">search</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-xs rounded-lg focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all" id="incidentSearch" placeholder="Search Ticket ID (INC-*), Reporter, or keyword payload..." type="text"/>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 text-[10px] text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded font-mono">
+<span>/</span> to focus
+        </div>
+</div>
+<!-- Filters Row -->
+<div class="flex flex-wrap items-center gap-2.5">
+<!-- Status Filter -->
+<div class="relative">
+<select class="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors">
+<option>Status: All (14)</option>
+<option>Open (5)</option>
+<option>In Progress (6)</option>
+<option>Resolved (3)</option>
+<option>Closed (0)</option>
+</select>
+<span class="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">expand_more</span>
+</div>
+<!-- Urgency Filter -->
+<div class="relative">
+<select class="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors">
+<option>Urgency: All</option>
+<option>P1 - Blocker / High</option>
+<option>P2 - Moderate / Medium</option>
+<option>P3 - Low / Normal</option>
+</select>
+<span class="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">expand_more</span>
+</div>
+<!-- Category Filter -->
+<div class="relative">
+<select class="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors">
+<option>Domain: All</option>
+<option>SAP ERP Ecosystem</option>
+<option>Core Network &amp; VPN</option>
+<option>API Gateway &amp; Interface</option>
+<option>End-User Helpdesk</option>
+</select>
+<span class="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">expand_more</span>
+</div>
+<!-- Department Filter -->
+<div class="relative">
+<select class="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors">
+<option>Dept: All Units</option>
+<option>Finance &amp; Treasury</option>
+<option>Supply Chain &amp; Logistics</option>
+<option>Plant Engineering</option>
+<option>Global Sales (APAC)</option>
+</select>
+<span class="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">expand_more</span>
+</div>
+<!-- Reset Button -->
+<button class="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors" title="Reset Filters">
+<span class="material-symbols-outlined text-[17px]">restart_alt</span>
+</button>
+</div>
+</div>
+<!-- High-Density Incident Data Table -->
+<div class="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse text-xs">
+<thead>
+<tr class="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-label tracking-wider uppercase text-[11px]">
+<th class="py-3.5 px-4 font-semibold">Ticket ID</th>
+<th class="py-3.5 px-3 font-semibold">Age</th>
+<th class="py-3.5 px-3 font-semibold">Urgency</th>
+<th class="py-3.5 px-3 font-semibold">Category</th>
+<th class="py-3.5 px-4 font-semibold min-w-[320px]">Incident Summary &amp; Reporter</th>
+<th class="py-3.5 px-3 font-semibold">Status</th>
+<th class="py-3.5 px-4 font-semibold">Assigned Responder</th>
+<th class="py-3.5 px-4 font-semibold text-right">Quick Dispatch</th>
+</tr>
+</thead>
+<tbody class="text-slate-700 divide-y divide-slate-100" id="tableBody">
+<!-- Row 1: High Blocker SAP -->
+<tr class="bg-white hover:bg-sky-50/60 transition-colors duration-150 group">
+<td class="py-3.5 px-4 font-mono font-semibold text-sky-700">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-sky-600">shield_lock</span>
+<span>INC-202610-001</span>
+</div>
+</td>
+<td class="py-3.5 px-3 font-mono text-slate-500">3m ago</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
+<span class="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
+                  P1 HIGH
+                </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-100 font-medium">SAP S/4HANA</span>
+</td>
+<td class="py-3.5 px-4">
+<div class="space-y-0.5">
+<div class="font-medium text-slate-900 group-hover:text-sky-700 transition-colors flex items-center gap-2">
+<span>GUI error RFC_COMMUNICATION_FAILURE on Production Node</span>
+<span class="px-1.5 py-0.2 rounded text-[9px] bg-sky-100 text-sky-700 border border-sky-200 font-mono font-medium">MCP Matched</span>
+</div>
+<div class="text-[11px] text-slate-500 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-slate-400">person</span>
+<span>Somchai P.</span>
+<span class="text-slate-300">•</span>
+<span>Finance APAC (BKK-Tower-Fl14)</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+<span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                  OPEN
+                </span>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-sky-100 text-sky-800 flex items-center justify-center text-[10px] font-bold border border-sky-200">
+                    KA
+                  </div>
+<div>
+<div class="font-medium text-slate-800 text-[11px]">K. Anan</div>
+<div class="text-[10px] text-slate-500">SAP Lead Eng</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4 text-right">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1 rounded bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-700 border border-sky-200 transition-colors text-[11px] font-medium flex items-center gap-1" title="Run MCP AI Diagnostic">
+<span class="material-symbols-outlined text-[13px]">auto_awesome</span> Triage
+                  </button>
+<button class="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors" title="Forward payload to Microsoft Teams channel">
+<span class="material-symbols-outlined text-[15px]">send_to_mobile</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: High Network Core -->
+<tr class="bg-slate-50/30 hover:bg-sky-50/60 transition-colors duration-150 group">
+<td class="py-3.5 px-4 font-mono font-semibold text-sky-700">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-sky-600">wifi_tethering_off</span>
+<span>INC-202610-002</span>
+</div>
+</td>
+<td class="py-3.5 px-3 font-mono text-slate-500">18m ago</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
+<span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                  P1 HIGH
+                </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-100 font-medium">Network/VPN</span>
+</td>
+<td class="py-3.5 px-4">
+<div class="space-y-0.5">
+<div class="font-medium text-slate-900 group-hover:text-sky-700 transition-colors">
+                    Rayong Gateway Core BGP flapping with Azure ExpressRoute
+                  </div>
+<div class="text-[11px] text-slate-500 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-slate-400">person</span>
+<span>Chatchai K.</span>
+<span class="text-slate-300">•</span>
+<span>Infra Operations (DC-Eastern)</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  IN_PROGRESS
+                </span>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center text-[10px] font-bold">
+                    SK
+                  </div>
+<div>
+<div class="font-medium text-slate-800 text-[11px]">S. Kittisak</div>
+<div class="text-[10px] text-slate-500">NetOps Tier 3</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4 text-right">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1 rounded bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-700 border border-sky-200 transition-colors text-[11px] font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">auto_awesome</span> Triage
+                  </button>
+<button class="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors">
+<span class="material-symbols-outlined text-[15px]">send_to_mobile</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Medium API Gateway -->
+<tr class="bg-white hover:bg-sky-50/60 transition-colors duration-150 group">
+<td class="py-3.5 px-4 font-mono font-semibold text-sky-700">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-slate-400">sync_problem</span>
+<span>INC-202610-003</span>
+</div>
+</td>
+<td class="py-3.5 px-3 font-mono text-slate-500">42m ago</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
+                  P2 MED
+                </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-100 font-medium">Interface</span>
+</td>
+<td class="py-3.5 px-4">
+<div class="space-y-0.5">
+<div class="font-medium text-slate-900 group-hover:text-sky-700 transition-colors">
+                    Customer Portal Payment Webhook HTTP 504 Gateway Timeout
+                  </div>
+<div class="text-[11px] text-slate-500 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-slate-400">person</span>
+<span>Pornpimol T.</span>
+<span class="text-slate-300">•</span>
+<span>E-Commerce Platform</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                  IN_PROGRESS
+                </span>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-sky-100 border border-sky-200 flex items-center justify-center text-[10px] font-bold text-sky-800">
+                    WR
+                  </div>
+<div>
+<div class="font-medium text-slate-800 text-[11px]">W. Rungroj</div>
+<div class="text-[10px] text-slate-500">API Integrations</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4 text-right">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1 rounded bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-700 border border-sky-200 transition-colors text-[11px] font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">auto_awesome</span> Triage
+                  </button>
+<button class="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors">
+<span class="material-symbols-outlined text-[15px]">send_to_mobile</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4: Helpdesk Medium -->
+<tr class="bg-slate-50/30 hover:bg-sky-50/60 transition-colors duration-150 group">
+<td class="py-3.5 px-4 font-mono font-semibold text-sky-700">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-slate-400">vpn_key</span>
+<span>INC-202610-004</span>
+</div>
+</td>
+<td class="py-3.5 px-3 font-mono text-slate-500">1h ago</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
+                  P2 MED
+                </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-100 font-medium">Helpdesk</span>
+</td>
+<td class="py-3.5 px-4">
+<div class="space-y-0.5">
+<div class="font-medium text-slate-900 group-hover:text-sky-700 transition-colors">
+                    Intune MDM profile failing certificate handshake on macOS Sonoma
+                  </div>
+<div class="text-[11px] text-slate-500 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-slate-400">person</span>
+<span>David S.</span>
+<span class="text-slate-300">•</span>
+<span>Executive Offices</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+<span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                  OPEN
+                </span>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-slate-100 text-slate-500 border border-slate-200 flex items-center justify-center text-[10px]">
+<span class="material-symbols-outlined text-[14px]">person_off</span>
+</div>
+<span class="text-[11px] text-slate-400 italic">Unassigned</span>
+</div>
+</td>
+<td class="py-3.5 px-4 text-right">
+<div class="flex items-center justify-end gap-1.5">
+<button class="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-700 text-white transition-colors text-[11px] font-semibold shadow-xs">
+                    Claim
+                  </button>
+<button class="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors">
+<span class="material-symbols-outlined text-[15px]">send_to_mobile</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 5: Resolved Low Helpdesk -->
+<tr class="bg-white hover:bg-sky-50/60 transition-colors duration-150 group">
+<td class="py-3.5 px-4 font-mono font-medium text-slate-400">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-emerald-600">check_circle</span>
+<span>INC-202610-005</span>
+</div>
+</td>
+<td class="py-3.5 px-3 font-mono text-slate-400">2h ago</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                  P3 LOW
+                </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200">SAP User</span>
+</td>
+<td class="py-3.5 px-4">
+<div class="space-y-0.5">
+<div class="font-medium text-slate-400 line-through">
+                    User account lock on SAP Client 300 after 3 incorrect credential attempts
+                  </div>
+<div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px] text-slate-300">person</span>
+<span>Nattawut M.</span>
+<span class="text-slate-200">•</span>
+<span>Inventory Ops</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  RESOLVED
+                </span>
+</td>
+<td class="py-3.5 px-4">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                    AI
+                  </div>
+<div>
+<div class="font-medium text-slate-700 text-[11px]">MCP Bot (Auto)</div>
+<div class="text-[10px] text-slate-400">SU01 Reset Script</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-4 text-right">
+<button class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 text-[11px]">
+                  Audit Log
+                </button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination and SQLite Info Bar -->
+<div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 font-label">
+<div class="flex items-center gap-3">
+<span>Showing <strong class="text-slate-900 font-semibold">1 - 5</strong> of <strong class="text-slate-900 font-semibold">48</strong> active records</span>
+<span class="text-slate-300">|</span>
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[15px] text-sky-600">database</span>
+<span>Database: <code class="font-mono text-sky-700 bg-sky-50 border border-sky-200 px-1 py-0.5 rounded text-[11px]">./data/incident.db</code></span>
+</span>
+<span class="text-slate-300 hidden md:inline">|</span>
+<span class="hidden md:flex items-center gap-1 text-emerald-600 font-medium">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Volume: Healthy (WAL checkpointed)
+          </span>
+</div>
+<!-- Navigation Controls -->
+<div class="flex items-center gap-1.5">
+<button class="px-2.5 py-1 rounded bg-white border border-slate-200 text-slate-400 disabled:opacity-50 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[16px] align-middle">chevron_left</span>
+</button>
+<span class="px-2.5 py-1 rounded bg-sky-600 text-white font-mono font-medium shadow-xs">1</span>
+<button class="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-mono">2</button>
+<button class="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-mono">3</button>
+<button class="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700">
+<span class="material-symbols-outlined text-[16px] align-middle">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Diagnostic Bento Grid: Live Queue Insights & Channel Telemetry -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Panel 1: SLA Countdown & Critical Velocity -->
+<div class="rounded-xl bg-white border border-slate-200 p-5 shadow-xs space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sky-600 text-[20px]">speed</span>
+<h3 class="font-headline font-semibold text-sm text-slate-900">Active SLA Thresholds</h3>
+</div>
+<span class="text-[10px] font-mono text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded font-medium">P1 Critical Target: 15m</span>
+</div>
+<div class="space-y-3">
+<div class="space-y-1">
+<div class="flex justify-between text-xs">
+<span class="text-slate-800 font-medium">INC-202610-001 (SAP RFC Failure)</span>
+<span class="text-rose-600 font-mono font-bold">11m 42s remaining</span>
+</div>
+<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/60">
+<div class="bg-rose-500 h-full rounded-full transition-all duration-500" style="width: 78%"></div>
+</div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-xs">
+<span class="text-slate-800 font-medium">INC-202610-002 (BGP Flap)</span>
+<span class="text-sky-700 font-mono font-medium">28m 10s remaining</span>
+</div>
+<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/60">
+<div class="bg-sky-500 h-full rounded-full transition-all duration-500" style="width: 44%"></div>
+</div>
+</div>
+</div>
+<div class="pt-2 text-[11px] text-slate-500 border-t border-slate-100 flex items-center justify-between">
+<span>Automated escalation pathway</span>
+<span class="text-sky-700 font-semibold bg-sky-50 px-2 py-0.5 rounded border border-sky-200/80">P1 On-Call: K. Kittisak</span>
+</div>
+</div>
+<!-- Panel 2: Teams Webhook Delivery Telemetry -->
+<div class="rounded-xl bg-white border border-slate-200 p-5 shadow-xs space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sky-600 text-[20px]">hub</span>
+<h3 class="font-headline font-semibold text-sm text-slate-900">Adaptive Teams Cards</h3>
+</div>
+<span class="text-[10px] font-mono text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded font-medium">Webhook v1.4</span>
+</div>
+<div class="bg-slate-50 border border-slate-200 p-3 rounded-lg font-mono text-[11px] space-y-1.5 text-slate-600">
+<div class="flex items-center justify-between text-slate-900">
+<span class="flex items-center gap-1.5 text-sky-700 font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              #it-operations-bridge
+            </span>
+<span class="text-[10px] text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-1 rounded">HTTP 200 OK</span>
+</div>
+<p class="truncate text-[10px] text-slate-500">Payload: JSON AdaptiveCard (INC-202610-001) with deep-link triage tokens</p>
+<div class="flex items-center justify-between pt-1 text-[10px] text-slate-500 border-t border-slate-200/60">
+<span>Signature: HMAC-SHA256 valid</span>
+<span class="text-sky-700 font-medium">24 messages sent</span>
+</div>
+</div>
+<div class="flex items-center justify-between text-[11px] text-slate-500">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-emerald-600">mark_chat_read</span>
+<span>Channel notifications enabled</span>
+</span>
+<button class="text-sky-600 hover:text-sky-700 hover:underline text-[11px] font-semibold">Send Test Ping</button>
+</div>
+</div>
+<!-- Panel 3: MCP Agent Vector Recommendations -->
+<div class="rounded-xl bg-white border border-slate-200 p-5 shadow-xs space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sky-600 text-[20px]">smart_toy</span>
+<h3 class="font-headline font-semibold text-sm text-slate-900">MCP Knowledge Context</h3>
+</div>
+<span class="text-[10px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium">Model Active</span>
+</div>
+<div class="space-y-2">
+<div class="p-2.5 rounded-lg bg-sky-50/70 border border-sky-100 text-xs space-y-1">
+<div class="flex items-center justify-between font-semibold text-slate-900">
+<span>Solution match: RFC_COMMUNICATION_FAILURE</span>
+<span class="text-sky-700 font-mono font-bold text-[11px] bg-white px-1.5 py-0.5 rounded border border-sky-200">96.8%</span>
+</div>
+<p class="text-[11px] text-slate-600">
+              Re-register SM59 destination <code class="text-sky-800 font-mono text-[10px] bg-sky-100/70 px-1 rounded">SAP_APO_PROD</code> on Gateway Node 02.
+            </p>
+</div>
+</div>
+<div class="pt-1 flex items-center justify-between text-[11px]">
+<span class="text-slate-500">Automated runbook ready</span>
+<button class="text-sky-700 hover:text-sky-800 hover:underline font-semibold flex items-center gap-1">
+<span>Execute Runbook</span>
+<span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive Search / Filter Client Behavior -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchInput = document.getElementById('incidentSearch');
+      const tableBody = document.getElementById('tableBody');
+      const refreshBtn = document.getElementById('refreshBtn');
+      const refreshIcon = document.getElementById('refreshIcon');
+
+      // Key shortcut to focus search
+      document.addEventListener('keydown', (e) => {
+        if (e.key === '/' && document.activeElement !== searchInput) {
+          e.preventDefault();
+          searchInput.focus();
+        }
+      });
+
+      // Quick filter on input
+      if (searchInput && tableBody) {
+        searchInput.addEventListener('input', (e) => {
+          const val = e.target.value.toLowerCase().trim();
+          const rows = tableBody.querySelectorAll('tr');
+          rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(val) ? '' : 'none';
+          });
+        });
+      }
+
+      // Live SQLite Sync simulation animation
+      if (refreshBtn && refreshIcon) {
+        refreshBtn.addEventListener('click', () => {
+          refreshIcon.classList.add('animate-spin');
+          refreshBtn.classList.add('opacity-75');
+          setTimeout(() => {
+            refreshBtn.classList.remove('opacity-75');
+          }, 800);
+        });
+      }
+    });
+  </script>
+</div></main><footer class="w-full bg-white border-t border-slate-200 py-6"><div class="w-full px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500"><div class="flex items-center gap-4"><span class="font-semibold text-slate-700">IncidentHub Engine</span><span class="text-slate-300">|</span><span>SQLite • Docker Containerized</span><span class="text-slate-300">|</span><span>Model Context Protocol v2024.11</span></div><div>© 2025 IncidentHub Operations. High-Reliability Incident Response Architecture.</div></div></footer></body></html>

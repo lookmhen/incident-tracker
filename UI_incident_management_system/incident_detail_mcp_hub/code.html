@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#0284c7",
+          "primary-container": "#e0f2fe",
+          "on-primary-container": "#0369a1",
+          "secondary": "#0284c7",
+          "surface": "#ffffff",
+          "background": "#f0f7ff",
+          "on-surface": "#0f172a",
+          "on-surface-variant": "#475569",
+          "surface-container": "#f8fafc",
+          "surface-container-high": "#f1f5f9",
+          "surface-container-highest": "#e2e8f0",
+          "surface-container-low": "#f8fafc",
+          "surface-container-lowest": "#ffffff",
+          "error": "#dc2626",
+          "error-container": "#fee2e2",
+          "outline": "#cbd5e1",
+          "outline-variant": "#e2e8f0"
+        },
+        fontFamily: {
+          headline: ["Inter", "sans-serif"],
+          body: ["Inter", "sans-serif"],
+          mono: ["JetBrains Mono", "monospace"],
+          label: ["Inter", "sans-serif"]
+        }
+      }
+    }
+  }
+</script></head><body class="bg-[#f0f7ff] font-body text-slate-900 antialiased"><header class="fixed top-0 left-0 right-0 w-full z-50 bg-white/95 backdrop-blur-xl border-b border-sky-100 shadow-[0_2px_12px_rgba(2,132,199,0.06)]"><div class="h-16 w-full px-6 lg:px-8 flex items-center justify-between gap-6"><div class="flex items-center gap-6 shrink-0"><div class="flex items-center gap-3"><img alt="IncidentHub Brand Mark" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X-tcQDzsOsvjKI_sF3xIiY057sGj6UfOPcktY1h7gRqHdDZAyIu7IoZiP5ykMG2sYdiBZAA3S2mXwbhKAbwEoz-F56Rds6gCPF-6YeobXmPLTEhUFfCfnGXQSYF7CiL0tVk-uydbGUg5lqv1DhgJUs8HX1_emwwaFZUwNahYSI-mm6DKCYgTUpdxcA6gfLiR_4YBbFNPBaXvB2e2uhHo3sqBEs_p5qQinNZlkDteS1rqC2T6oWifdANg"/><div class="flex items-center gap-2"><span class="font-headline font-bold text-base tracking-tight text-slate-900">IncidentHub</span><span class="px-2 py-0.5 text-[11px] font-medium bg-sky-50 text-sky-700 rounded-full border border-sky-200">MCP &amp; AI Ready v1.0</span></div></div><nav class="hidden xl:flex items-center gap-1"><a class="px-3 py-1.5 text-xs text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-colors rounded-lg font-medium" data-path="report-incident" href="#">Report Incident</a><a class="px-3 py-1.5 text-xs text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-colors rounded-lg font-medium" data-path="operations-triage" href="#">Operations Triage</a><a class="px-3 py-1.5 text-xs bg-sky-100 text-sky-800 font-semibold rounded-lg" data-path="incident-detail-mcp" href="#">Incident Detail &amp; MCP</a><a class="px-3 py-1.5 text-xs text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-colors rounded-lg font-medium" data-path="architecture-topology" href="#">Architecture &amp; Topology</a></nav></div><div class="flex items-center gap-3 shrink-0"><div class="hidden md:flex items-center gap-2"><div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/90 text-[11px] text-slate-600 font-medium border border-slate-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>Teams Webhook: Active</span></div><div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 text-[11px] text-sky-700 font-medium border border-sky-200"><span class="w-1.5 h-1.5 rounded-full bg-sky-600"></span><span>MCP Engine: Standby</span></div><div class="hidden 2xl:flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-[11px] text-slate-600 font-mono">Prod (Docker Node 26)</div></div><div class="w-8 h-8 rounded-full bg-sky-600 flex items-center justify-center cursor-pointer shadow-sm text-white hover:bg-sky-700 transition-colors"><span class="material-symbols-outlined text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-[#f0f7ff] min-h-screen"><div class="flex flex-col w-full">
+<div class="relative w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+<div class="absolute -top-32 left-1/4 w-96 h-96 bg-sky-200/40 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="absolute top-1/2 right-10 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-[140px] pointer-events-none"></div>
+<!-- Top Incident Header Crisp White Glass Card -->
+<section class="relative bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.06)] border border-sky-100 overflow-hidden">
+<div class="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-sky-400 via-blue-500 to-sky-300"></div>
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+<div class="space-y-3 min-w-0">
+<div class="flex flex-wrap items-center gap-2 text-xs">
+<span class="px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-semibold flex items-center gap-1.5 shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping"></span>
+              HIGH URGENCY
+            </span>
+<span class="px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">sync</span>
+              IN_PROGRESS
+            </span>
+<span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+              SAP S/4HANA
+            </span>
+<span class="text-slate-500 flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px]">schedule</span>
+              Logged 12 mins ago
+            </span>
+</div>
+<div class="flex items-center gap-3">
+<h1 class="text-xl sm:text-2xl font-headline font-bold text-slate-900 tracking-tight leading-snug break-words">
+<span class="text-sky-600 font-mono select-all">[INC-202610-001]</span> SAP S/4HANA GUI error 'RFC_COMMUNICATION_FAILURE' during Month-End closing
+            </h1>
+</div>
+<div class="flex flex-wrap items-center gap-4 text-xs text-slate-600">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-sky-600">account_circle</span>
+<span class="text-slate-900 font-semibold">Somchai Prasert</span>
+<span class="text-slate-500">(Finance &amp; Controlling Dept, Ext. 4882)</span>
+</div>
+<span class="hidden sm:inline text-slate-300">•</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-sky-700">dns</span>
+<span>Cluster: <strong class="text-slate-700">PROD-AP02</strong></span>
+</div>
+<span class="hidden sm:inline text-slate-300">•</span>
+<div class="flex items-center gap-1.5 text-sky-700 font-medium">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+<span>MCP Ingestion Pipeline Primed</span>
+</div>
+</div>
+</div>
+<!-- Action Toolbar -->
+<div class="flex flex-wrap lg:flex-nowrap items-center gap-2.5 shrink-0 self-start lg:self-center">
+<button class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-sm" id="btn-assign" onclick="this.classList.toggle('bg-sky-600'); this.classList.toggle('text-white'); this.classList.toggle('border-sky-600');">
+<span class="material-symbols-outlined text-[16px] text-sky-600">assignment_ind</span>
+<span>Assign to Me</span>
+</button>
+<button class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[16px] text-sky-600">swap_horiz</span>
+<span>Update Status</span>
+</button>
+<button class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[16px] text-slate-500">share</span>
+<span>Forward to Vendor</span>
+</button>
+<button class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold flex items-center gap-2 shadow-[0_4px_14px_rgba(2,132,199,0.3)] hover:shadow-[0_6px_20px_rgba(2,132,199,0.4)] transition-all" id="btn-rca" onclick="triggerRcaAnimation()">
+<span class="material-symbols-outlined text-[16px] animate-pulse">psychology</span>
+<span>Trigger AI RCA</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Main Content Grid (60/40 Split) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- Left Column (60% -> col-span-7) -->
+<div class="lg:col-span-7 space-y-6">
+<!-- Original User Report Card -->
+<div class="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
+<span class="material-symbols-outlined text-[20px]">feed</span>
+</span>
+<div>
+<h2 class="text-sm font-headline font-bold text-slate-900">Original User Submission</h2>
+<p class="text-[11px] text-slate-500">Unprocessed source payload received via Zero-Barrier Entry</p>
+</div>
+</div>
+<span class="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[11px] font-mono font-medium text-slate-600">
+              ID: RAW-98214-REQ
+            </span>
+</div>
+<div class="bg-slate-50/90 border border-slate-200 rounded-xl p-4.5 text-xs text-slate-800 font-mono leading-relaxed space-y-2 select-text p-4">
+<p class="text-slate-700">During financial settlement batch posting at 10:12 AM, transaction FAGLL03 threw a critical red popup banner. Several controllers in Bangkok HQ report being booted out of SAP GUI.</p>
+<p class="text-red-600 font-semibold bg-red-50 p-2.5 rounded-lg border border-red-200">Error Message: "RFC_COMMUNICATION_FAILURE: CPIC-CALL: 'ThSAPCMINIT' : cmRc=17 thRc=243 Connection to Partner Broken (Host: sap-app02.corp.local, Port: 3300)"</p>
+<p class="text-slate-600">Urgency note: Monthly P&amp;L consolidate review is due at 12:00 PM for the executive board meeting. All posting queues are currently stuck.</p>
+</div>
+<!-- Attachment Block -->
+<div class="pt-1">
+<div class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-sky-600">attachment</span>
+              Attached Diagnostics Dump (1 File)
+            </div>
+<div class="flex items-center justify-between p-3 rounded-xl bg-sky-50/60 border border-sky-200/80 hover:bg-sky-50 transition-all">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
+<span class="material-symbols-outlined text-[22px]">image</span>
+</div>
+<div>
+<div class="text-xs font-semibold text-slate-800 font-mono">sap_error_dump_0918.png</div>
+<div class="text-[11px] text-slate-500">PNG Image • 1.42 MB • SHA256: 8f4a2...c91</div>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1.5 transition-all shadow-sm" onclick="toggleDumpModal(true)">
+<span class="material-symbols-outlined text-[15px]">visibility</span>
+<span>Inspect Preview</span>
+</button>
+</div>
+</div>
+</div>
+<!-- System Activity Timeline -->
+<div class="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-4">
+<div class="flex items-center justify-between">
+<h3 class="text-xs font-headline font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-sky-600">timeline</span>
+              Live Investigation Audit Timeline
+            </h3>
+<span class="text-[11px] text-sky-700 font-semibold bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">3 Events Tracked</span>
+</div>
+<div class="relative pl-6 space-y-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-200">
+<!-- Event 1 -->
+<div class="relative flex items-start justify-between gap-4">
+<div class="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-sky-600 ring-4 ring-white shadow-sm"></div>
+<div class="space-y-0.5">
+<div class="text-xs font-bold text-slate-900">Ticket created via Zero-Barrier web portal</div>
+<div class="text-[11px] text-slate-500">Dispatched with default high urgency priority from finance floor IP 10.24.18.52</div>
+</div>
+<span class="text-[11px] font-mono text-slate-500 shrink-0 font-medium">10:14 AM</span>
+</div>
+<!-- Event 2 -->
+<div class="relative flex items-start justify-between gap-4">
+<div class="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-indigo-600 ring-4 ring-white shadow-sm"></div>
+<div class="space-y-0.5">
+<div class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  Teams Adaptive Card dispatched to #it-alerts
+                  <span class="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-700 font-mono font-medium">Card v1.4</span>
+</div>
+<div class="text-[11px] text-slate-500">Delivered via Microsoft Teams Incoming Webhook webhook_ops_channel</div>
+</div>
+<span class="text-[11px] font-mono text-slate-500 shrink-0 font-medium">10:14 AM</span>
+</div>
+<!-- Event 3 -->
+<div class="relative flex items-start justify-between gap-4">
+<div class="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-white shadow-sm"></div>
+<div class="space-y-0.5">
+<div class="text-xs font-bold text-slate-900">Assigned to Anan C. (SAP Senior Specialist)</div>
+<div class="text-[11px] text-slate-500">Routing engine matched SAP S/4HANA Basis SME skill matrix automatically</div>
+</div>
+<span class="text-[11px] font-mono text-slate-500 shrink-0 font-medium">10:19 AM</span>
+</div>
+</div>
+</div>
+<!-- Category & Triage Routing Selector -->
+<div class="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-3.5">
+<div class="flex items-center justify-between">
+<label class="text-xs font-headline font-bold text-slate-900 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-sky-600">alt_route</span>
+              Category &amp; Operational Routing
+            </label>
+<span class="text-[11px] text-slate-500 font-medium">Tier-2 Escalation</span>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="category-selector">
+<button class="category-btn py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-xs font-medium text-slate-700 flex flex-col items-center gap-1 transition-all" onclick="selectCategory(this, 'helpdesk')">
+<span class="material-symbols-outlined text-[18px] text-slate-600">support_agent</span>
+<span>Helpdesk</span>
+</button>
+<button class="category-btn py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-xs font-medium text-slate-700 flex flex-col items-center gap-1 transition-all" onclick="selectCategory(this, 'network')">
+<span class="material-symbols-outlined text-[18px] text-slate-600">lan</span>
+<span>Network</span>
+</button>
+<button class="category-btn py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-xs font-medium text-slate-700 flex flex-col items-center gap-1 transition-all" onclick="selectCategory(this, 'interface')">
+<span class="material-symbols-outlined text-[18px] text-slate-600">hub</span>
+<span>Interface</span>
+</button>
+<button class="category-btn active py-2.5 px-3 rounded-xl bg-sky-600 text-white font-semibold flex flex-col items-center gap-1 transition-all shadow-[0_4px_12px_rgba(2,132,199,0.3)] border border-sky-600" onclick="selectCategory(this, 'sap')">
+<span class="material-symbols-outlined text-[18px]">database</span>
+<span>SAP Basis</span>
+</button>
+</div>
+<div class="p-3 rounded-xl bg-sky-50/70 border border-sky-200/80 text-[11px] text-slate-600 flex items-center justify-between">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-sky-600">verified_user</span>
+              Active Target Resolver Queue: <strong class="text-slate-900">SAP-Basis-L3-APAC</strong>
+</span>
+<span class="text-sky-700 font-mono font-bold">SLA: 45m left</span>
+</div>
+</div>
+<!-- AI-Ready Resolution Editor (Highlighted Core Feature) -->
+<div class="relative bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.08)] border-2 border-sky-200 space-y-4 overflow-hidden">
+<div class="absolute -top-12 -right-12 w-48 h-48 bg-sky-100/50 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 border border-sky-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">smart_toy</span>
+</div>
+<div>
+<h3 class="text-sm font-headline font-bold text-slate-900">Resolution &amp; MCP Knowledge Base Indexer</h3>
+<p class="text-[11px] text-slate-500">Guaranteed zero-markdown plain corpus optimized for vector embedding</p>
+</div>
+</div>
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 border border-sky-200 text-[10px] font-mono text-sky-700 font-semibold shadow-inner">
+<span class="w-1.5 h-1.5 rounded-full bg-sky-600"></span>
+<span>Clean Text Mode: Active</span>
+</div>
+</div>
+<!-- Quick Action helper tags -->
+<div class="flex items-center gap-2 text-xs flex-wrap">
+<span class="text-[11px] font-medium text-slate-600">Inject RCA Template:</span>
+<button class="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-sky-100 hover:text-sky-800 text-[11px] text-slate-700 font-mono border border-slate-200 transition-colors" onclick="injectTemplate('batch')">
+              + Batch Deadlock
+            </button>
+<button class="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-sky-100 hover:text-sky-800 text-[11px] text-slate-700 font-mono border border-slate-200 transition-colors" onclick="injectTemplate('gateway')">
+              + Gateway Restart
+            </button>
+<button class="ml-auto px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-600 hover:text-slate-900 border border-slate-200 transition-colors flex items-center gap-1" onclick="stripFormatting()">
+<span class="material-symbols-outlined text-[13px]">format_clear</span>
+              Sanitize Text
+            </button>
+</div>
+<!-- Textarea -->
+<div class="relative">
+<textarea class="w-full bg-slate-50 text-slate-900 border border-slate-200 text-xs font-mono rounded-xl p-4 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white resize-y transition-all" id="resolution-corpus" placeholder="Enter root cause, mitigation, and preventive actions in clean text format..." rows="6">Root Cause: RFC gateway timeout between Application Server AP02 and Database DB01 caused by deadlocked batch job /BIC/CC_GL01.
+
+Resolution: Killed hanging job in SM50, restarted RFC connection in SM59, verified connectivity test.
+
+Actionable Prevention: Configured RFC buffer limits in SAP profile parameter rfc/max_conn.</textarea>
+<div class="absolute bottom-3 right-3 text-[10px] font-mono text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded shadow-sm">
+<span id="char-count">318</span> characters • 44 words
+            </div>
+</div>
+<!-- Bottom Actions -->
+<div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+<div class="text-[11px] text-slate-600 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-sky-600">memory</span>
+<span>Model Context Protocol (v2024.11) compliant record</span>
+</div>
+<button class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(2,132,199,0.35)] hover:shadow-[0_6px_22px_rgba(2,132,199,0.45)] transition-all" id="btn-close-index" onclick="simulateMcpIndex()">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span>Close Incident &amp; Index to MCP Vector DB</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right Column (40% -> col-span-5) -->
+<div class="lg:col-span-5 space-y-6">
+<!-- Microsoft Teams Live Adaptive Card Preview (Authentic Crisp Light Design) -->
+<div class="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<!-- Microsoft Teams Icon -->
+<div class="w-6 h-6 rounded-md bg-[#5059C9] flex items-center justify-center text-white text-[13px] font-bold shadow-sm">
+                T
+              </div>
+<h3 class="text-xs font-headline font-bold text-slate-900">Teams Adaptive Card Integration</h3>
+</div>
+<div class="flex items-center gap-1.5 text-[11px] text-emerald-600 font-mono font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              HTTP 200 OK
+            </div>
+</div>
+<!-- Authentic Teams Light Card Outer Frame -->
+<div class="bg-[#ffffff] rounded-xl overflow-hidden shadow-md border border-slate-200 border-l-4 border-l-[#5059C9]">
+<!-- Card Header Ribbon -->
+<div class="bg-[#f8f9fa] border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+<div class="flex items-center gap-2 text-xs font-bold text-red-700">
+<span>🚨 HIGH PRIORITY IT INCIDENT</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500 font-sans">IncidentHub Bot</span>
+</div>
+<!-- Card Body Content -->
+<div class="p-4 space-y-3.5 text-xs text-slate-700 bg-white">
+<div class="font-bold text-sm text-slate-900">
+                [INC-202610-001] SAP S/4HANA GUI error 'RFC_COMMUNICATION_FAILURE'
+              </div>
+<!-- Key Value Table -->
+<div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 border border-slate-200/80 p-3 rounded-lg">
+<div>
+<span class="text-slate-500 block text-[10px] uppercase font-medium">Reporter</span>
+<span class="text-slate-900 font-semibold">Somchai Prasert</span>
+</div>
+<div>
+<span class="text-slate-500 block text-[10px] uppercase font-medium">Department</span>
+<span class="text-slate-900 font-semibold">Finance &amp; Controlling</span>
+</div>
+<div>
+<span class="text-slate-500 block text-[10px] uppercase font-medium">Urgency</span>
+<span class="text-red-700 font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> HIGH (P1)
+                  </span>
+</div>
+<div>
+<span class="text-slate-500 block text-[10px] uppercase font-medium">Timestamp</span>
+<span class="text-slate-800 font-mono font-medium">Today, 10:14:22</span>
+</div>
+</div>
+<p class="text-[11px] text-slate-600 italic border-l-2 border-sky-500 pl-2 bg-sky-50/50 py-1.5 rounded-r">
+                “CPIC-CALL: ThSAPCMINIT cmRc=17. Month-end batch stuck.”
+              </p>
+<!-- Adaptive Card Buttons -->
+<div class="flex flex-col sm:flex-row items-center gap-2 pt-1 font-sans">
+<button class="w-full py-1.5 px-3 rounded bg-[#5059C9] hover:bg-[#434aa8] text-white text-[11px] font-semibold text-center transition-colors shadow-sm">
+                  Acknowledge in Portal
+                </button>
+<button class="w-full py-1.5 px-3 rounded bg-white hover:bg-slate-100 text-[#5059C9] border border-[#5059C9] text-[11px] font-semibold text-center transition-colors">
+                  Join Teams Bridge
+                </button>
+<button class="w-full py-1.5 px-3 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-medium text-center transition-colors">
+                  View Logs
+                </button>
+</div>
+</div>
+<!-- Footer info -->
+<div class="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-500">
+<span>Channel: <strong class="text-slate-800">#it-alerts</strong></span>
+<span>Delivered via Incoming Webhook</span>
+</div>
+</div>
+<div class="flex items-center justify-between text-[11px] text-slate-600 px-1">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-sky-600">mark_chat_read</span>
+              Auto-sync enabled for ticket updates
+            </span>
+<button class="text-sky-600 hover:text-sky-800 font-semibold font-mono text-[11px] hover:underline">Resend Webhook</button>
+</div>
+</div>
+<!-- MCP Readiness & LLM Context Preview Widget -->
+<div class="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-7 h-7 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-700">
+<span class="material-symbols-outlined text-[17px]">dataset</span>
+</span>
+<div>
+<h3 class="text-xs font-headline font-bold text-slate-900">MCP Knowledge Pipeline Hub</h3>
+<p class="text-[10px] text-slate-500">Live Context payload for Claude / GPT-4o Agent tools</p>
+</div>
+</div>
+<button class="px-2.5 py-1 rounded bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 text-[11px] text-sky-700 font-mono font-medium flex items-center gap-1 transition-colors" onclick="copyMcpPayload(this)">
+<span class="material-symbols-outlined text-[13px]">content_copy</span>
+<span>Copy JSON</span>
+</button>
+</div>
+<!-- Status metrics -->
+<div class="grid grid-cols-3 gap-2 text-center">
+<div class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
+<div class="text-[10px] text-slate-500 uppercase font-medium">Schema</div>
+<div class="text-xs font-bold text-sky-700 font-mono mt-0.5">mcp.incident.v1</div>
+</div>
+<div class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
+<div class="text-[10px] text-slate-500 uppercase font-medium">Embedding</div>
+<div class="text-xs font-bold text-indigo-700 font-mono mt-0.5">1536-dim Ready</div>
+</div>
+<div class="bg-slate-50 border border-slate-200 p-2.5 rounded-xl">
+<div class="text-[10px] text-slate-500 uppercase font-medium">Sanitization</div>
+<div class="text-xs font-bold text-emerald-700 font-mono mt-0.5">100% Clean</div>
+</div>
+</div>
+<!-- Code Payload Preview (High-Contrast Light Theme) -->
+<div class="relative bg-slate-900 rounded-xl p-3.5 font-mono text-[11px] leading-relaxed text-slate-200 shadow-inner overflow-x-auto border border-slate-800">
+<pre class="text-slate-200 selection:bg-sky-700" id="json-preview"><span class="text-indigo-300">{</span>
+  <span class="text-sky-400">"mcp_resource_uri"</span>: <span class="text-emerald-300">"mcp://incidenthub/incidents/INC-202610-001"</span>,
+  <span class="text-sky-400">"ticketNo"</span>: <span class="text-emerald-300">"INC-202610-001"</span>,
+  <span class="text-sky-400">"app_domain"</span>: <span class="text-emerald-300">"SAP S/4HANA"</span>,
+  <span class="text-sky-400">"severity"</span>: <span class="text-red-400">"P1_CRITICAL"</span>,
+  <span class="text-sky-400">"vectors_ready"</span>: <span class="text-sky-300 font-bold">true</span>,
+  <span class="text-sky-400">"clean_text_corpus"</span>: <span class="text-slate-300">"Root Cause: RFC gateway timeout between Application Server AP02 and Database DB01 caused by deadlocked batch job /BIC/CC_GL01. Resolution: Killed hanging job in SM50, restarted RFC connection in SM59, verified connectivity test. Actionable Prevention: Configured RFC buffer limits in SAP profile parameter rfc/max_conn."</span>,
+  <span class="text-sky-400">"ai_remediation_tags"</span>: [
+    <span class="text-emerald-300">"RFC_TIMEOUT"</span>,
+    <span class="text-emerald-300">"SM50_WORKPROCESS"</span>,
+    <span class="text-emerald-300">"SM59_DESTINATION"</span>
+  ]
+<span class="text-indigo-300">}</span></pre>
+</div>
+<div class="flex items-center justify-between text-[11px] text-slate-600">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-sky-600">sensors</span>
+              MCP Server Endpoint: <code class="text-slate-900 bg-slate-100 border border-slate-200 px-1 py-0.5 rounded font-mono">/mcp/v1/context</code>
+</span>
+<span class="text-sky-700 font-mono text-[10px] font-semibold">Zero Token Waste</span>
+</div>
+</div>
+<!-- System Architecture Vector Node Sparkline Mini-Card -->
+<div class="bg-white rounded-2xl p-5 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 flex items-center justify-between gap-4">
+<div class="space-y-1">
+<div class="text-xs font-headline font-bold text-slate-900 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-sky-600">schema</span>
+              Vector Cluster Ingestion Load
+            </div>
+<div class="text-[11px] text-slate-500">SQLite-Vec Store Node #01 latency: <span class="text-sky-700 font-mono font-bold">1.8ms</span></div>
+</div>
+<!-- Mini SVG Sparkline -->
+<svg class="w-28 h-8 text-sky-500 shrink-0" fill="none" viewbox="0 0 112 32" xmlns="http://www.w3.org/2000/svg">
+<path d="M2 24 L20 18 L38 22 L56 12 L74 16 L92 4 L110 8" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+<path d="M2 24 L20 18 L38 22 L56 12 L74 16 L92 4 L110 8 L110 32 L2 32 Z" fill="currentColor" fill-opacity="0.12"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Modal Dump Preview Dialog (Hidden by Default) -->
+<div class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm hidden items-center justify-center p-4" id="dump-modal">
+<div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-sky-200 space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-red-600">bug_report</span>
+<span class="text-sm font-bold text-slate-900 font-mono">sap_error_dump_0918.png — Stack Snapshot</span>
+</div>
+<button class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition-colors" onclick="toggleDumpModal(false)">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Simulated Screenshot Display -->
+<div class="bg-slate-900 rounded-xl p-4 font-mono text-xs text-red-400 space-y-2 overflow-x-auto shadow-inner border border-slate-800">
+<div class="text-slate-400 text-[11px]">SAP GUI Release 770 Final [Build 192830] System ID: PRD Client: 100</div>
+<div class="p-2 bg-red-950/60 border border-red-800 rounded text-red-300 font-bold">
+          SYSTEM ERROR: RFC_COMMUNICATION_FAILURE (Destination AP02_RFC)
+        </div>
+<div class="text-slate-300 text-[11px] leading-relaxed">
+          Runtime Errors: CALL_FUNCTION_REMOTE_ERROR<br/>
+          ABAP Program: SAPMSSY1<br/>
+          Termination type: RFC_ERROR_SYSTEMFAILURE<br/>
+          Error text: "CPIC-CALL: 'ThSAPCMINIT' : cmRc=17 thRc=243 Connection to partner broken."<br/>
+          Server Context: sap-prd-ap02_PRD_00 (Work Process WP03, Dialog)
+        </div>
+</div>
+<div class="flex items-center justify-between text-xs pt-2">
+<span class="text-slate-500 font-medium">OCR Analysis: 100% matched error token RFC_COMMUNICATION_FAILURE</span>
+<button class="px-4 py-2 rounded-xl bg-sky-600 text-white font-semibold text-xs hover:bg-sky-700 transition-colors" onclick="toggleDumpModal(false)">
+          Close Inspector
+        </button>
+</div>
+</div>
+</div>
+<script>
+    function toggleDumpModal(show) {
+      const modal = document.getElementById('dump-modal');
+      if (show) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      } else {
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+      }
+    }
+
+    function selectCategory(button, category) {
+      const buttons = document.querySelectorAll('.category-btn');
+      buttons.forEach(b => {
+        b.className = 'category-btn py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-xs font-medium text-slate-700 flex flex-col items-center gap-1 transition-all';
+        const icon = b.querySelector('.material-symbols-outlined');
+        if (icon) icon.className = 'material-symbols-outlined text-[18px] text-slate-600';
+      });
+      button.className = 'category-btn active py-2.5 px-3 rounded-xl bg-sky-600 text-white font-semibold flex flex-col items-center gap-1 transition-all shadow-[0_4px_12px_rgba(2,132,199,0.3)] border border-sky-600';
+      const activeIcon = button.querySelector('.material-symbols-outlined');
+      if (activeIcon) activeIcon.className = 'material-symbols-outlined text-[18px] text-white';
+    }
+
+    function injectTemplate(type) {
+      const textarea = document.getElementById('resolution-corpus');
+      if (type === 'batch') {
+        textarea.value = "Root Cause: RFC gateway timeout between Application Server AP02 and Database DB01 caused by deadlocked batch job /BIC/CC_GL01.\n\nResolution: Killed hanging job in SM50, restarted RFC connection in SM59, verified connectivity test.\n\nActionable Prevention: Configured RFC buffer limits in SAP profile parameter rfc/max_conn.";
+      } else if (type === 'gateway') {
+        textarea.value = "Root Cause: SAP Gateway service sapgw00 was unresponsive due to TCP listener pool saturation.\n\nResolution: Cycled sapgw00 daemon via SMGW transaction menu, refreshed external RFC listeners.\n\nActionable Prevention: Set gw/max_conn to 4000 in DEFAULT.PFL profile.";
+      }
+      updateCounts();
+    }
+
+    function stripFormatting() {
+      const textarea = document.getElementById('resolution-corpus');
+      textarea.value = textarea.value
+        .replace(/[#*`_~\[\]()]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      updateCounts();
+    }
+
+    function updateCounts() {
+      const textarea = document.getElementById('resolution-corpus');
+      const val = textarea.value.trim();
+      const chars = val.length;
+      const words = val.length ? val.split(/\s+/).length : 0;
+      document.getElementById('char-count').innerText = chars;
+    }
+
+    function simulateMcpIndex() {
+      const btn = document.getElementById('btn-close-index');
+      btn.innerHTML = `<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span><span>Embedding into Vector DB...</span>`;
+      btn.classList.add('opacity-80', 'pointer-events-none');
+      
+      setTimeout(() => {
+        btn.innerHTML = `<span class="material-symbols-outlined text-[18px]">done_all</span><span>Indexed & Closed Successfully</span>`;
+        btn.classList.remove('opacity-80', 'bg-sky-600');
+        btn.classList.add('bg-emerald-600', 'text-white', 'hover:bg-emerald-700');
+      }, 1000);
+    }
+
+    function triggerRcaAnimation() {
+      const btn = document.getElementById('btn-rca');
+      btn.classList.add('animate-pulse');
+      setTimeout(() => {
+        btn.classList.remove('animate-pulse');
+        alert("MCP Agent RCA Triggered: Auto-analyzed 4 previous incidents with matching RFC error signature. Recommendation applied to draft resolution.");
+      }, 600);
+    }
+
+    function copyMcpPayload(button) {
+      const code = document.getElementById('json-preview').innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        const span = button.querySelector('span:last-child');
+        const orig = span.innerText;
+        span.innerText = "Copied!";
+        setTimeout(() => { span.innerText = orig; }, 1500);
+      });
+    }
+
+    document.getElementById('resolution-corpus').addEventListener('input', updateCounts);
+  </script>
+</div></div></main><footer class="w-full bg-white border-t border-sky-100 py-6"><div class="w-full px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500"><div class="flex items-center gap-4"><span class="font-bold text-slate-800">IncidentHub Engine</span><span>SQLite • Docker Containerized</span><span>Model Context Protocol v2024.11</span></div><div>© 2025 IncidentHub Operations. High-Reliability Incident Response Architecture.</div></div></footer></body></html>

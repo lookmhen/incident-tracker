@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  incident-app:
+    build: .
+    container_name: it-incident-app
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
+    environment:
+      - DATABASE_URL=file:/app/data/incident.db
+      - TEAMS_WEBHOOK_URL=https://outlook.office.com/webhook/your-webhook-url

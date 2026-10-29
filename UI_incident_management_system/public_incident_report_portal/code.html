@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">tailwind.config={theme:{extend:{"colors":{"surface-variant":"#f0f7ff","on-primary":"#ffffff","primary-container":"#e0f2fe","surface":"#ffffff","primary":"#0284c7","secondary":"#0369a1","surface-container-high":"#eef6fc","outline-variant":"#e2e8f0","surface-container":"#f8fafc","on-background":"#0f172a","error-container":"#fee2e2","outline":"#94a3b8","surface-container-low":"#ffffff","surface-bright":"#ffffff","surface-container-lowest":"#ffffff","on-surface-variant":"#64748b","surface-container-highest":"#e0f0fe","secondary-container":"#e0f2fe","tertiary-container":"#e0e7ff","tertiary":"#4f46e5","on-surface":"#0f172a","secondary-fixed":"#bae6fd","background":"#f0f7ff","on-error":"#ffffff","error":"#ef4444","on-error-container":"#991b1b"},"borderRadius":{"DEFAULT":"0.5rem","lg":"1rem","xl":"1.5rem","full":"9999px"},"fontFamily":{"headline":["Inter"],"display":["Inter"],"body":["Inter"],"label":["JetBrains Mono","Inter"],"mono":["JetBrains Mono","monospace"]}}}}</script></head><body class="bg-[#f0f7ff] font-body text-slate-900 antialiased selection:bg-sky-100 selection:text-sky-900"><header class="fixed top-0 left-0 right-0 w-full z-50 bg-white/90 backdrop-blur-xl border-b border-sky-100 shadow-[0_2px_12px_rgba(2,132,199,0.06)]"><div class="h-16 w-full px-6 lg:px-8 flex items-center justify-between gap-6"><div class="flex items-center gap-6 shrink-0"><div class="flex items-center gap-3"><img alt="IncidentHub Brand Mark" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1X-tcQDzsOsvjKI_sF3xIiY057sGj6UfOPcktY1h7gRqHdDZAyIu7IoZiP5ykMG2sYdiBZAA3S2mXwbhKAbwEoz-F56Rds6gCPF-6YeobXmPLTEhUFfCfnGXQSYF7CiL0tVk-uydbGUg5lqv1DhgJUs8HX1_emwwaFZUwNahYSI-mm6DKCYgTUpdxcA6gfLiR_4YBbFNPBaXvB2e2uhHo3sqBEs_p5qQinNZlkDteS1rqC2T6oWifdANg"/><div class="flex items-center gap-2"><span class="font-headline font-bold text-base tracking-tight text-slate-900">IncidentHub</span><span class="px-2.5 py-0.5 text-[11px] font-label font-medium bg-sky-50 text-sky-700 rounded-full ring-1 ring-sky-200">MCP &amp; AI Ready v1.0</span></div></div><nav class="hidden xl:flex items-center gap-1.5" data-active-classes="bg-sky-600 text-white font-medium rounded-lg"><a aria-current="page" class="px-3 py-1.5 transition-colors bg-sky-600 text-white font-medium rounded-lg text-xs shadow-sm shadow-sky-600/20" data-path="report-incident" href="#">Report Incident</a><a class="px-3 py-1.5 text-xs text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-colors rounded-lg font-medium" data-path="operations-triage" href="#">Operations Triage</a><a class="px-3 py-1.5 text-xs text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-colors rounded-lg font-medium" data-path="incident-detail-mcp" href="#">Incident Detail &amp; MCP</a><a class="px-3 py-1.5 text-xs text-slate-600 hover:text-sky-700 hover:bg-sky-50 transition-colors rounded-lg font-medium" data-path="architecture-topology" href="#">Architecture &amp; Topology</a></nav></div><div class="flex items-center gap-3 shrink-0"><div class="hidden md:flex items-center gap-2"><div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-[11px] text-slate-600"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>Teams Webhook: Active</span></div><div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 border border-sky-200 text-[11px] text-sky-700 shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span><span>MCP Engine: Standby</span></div><div class="hidden 2xl:flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-[11px] text-slate-600 font-label">Prod (Docker Node 26)</div></div><div class="w-8 h-8 rounded-full bg-sky-600 hover:bg-sky-700 flex items-center justify-center cursor-pointer shadow-md shadow-sky-600/20 transition-colors"><span class="material-symbols-outlined text-white text-[18px]">person</span></div></div></div></header><main class="w-full pt-16 bg-gradient-to-b from-[#f0f7ff] via-[#f8fafc] to-[#ffffff] min-h-screen"><div class="flex flex-col w-full">
+<!-- Ice Blue & Frost Ambient Background Accents -->
+<div class="relative w-full overflow-hidden px-4 py-8 sm:px-6 lg:px-12">
+<div class="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full bg-sky-300/30 blur-[130px]"></div>
+<div class="pointer-events-none absolute top-1/2 -right-40 h-96 w-96 rounded-full bg-blue-200/40 blur-[140px]"></div>
+<div class="pointer-events-none absolute top-1/4 left-1/3 h-72 w-72 rounded-full bg-cyan-200/25 blur-[120px]"></div>
+<div class="mx-auto max-w-7xl flex flex-col gap-8">
+<!-- Top Section: Visual Storytelling & Identity Sync -->
+<section class="relative rounded-2xl bg-white/95 backdrop-blur-xl p-6 sm:p-8 shadow-[0_4px_25px_rgba(2,132,199,0.06)] border border-sky-100 overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-sky-500/5 via-sky-50/50 to-transparent pointer-events-none"></div>
+<div class="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+<div class="space-y-2 max-w-2xl">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-xs font-label font-medium tracking-wide text-sky-700 shadow-xs">
+<span class="w-2 h-2 rounded-full bg-sky-500 animate-ping"></span>
+              PUBLIC ZERO-BARRIER TRIAGE PORTAL
+            </div>
+<h1 class="text-2xl sm:text-3xl lg:text-4xl font-headline font-bold text-slate-900 tracking-tight">
+              Report an IT Incident
+            </h1>
+<p class="text-sm sm:text-base text-slate-600 font-body">
+              No authentication required. Fill out core parameters or paste clipboard diagnostics (Ctrl+V) for instant team dispatch.
+            </p>
+</div>
+<!-- Auto-Saved Identity Card -->
+<div class="flex items-center gap-4 bg-sky-50/70 border border-sky-100 backdrop-blur-md p-4 rounded-xl shadow-xs shrink-0">
+<div class="w-12 h-12 rounded-xl bg-white border border-sky-100 flex items-center justify-center text-sky-600 shadow-sm">
+<span class="material-symbols-outlined text-2xl">badge</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="text-xs font-label text-slate-500 uppercase tracking-wider font-semibold">Identity Synchronized</span>
+<span class="px-1.5 py-0.5 rounded bg-sky-100 text-[10px] text-sky-800 font-medium">Local Cache</span>
+</div>
+<span class="text-sm font-headline font-semibold text-slate-900 truncate">Somchai Prasert</span>
+<span class="text-xs text-slate-500">Finance &amp; Accounting • Ext. 4412</span>
+</div>
+<div class="flex items-center gap-1 pl-2">
+<button class="p-2 rounded-lg hover:bg-white text-slate-500 hover:text-slate-800 transition-colors shadow-xs" title="Change cached profile" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-2 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors" title="Clear cached data" type="button">
+<span class="material-symbols-outlined text-[18px]">delete_sweep</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Main Form & Real-time Live Confirmation Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Left + Center Columns: Dynamic Two-Column Form (Span 8) -->
+<form class="lg:col-span-8 flex flex-col gap-6" id="incidentForm" onsubmit="event.preventDefault(); showSubmissionResult();">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Col 1: Reporter Details & Impact Rating -->
+<div class="flex flex-col gap-5 rounded-2xl bg-white p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100">
+<div class="flex items-center justify-between pb-2 border-b border-slate-100">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sky-600 text-[20px]">account_circle</span>
+<h2 class="text-base font-headline font-semibold text-slate-900">1. Reporter Profile</h2>
+</div>
+<span class="text-xs text-sky-700 font-label bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">Pre-filled</span>
+</div>
+<!-- Reporter Full Name -->
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-label font-medium text-slate-700" for="reporterName">Full Name</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3.5 top-3 text-[18px] text-slate-400">person</span>
+<input class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50/70 border border-slate-200 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all shadow-2xs" id="reporterName" required="" type="text" value="Somchai Prasert"/>
+</div>
+</div>
+<!-- Department Selector -->
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-label font-medium text-slate-700" for="department">Department</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3.5 top-3 text-[18px] text-slate-400">corporate_fare</span>
+<select class="w-full pl-10 pr-8 py-2.5 rounded-xl bg-slate-50/70 border border-slate-200 text-slate-900 text-sm focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all appearance-none cursor-pointer shadow-2xs" id="department">
+<option selected="">Finance &amp; Accounting</option>
+<option>Logistics &amp; Warehouse</option>
+<option>Sales &amp; Distribution</option>
+<option>Human Resources</option>
+<option>Manufacturing &amp; Plant Ops</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-3 text-[18px] text-slate-400 pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Contact & Extension -->
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-label font-medium text-slate-700" for="contactInfo">Direct Reach / Extension</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3.5 top-3 text-[18px] text-slate-400">alternate_email</span>
+<input class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50/70 border border-slate-200 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all shadow-2xs" id="contactInfo" type="text" value="somchai.p@company.com / Ext. 4412"/>
+</div>
+</div>
+<!-- Urgency Selection Radio Cards -->
+<div class="flex flex-col gap-2 pt-2">
+<label class="text-xs font-label font-medium text-slate-700 flex items-center justify-between">
+<span>Priority &amp; Operational Severity</span>
+<span class="text-[11px] text-sky-600 font-normal">Affects alert channel</span>
+</label>
+<!-- High Urgency Card -->
+<label class="group relative flex items-start gap-3.5 p-3.5 rounded-xl bg-slate-50/70 hover:bg-red-50/60 border border-slate-200 hover:border-red-200 cursor-pointer transition-all">
+<input class="mt-1 accent-red-600 text-red-600" name="severity" type="radio" value="HIGH"/>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+<span class="text-xs font-semibold font-headline text-slate-900">Critical / Work Blocked</span>
+</div>
+<span class="text-[11px] text-slate-500 mt-0.5 leading-snug">Emergency dispatch to IT Urgent Teams &amp; On-Call Escalation</span>
+</div>
+</label>
+<!-- Medium Urgency Card (Default Checked) -->
+<label class="group relative flex items-start gap-3.5 p-3.5 rounded-xl bg-sky-50/90 border-2 border-sky-500 shadow-sm cursor-pointer transition-all">
+<input checked="" class="mt-1 accent-sky-600 text-sky-600" name="severity" type="radio" value="MEDIUM"/>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-sky-600"></span>
+<span class="text-xs font-semibold font-headline text-sky-950">Degraded / Has Workaround</span>
+</div>
+<span class="text-[11px] text-slate-600 mt-0.5 leading-snug">Queued directly to tier-2 service desk with standard SLA</span>
+</div>
+</label>
+<!-- Low Urgency Card -->
+<label class="group relative flex items-start gap-3.5 p-3.5 rounded-xl bg-slate-50/70 hover:bg-sky-50/40 border border-slate-200 hover:border-sky-200 cursor-pointer transition-all">
+<input class="mt-1 accent-sky-600" name="severity" type="radio" value="LOW"/>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-sky-400"></span>
+<span class="text-xs font-semibold font-headline text-slate-900">General Inconvenience / Minor</span>
+</div>
+<span class="text-[11px] text-slate-500 mt-0.5 leading-snug">Routine ticket triage without off-hours paging</span>
+</div>
+</label>
+</div>
+</div>
+<!-- Col 2: Problem Description & Attachment -->
+<div class="flex flex-col gap-5 rounded-2xl bg-white p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100">
+<div class="flex items-center justify-between pb-2 border-b border-slate-100">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sky-600 text-[20px]">troubleshoot</span>
+<h2 class="text-base font-headline font-semibold text-slate-900">2. Incident Details</h2>
+</div>
+<span class="text-xs text-sky-700 font-mono bg-sky-50 px-2 py-0.5 rounded border border-sky-100">Telemetry Attached</span>
+</div>
+<!-- Title -->
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-label font-medium text-slate-700" for="incidentTitle">Incident Summary</label>
+<input class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/70 border border-slate-200 text-slate-900 text-sm focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all shadow-2xs" id="incidentTitle" required="" type="text" value="SAP S/4HANA GUI error 'RFC_COMMUNICATION_FAILURE' during Month-End closing"/>
+</div>
+<!-- Description -->
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-label font-medium text-slate-700" for="incidentDesc">Step-by-Step Description</label>
+<textarea class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50/70 border border-slate-200 text-slate-900 text-xs leading-relaxed focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 resize-none transition-all shadow-2xs" id="incidentDesc" rows="4">Executing batch reconciliation transaction F.05 against company code 1020. Program hung for ~4 minutes before terminating with dump 'RFC_COMMUNICATION_FAILURE'. Network connection verified stable. Affected 4 users in Finance AP.</textarea>
+</div>
+<!-- Smart Attachment Dropzone -->
+<div class="flex flex-col gap-2">
+<label class="text-xs font-label font-medium text-slate-700 flex items-center justify-between">
+<span>Diagnostic Attachments</span>
+<span class="text-[11px] text-sky-700 font-mono font-medium">PNG / JPG up to 5MB</span>
+</label>
+<!-- Dropzone Area -->
+<div class="relative flex flex-col items-center justify-center p-5 rounded-xl bg-sky-50/50 hover:bg-sky-50/90 border-2 border-dashed border-sky-200 hover:border-sky-400 transition-all cursor-pointer group text-center">
+<div class="w-10 h-10 rounded-full bg-white border border-sky-200 flex items-center justify-center mb-2 group-hover:scale-110 shadow-xs transition-transform">
+<span class="material-symbols-outlined text-sky-600 text-[22px]">add_photo_alternate</span>
+</div>
+<p class="text-xs font-medium text-slate-800">Drag &amp; drop screenshot here</p>
+<p class="text-[11px] text-slate-500 mt-0.5">or press <kbd class="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-700 text-[10px] font-mono shadow-2xs">Ctrl+V</kbd> anywhere to paste</p>
+</div>
+<!-- Attached File Pill Badge -->
+<div class="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+<div class="flex items-center gap-2.5 min-w-0">
+<div class="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[16px]">image</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="text-xs font-mono font-medium text-slate-800 truncate">sap_error_dump_0918.png</span>
+<span class="text-[10px] text-slate-500">1.4 MB • Auto-analyzed via OCR</span>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="material-symbols-outlined text-emerald-600 text-[18px]" title="Image validated">check_circle</span>
+<button class="text-slate-400 hover:text-red-500 transition-colors p-1" title="Remove attachment" type="button">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+</div>
+<p class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px] text-sky-600">info</span>
+                  Screenshots are embedded into the Microsoft Teams ticket payload automatically.
+                </p>
+</div>
+</div>
+</div>
+<!-- Bottom Action Toolbar -->
+<div class="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-white shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100">
+<div class="flex items-center gap-2 text-xs text-slate-600">
+<span class="material-symbols-outlined text-sky-600 text-[18px]">verified_user</span>
+<span>Protected by Enterprise Rate Limiter • Node 26 Cluster</span>
+</div>
+<div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+<button class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-all" type="button">
+                Reset Form
+              </button>
+<button class="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-headline font-semibold text-xs tracking-wide shadow-md shadow-sky-600/25 hover:shadow-lg hover:shadow-sky-600/30 transition-all cursor-pointer" type="submit">
+<span class="material-symbols-outlined text-[18px]">bolt</span>
+<span>Submit Incident &amp; Dispatch</span>
+</button>
+</div>
+</div>
+</form>
+<!-- Right Column: Visual Confirmation & Live Teams Mock Preview (Span 4) -->
+<aside class="lg:col-span-4 flex flex-col gap-6">
+<!-- Live Preview Output Box -->
+<div class="flex flex-col rounded-2xl bg-white p-6 shadow-[0_4px_25px_rgba(2,132,199,0.06)] border border-sky-100 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-sky-100/60 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-center justify-between pb-4 border-b border-slate-100">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sky-600 text-[20px]">mark_email_read</span>
+<h3 class="text-sm font-headline font-semibold text-slate-900">Dispatch Confirmation</h3>
+</div>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-sky-50 text-sky-700 border border-sky-200">LIVE SIMULATION</span>
+</div>
+<!-- Ticket ID Banner -->
+<div class="mt-4 p-4 rounded-xl bg-sky-50/80 border border-sky-100 flex items-center justify-between shadow-2xs">
+<div class="flex flex-col">
+<span class="text-[11px] font-label font-medium text-slate-500 uppercase tracking-wider">Generated Incident ID</span>
+<span class="text-lg font-mono font-bold text-sky-700 tracking-wider">INC-202610-001</span>
+</div>
+<span class="px-2.5 py-1 rounded bg-white text-[11px] font-mono font-medium text-amber-700 border border-amber-200">P2 - ELEVATED</span>
+</div>
+<!-- Teams Delivery Status Pill -->
+<div class="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-2.5">
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-800 font-medium flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Teams Delivery Pipeline
+                </span>
+<span class="text-[11px] text-sky-700 font-mono font-medium">0.42s latency</span>
+</div>
+<div class="p-2.5 rounded-lg bg-white border border-slate-200/80 text-[11px] font-body text-slate-600 leading-relaxed shadow-2xs">
+                Adaptive Card dispatched to <span class="text-sky-700 font-semibold">#it-incidents-core</span>.
+                AI Triage Agent assigned for diagnostic matching.
+              </div>
+</div>
+<!-- Ticket Status & Quick QR Code -->
+<div class="mt-4 pt-4 flex items-center justify-between gap-4 border-t border-slate-100">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-headline font-medium text-slate-900">Track Resolution</span>
+<span class="text-[11px] text-slate-500 leading-snug">Scan or share token link to check live updates without VPN.</span>
+<a class="inline-flex items-center gap-1 text-[11px] text-sky-600 hover:text-sky-700 font-medium hover:underline mt-1 font-mono" href="#">
+<span>open.incidents/INC-202610-001</span>
+<span class="material-symbols-outlined text-[13px]">arrow_outward</span>
+</a>
+</div>
+<!-- Decorative QR Container -->
+<div class="w-16 h-16 rounded-xl bg-slate-900 p-2 flex items-center justify-center shrink-0 shadow-md">
+<svg class="w-full h-full text-white" fill="currentColor" viewbox="0 0 24 24">
+<path d="M2 2h8v8H2V2zm2 2v4h4V4H4zm-2 10h8v8H2v-8zm2 2v4h4v-4H4zm10-14h8v8h-8V2zm2 2v4h4V4h-4zm2 10h2v2h-2v-2zm-2 2h2v2h-2v-2zm4 0h2v2h-2v-2zm-2 2h2v2h-2v-2zm2 2h2v2h-2v-2zm-4-4h2v2h-2v-2zm0 4h2v2h-2v-2zM4 4h4v4H4V4zm12 0h4v4h-4V4zM4 16h4v4H4v-4z"></path>
+</svg>
+</div>
+</div>
+<!-- SLA Counter Mock -->
+<div class="mt-5 flex items-center justify-between text-[11px] text-slate-600 bg-sky-50/70 border border-sky-100 px-3 py-2 rounded-xl">
+<span class="flex items-center gap-1 font-medium">
+<span class="material-symbols-outlined text-[15px] text-sky-600">schedule</span>
+                Initial Response SLA: &lt; 30 mins
+              </span>
+<span class="text-emerald-700 font-mono font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Active</span>
+</div>
+</div>
+<!-- Rich Visual / Context Support Card with Image Placeholder -->
+<div class="relative rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(2,132,199,0.06)] border border-sky-100 h-56 group">
+<div class="bg-cover bg-center w-full h-full" data-alt="A modern dark cyber security operation command center screen glowing in frosted cyan and violet ice tones, technical charts and topology monitoring screens reflecting off glass panes." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBTFHcI0Nu1N1GiczJLP-_wFs-bMyKD3U8MRyoFoyN11SRiYpCZRNE9sH4HWysTsb3hKEHtzuL3KOC5ce9X2VmBoyEUD4YChD9wBTulaJwHNv4f3wbNNIQYmfe1BgKFiDk9QY5T6khUfItXNWZEa4nggRF354LwnthP-MZmO1Ow-lP6kXvNUJ_8yWTzN4A7gM4mBlbBmu7DAV4lDAbfqm02FMb87DZiWXassv4zmR7r7zVswiVrZghd')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent"></div>
+<div class="absolute bottom-0 left-0 right-0 p-5 flex flex-col gap-1">
+<span class="text-[10px] font-label text-sky-300 font-semibold uppercase tracking-wider">AI Operations Intelligence</span>
+<h4 class="text-sm font-headline font-semibold text-white">Auto-Correlation Active</h4>
+<p class="text-[11px] text-slate-200 line-clamp-2">
+                This incident is being matched against 3 related RFC communication alerts in SAP Module FI-AP logged within the last hour.
+              </p>
+</div>
+</div>
+<!-- Secondary Auxiliary Card with Diagnostic Image Placeholder -->
+<div class="rounded-2xl bg-white p-5 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 flex items-center gap-4">
+<div class="w-16 h-16 rounded-xl overflow-hidden shrink-0 relative border border-sky-100 shadow-xs">
+<img class="w-full h-full object-cover" data-alt="Close up frosted glass UI icon glowing with high tech cyan laser grid indicating instant server telemetry capture and diagnostic trace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjpaOG3ml9pgFx-MS-xK0iLpiEmlEsJoxfUtCNsSShM8uo2ibjaU4LvgBjHCU-ukYMbZL_JJIxc8dEcxVK6h6nc4elkiwd8Q6U1xoKV3QVzWCd8GdaK12LYZB3-TI4wN0tUw1VxmUwhbJ9mwfX2YqTmX1tIJYC7uyOsBRVS7SNYAVGhyyxpH5grSDl9W1TOU7_WF1NYnAZMhWbpD0IMl8bjhQEO4lZBpjaSe7vjcRaXdDxakuiwMu7"/>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="text-xs font-semibold text-slate-900">Zero Credentials Leaked</span>
+<span class="text-[11px] text-slate-500 mt-0.5 leading-snug">Pasted screenshots are automatically scrubbed for authorization tokens and credentials.</span>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</div>
+<!-- Notification Toast Container for interactive trigger -->
+<div class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none" id="toastNotification">
+<div class="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-white text-slate-900 shadow-2xl border border-sky-200">
+<span class="material-symbols-outlined text-emerald-600 text-[22px]">check_circle</span>
+<div class="flex flex-col">
+<span class="text-xs font-headline font-semibold text-slate-900">Incident Dispatched</span>
+<span class="text-[11px] text-slate-500 font-mono">INC-202610-001 pushed to Teams Channel</span>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function showSubmissionResult() {
+    const toast = document.getElementById('toastNotification');
+    if (!toast) return;
+    toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    
+    setTimeout(() => {
+      toast.classList.remove('translate-y-0', 'opacity-100');
+      toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+    }, 4000);
+  }
+
+  // Handle Ctrl+V paste feedback in the dropzone area
+  window.addEventListener('paste', function(e) {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let index in items) {
+      const item = items[index];
+      if (item.kind === 'file') {
+        const toast = document.getElementById('toastNotification');
+        if (toast) {
+          toast.querySelector('.font-headline').textContent = 'Screenshot Captured';
+          toast.querySelector('.font-mono').textContent = 'Auto-attached from clipboard (Ctrl+V)';
+          showSubmissionResult();
+        }
+      }
+    }
+  });
+</script></main><footer class="w-full bg-white border-t border-sky-100 py-6"><div class="w-full px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500"><div class="flex items-center gap-4"><span class="font-medium text-slate-800">IncidentHub Engine</span><span>SQLite • Docker Containerized</span><span>Model Context Protocol v2024.11</span></div><div>© 2025 IncidentHub Operations. High-Reliability Incident Response Architecture.</div></div></footer></body></html>

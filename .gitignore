@@ -38,6 +38,9 @@ graphify-out/cache/
 /public/uploads/*
 !/public/uploads/.gitkeep
 
+# Data import files
+*.csv
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts

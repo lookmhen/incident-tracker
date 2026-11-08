@@ -11,8 +11,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
+    const groupBy = (searchParams.get('groupBy') as 'auto' | 'day' | 'month') || undefined;
 
-    const data = await IncidentService.getAnalyticsData({ startDate, endDate });
+    const data = await IncidentService.getAnalyticsData({ startDate, endDate, groupBy });
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to compute analytics' }, { status: 500 });

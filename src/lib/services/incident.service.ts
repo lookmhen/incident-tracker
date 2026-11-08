@@ -352,7 +352,11 @@ export class IncidentService {
   /**
    * Retrieves 4-dimension analytics dataset for /admin/analytics
    */
-  public static async getAnalyticsData(query: { startDate?: string; endDate?: string }) {
+  public static async getAnalyticsData(query: {
+    startDate?: string;
+    endDate?: string;
+    groupBy?: 'auto' | 'day' | 'month';
+  }) {
     const where = this.buildFilterWhere(query);
     const records = await prisma.incident.findMany({
       where,
@@ -381,15 +385,88 @@ export class IncidentService {
     }
     const avgResolutionMins = durationSamples > 0 ? Math.round(totalDurationMins / durationSamples) : 24;
 
-    // 1. Trend Over Time (by YYYY-MM-DD)
-    const dailyMap = new Map<string, { date: string; total: number; high: number; resolved: number }>();
-    for (const r of records) {
-      const day = new Date(r.createdAt).toISOString().slice(0, 10);
-      const entry = dailyMap.get(day) || { date: day, total: 0, high: 0, resolved: 0 };
-      entry.total++;
-      if (r.urgency === 'HIGH') entry.high++;
-      if (r.status === 'RESOLVED' || r.status === 'CLOSED') entry.resolved++;
-      dailyMap.set(day, entry);
+    // Determine Grouping: 'day' vs 'month'
+    let effectiveGroupBy: 'day' | 'month' = 'day';
+    if (query.groupBy === 'month') {
+      effectiveGroupBy = 'month';
+    } else if (query.groupBy === 'day') {
+      effectiveGroupBy = 'day';
+    } else {
+      // Auto: if date range spans > 31 days or if total record range spans > 45 days
+      if (query.startDate && query.endDate) {
+        const spanDays = (new Date(query.endDate).getTime() - new Date(query.startDate).getTime()) / (1000 * 3600 * 24);
+        if (spanDays > 31) effectiveGroupBy = 'month';
+      } else if (records.length > 1) {
+        const first = new Date(records[0].createdAt).getTime();
+        const last = new Date(records[records.length - 1].createdAt).getTime();
+        if ((last - first) / (1000 * 3600 * 24) > 45) effectiveGroupBy = 'month';
+      }
+    }
+
+    const thaiMonthShort = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+    interface TrendItem {
+      date: string;
+      label: string;
+      total: number;
+      high: number;
+      resolved: number;
+    }
+
+    const trendMap = new Map<string, TrendItem>();
+
+    if (effectiveGroupBy === 'month') {
+      // If a full year or date range is requested, pre-fill months with 0
+      if (query.startDate && query.endDate) {
+        const startYear = new Date(query.startDate).getUTCFullYear();
+        const endYear = new Date(query.endDate).getUTCFullYear();
+        if (startYear === endYear) {
+          for (let m = 0; m < 12; m++) {
+            const mKey = `${startYear}-${String(m + 1).padStart(2, '0')}`;
+            trendMap.set(mKey, {
+              date: mKey,
+              label: thaiMonthShort[m],
+              total: 0,
+              high: 0,
+              resolved: 0,
+            });
+          }
+        }
+      }
+
+      for (const r of records) {
+        const d = new Date(r.createdAt);
+        const y = d.getUTCFullYear();
+        const m = d.getUTCMonth();
+        const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+        const entry = trendMap.get(key) || {
+          date: key,
+          label: `${thaiMonthShort[m]} ${String(y).slice(2)}`,
+          total: 0,
+          high: 0,
+          resolved: 0,
+        };
+        entry.total++;
+        if (r.urgency === 'HIGH') entry.high++;
+        if (r.status === 'RESOLVED' || r.status === 'CLOSED') entry.resolved++;
+        trendMap.set(key, entry);
+      }
+    } else {
+      // Group by Day (YYYY-MM-DD)
+      for (const r of records) {
+        const day = new Date(r.createdAt).toISOString().slice(0, 10);
+        const entry = trendMap.get(day) || {
+          date: day,
+          label: day.slice(5),
+          total: 0,
+          high: 0,
+          resolved: 0,
+        };
+        entry.total++;
+        if (r.urgency === 'HIGH') entry.high++;
+        if (r.status === 'RESOLVED' || r.status === 'CLOSED') entry.resolved++;
+        trendMap.set(day, entry);
+      }
     }
 
     // 2. Category Share
@@ -444,7 +521,8 @@ export class IncidentService {
         resolutionRate,
         avgResolutionMins,
       },
-      trend: Array.from(dailyMap.values()),
+      groupBy: effectiveGroupBy,
+      trend: Array.from(trendMap.values()),
       byCategory,
       byDepartment,
       byStatus,

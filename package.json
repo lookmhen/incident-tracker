@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test": "tsx --test tests/*.test.ts",
     "mcp": "tsx src/mcp/server.ts",
+    "import:csv": "tsx scripts/import-csv.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "tsx prisma/seed.ts",

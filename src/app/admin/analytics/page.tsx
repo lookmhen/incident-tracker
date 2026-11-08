@@ -12,7 +12,8 @@ interface AnalyticsData {
     resolutionRate: number;
     avgResolutionMins: number;
   };
-  trend: Array<{ date: string; total: number; high: number; resolved: number }>;
+  groupBy?: 'day' | 'month';
+  trend: Array<{ date: string; label?: string; total: number; high: number; resolved: number }>;
   byCategory: Array<{ name: string; count: number; percentage: number }>;
   byDepartment: Array<{ department: string; count: number; percentage: number }>;
   byStatus: Array<{ status: string; count: number }>;
@@ -26,13 +27,15 @@ export default function AnalyticsDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [groupBy, setGroupBy] = useState<'auto' | 'day' | 'month'>('auto');
 
-  const fetchAnalytics = async (start = startDate, end = endDate) => {
+  const fetchAnalytics = async (start = startDate, end = endDate, group = groupBy) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (start) params.set('startDate', start);
       if (end) params.set('endDate', end);
+      if (group && group !== 'auto') params.set('groupBy', group);
 
       const res = await fetch(`/api/incidents/analytics?${params.toString()}`);
       if (res.ok) {
@@ -54,7 +57,7 @@ export default function AnalyticsDashboardPage() {
     if (days === null) {
       setStartDate('');
       setEndDate('');
-      fetchAnalytics('', '');
+      fetchAnalytics('', '', groupBy);
       return;
     }
     const end = new Date();
@@ -64,7 +67,16 @@ export default function AnalyticsDashboardPage() {
     const eStr = end.toISOString().slice(0, 10);
     setStartDate(sStr);
     setEndDate(eStr);
-    fetchAnalytics(sStr, eStr);
+    fetchAnalytics(sStr, eStr, groupBy);
+  };
+
+  const applyYearPreset = (year = 2026) => {
+    const sStr = `${year}-01-01`;
+    const eStr = `${year}-12-31`;
+    setStartDate(sStr);
+    setEndDate(eStr);
+    setGroupBy('month');
+    fetchAnalytics(sStr, eStr, 'month');
   };
 
   const getExportUrl = () => {
@@ -134,6 +146,14 @@ export default function AnalyticsDashboardPage() {
               </button>
               <button
                 type="button"
+                onClick={() => applyYearPreset(2026)}
+                className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-xs text-sky-800 font-semibold cursor-pointer"
+                title="ดูแนวโน้มตลอดทั้งปี 2026 (12 เดือน)"
+              >
+                ปีนี้ (12 เดือน)
+              </button>
+              <button
+                type="button"
                 onClick={() => applyPreset(null)}
                 className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 text-xs text-slate-600 font-medium cursor-pointer"
               >
@@ -191,31 +211,74 @@ export default function AnalyticsDashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Chart 1: Trend Over Time */}
           <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-bold text-slate-900">1. ปริมาณเคสรายวันตามเวลา (Trend Over Time)</h2>
-                <p className="text-[11px] text-slate-500">เปรียบเทียบจำนวนเคสทั้งหมดและเคสเร่งด่วนรายวัน</p>
+                <h2 className="text-sm font-bold text-slate-900">
+                  1. แนวโน้มปริมาณเคส ({data?.groupBy === 'month' ? 'สรุปรายเดือน' : 'รายวัน'})
+                </h2>
+                <p className="text-[11px] text-slate-500">
+                  {data?.groupBy === 'month'
+                    ? 'สถิติตลอดทั้งปี 12 เดือน เปรียบเทียบเคสรวมกับเคสเร่งด่วน'
+                    : 'เปรียบเทียบจำนวนเคสทั้งหมดและเคสเร่งด่วนรายวัน'}
+                </p>
               </div>
-              <span className="material-symbols-outlined text-sky-600">trending_up</span>
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGroupBy('month');
+                    fetchAnalytics(startDate, endDate, 'month');
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    data?.groupBy === 'month'
+                      ? 'bg-white text-sky-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  รายเดือน
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGroupBy('day');
+                    fetchAnalytics(startDate, endDate, 'day');
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                    data?.groupBy === 'day'
+                      ? 'bg-white text-sky-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  รายวัน
+                </button>
+              </div>
             </div>
 
             {!data || data.trend.length === 0 ? (
               <div className="h-52 flex items-center justify-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
             ) : (
-              <div className="h-56 flex items-end gap-3 pt-6 pb-2 px-2 border-b border-slate-100 overflow-x-auto">
+              <div className="h-56 flex items-end gap-2.5 pt-6 pb-2 px-2 border-b border-slate-100 overflow-x-auto">
                 {data.trend.map((item) => {
-                  const heightPct = Math.max(Math.round((item.total / maxTrend) * 100), 10);
+                  const heightPct = item.total > 0 ? Math.max(Math.round((item.total / maxTrend) * 100), 10) : 0;
                   return (
-                    <div key={item.date} className="flex-1 min-w-[44px] flex flex-col items-center gap-1.5">
-                      <span className="text-[11px] font-mono font-bold text-sky-700">{item.total}</span>
-                      <div className="w-full max-w-[36px] bg-slate-100 rounded-t-lg h-36 flex items-end overflow-hidden">
-                        <div
-                          className="w-full bg-gradient-to-t from-sky-600 to-sky-400 rounded-t-lg transition-all"
-                          style={{ height: `${heightPct}%` }}
-                          title={`${item.date}: ${item.total} cases (${item.high} High)`}
-                        />
+                    <div key={item.date} className="flex-1 min-w-[38px] flex flex-col items-center gap-1.5">
+                      <span className={`text-[11px] font-mono font-bold ${item.total > 0 ? 'text-sky-700' : 'text-slate-300'}`}>
+                        {item.total}
+                      </span>
+                      <div className="w-full max-w-[34px] bg-slate-100 rounded-t-lg h-36 flex items-end overflow-hidden">
+                        {item.total > 0 ? (
+                          <div
+                            className="w-full bg-gradient-to-t from-sky-600 to-sky-400 rounded-t-lg transition-all"
+                            style={{ height: `${heightPct}%` }}
+                            title={`${item.date} (${item.label}): ${item.total} cases (${item.high} High)`}
+                          />
+                        ) : (
+                          <div className="w-full h-1 bg-slate-200" title={`${item.date}: 0 cases`} />
+                        )}
                       </div>
-                      <span className="text-[10px] font-mono text-slate-500">{item.date.slice(5)}</span>
+                      <span className="text-[10px] font-mono text-slate-500 truncate max-w-[42px] text-center" title={item.label || item.date}>
+                        {item.label || item.date.slice(5)}
+                      </span>
                     </div>
                   );
                 })}

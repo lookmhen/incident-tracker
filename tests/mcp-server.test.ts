@@ -22,10 +22,12 @@ describe('8. Model Context Protocol (MCP) Server Tools & Knowledge Base', () => 
   });
 
   it('retrieves detailed incident diagnostics and handles non-existent tickets', async () => {
-    // 1. Existing ticket
-    const incident = await IncidentService.getIncidentById('INC-202610-001');
-    assert.ok(incident, 'INC-202610-001 should exist from database seed');
-    assert.equal(incident.ticketNo, 'INC-202610-001');
+    // 1. Existing ticket from database
+    const anyIncident = (await IncidentService.getIncidents({ limit: 1 })).incidents[0];
+    assert.ok(anyIncident, 'Should have at least one incident in database');
+    const incident = await IncidentService.getIncidentById(anyIncident.ticketNo);
+    assert.ok(incident);
+    assert.equal(incident.ticketNo, anyIncident.ticketNo);
     assert.ok(incident.description.length > 0);
 
     // 2. Non-existent ticket

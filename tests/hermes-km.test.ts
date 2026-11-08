@@ -1,13 +1,17 @@
-import { describe, it } from 'node:test';
+import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { NextRequest } from 'next/server';
 import { KmExportService } from '../src/lib/services/km-export.service';
+import { IntegrationService } from '../src/lib/services/integration.service';
 import { GET as kmGetHandler } from '../src/app/api/mcp/v1/km/route';
 import { GET as contextGetHandler } from '../src/app/api/mcp/v1/context/route';
 import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
 import { server } from '../src/mcp/server';
 
 describe('9. Hermes KM Export & Knowledge Ingestion Pipeline', () => {
+  before(async () => {
+    await IntegrationService.saveMcpSecurityConfig({ mcpEnabled: true });
+  });
   it('converts an incident into clean Markdown Knowledge Article with YAML frontmatter', () => {
     const sampleIncident = {
       ticketNo: 'INC-202610-999',
@@ -69,20 +73,20 @@ describe('9. Hermes KM Export & Knowledge Ingestion Pipeline', () => {
 
   it('enforces authentication on GET /api/mcp/v1/km and returns markdown for Admin', async () => {
     // 1. Unauthenticated request without key or cookie -> 401
-    const unauthReq = new NextRequest('http://localhost:3000/api/mcp/v1/km?ticketNo=INC-202610-001');
+    const unauthReq = new NextRequest('http://localhost:3000/api/mcp/v1/km?ticketNo=INC-NON-EXISTENT');
     const unauthRes = await kmGetHandler(unauthReq);
     assert.equal(unauthRes.status, 401);
 
     // 2. Admin session request -> 200 with text/markdown
     const adminToken = await createAdminSessionToken();
-    const adminReq = new NextRequest('http://localhost:3000/api/mcp/v1/km?ticketNo=INC-202610-001', {
+    const adminReq = new NextRequest('http://localhost:3000/api/mcp/v1/km?ticketNo=INC-202608-0129', {
       headers: { cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
     });
     const adminRes = await kmGetHandler(adminReq);
     assert.equal(adminRes.status, 200);
     assert.ok(adminRes.headers.get('content-type')?.includes('text/markdown'));
     const markdown = await adminRes.text();
-    assert.ok(markdown.includes('ticket_id: "INC-202610-001"'));
+    assert.ok(markdown.includes('ticket_id: "INC-202608-0129"'));
 
     // 3. Bulk request in JSON format
     const bulkReq = new NextRequest('http://localhost:3000/api/mcp/v1/km', {
@@ -95,13 +99,13 @@ describe('9. Hermes KM Export & Knowledge Ingestion Pipeline', () => {
     assert.ok(Array.isArray(bulkJson.articles));
 
     // 4. Backward-compatible /api/mcp/v1/context forwards cleanly
-    const contextReq = new NextRequest('http://localhost:3000/api/mcp/v1/context?ticketNo=INC-202610-001', {
+    const contextReq = new NextRequest('http://localhost:3000/api/mcp/v1/context?ticketNo=INC-202608-0129', {
       headers: { cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
     });
     const contextRes = await contextGetHandler(contextReq);
     assert.equal(contextRes.status, 200);
     const contextJson = await contextRes.json();
-    assert.equal(contextJson.ticketNo, 'INC-202610-001');
+    assert.equal(contextJson.ticketNo, 'INC-202608-0129');
     assert.ok(contextJson.markdown);
   });
 

@@ -16,6 +16,8 @@ import {
 } from '../src/lib/auth';
 import { checkApiAccess } from '../src/lib/api-guard';
 import { IntegrationService } from '../src/lib/services/integration.service';
+import { GET as incidentsGetHandler } from '../src/app/api/incidents/route';
+import { GET as incidentDetailGetHandler } from '../src/app/api/incidents/[id]/route';
 
 describe('1. AES-256-GCM Encryption & Secret Utilities (src/lib/crypto.ts)', () => {
   it('encrypts and decrypts ASCII, Thai UTF-8, and complex Webhook URLs accurately', () => {
@@ -155,5 +157,34 @@ describe('3. API Access Guard (src/lib/api-guard.ts)', () => {
     });
     const adminCookieRes = await checkApiAccess(adminCookieReq, { checkMcpEnabled: true });
     assert.equal(adminCookieRes, null);
+  });
+
+  it('enforces authentication on GET /api/incidents and GET /api/incidents/[id]', async () => {
+    // 1. Unauthenticated -> 401
+    const unauthReq = new NextRequest('http://localhost:3000/api/incidents');
+    const unauthRes = await incidentsGetHandler(unauthReq);
+    assert.equal(unauthRes.status, 401);
+
+    const unauthDetailReq = new NextRequest('http://localhost:3000/api/incidents/INC-202610-001');
+    const unauthDetailRes = await incidentDetailGetHandler(unauthDetailReq, {
+      params: Promise.resolve({ id: 'INC-202610-001' }),
+    });
+    assert.equal(unauthDetailRes.status, 401);
+
+    // 2. Admin cookie -> allows access
+    const adminToken = await createAdminSessionToken();
+    const adminReq = new NextRequest('http://localhost:3000/api/incidents', {
+      headers: { cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
+    });
+    const adminRes = await incidentsGetHandler(adminReq);
+    assert.equal(adminRes.status, 200);
+
+    // 3. Valid API Key -> allows access
+    const { mcpSecurity } = await IntegrationService.getRawConfig();
+    const apiKeyReq = new NextRequest('http://localhost:3000/api/incidents', {
+      headers: { 'x-api-key': mcpSecurity.apiKey },
+    });
+    const apiKeyRes = await incidentsGetHandler(apiKeyReq);
+    assert.equal(apiKeyRes.status, 200);
   });
 });

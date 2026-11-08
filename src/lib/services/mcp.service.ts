@@ -8,7 +8,6 @@ export interface McpContextSchema {
   status: string;
   vectors_ready: boolean;
   clean_text_corpus: string;
-  ai_remediation_tags: string[];
   reporter_context: {
     department: string | null;
     reported_at: string;
@@ -31,46 +30,6 @@ export class McpService {
   }
 
   /**
-   * Extracts AI remediation tags based on technical keywords
-   */
-  public static extractRemediationTags(text: string): string[] {
-    const tags = new Set<string>();
-    const upper = text.toUpperCase();
-
-    if (upper.includes('RFC') || upper.includes('COMMUNICATION_FAILURE')) {
-      tags.add('RFC_TIMEOUT');
-      tags.add('SM59_DESTINATION');
-      tags.add('SAP_BASIS');
-    }
-    if (upper.includes('BGP') || upper.includes('FLAP') || upper.includes('EXPRESSROUTE')) {
-      tags.add('BGP_ROUTING');
-      tags.add('AZURE_GATEWAY');
-      tags.add('NETWORK_CORE');
-    }
-    if (upper.includes('504') || upper.includes('GATEWAY TIMEOUT') || upper.includes('WEBHOOK')) {
-      tags.add('API_GATEWAY');
-      tags.add('HTTP_504');
-      tags.add('INGRESS_CONTROLLER');
-    }
-    if (upper.includes('INTUNE') || upper.includes('MDM') || upper.includes('CERTIFICATE')) {
-      tags.add('INTUNE_MDM');
-      tags.add('PKI_CERTIFICATE');
-      tags.add('MACOS_SONOMA');
-    }
-    if (upper.includes('LOCK') || upper.includes('SU01') || upper.includes('PASSWORD')) {
-      tags.add('USER_AUTH');
-      tags.add('SU01_RESET');
-      tags.add('SAP_SECURITY');
-    }
-
-    if (tags.size === 0) {
-      tags.add('GENERAL_TRIAGE');
-    }
-
-    return Array.from(tags);
-  }
-
-  /**
    * Formats an incident into standard Model Context Protocol (MCP) JSON structure
    */
   public static formatMcpContext(incident: any): McpContextSchema {
@@ -84,10 +43,6 @@ export class McpService {
       .filter(Boolean)
       .join(' ');
 
-    const tags = this.extractRemediationTags(
-      `${incident.title} ${incident.description} ${incident.resolution || ''}`
-    );
-
     return {
       mcp_resource_uri: `mcp://incidenthub/incidents/${incident.ticketNo}`,
       ticketNo: incident.ticketNo,
@@ -96,9 +51,8 @@ export class McpService {
       status: incident.status,
       vectors_ready: true,
       clean_text_corpus: combinedCorpus,
-      ai_remediation_tags: tags,
       reporter_context: {
-        department: incident.department,
+        department: incident.department || null,
         reported_at: incident.createdAt.toISOString(),
         closed_at: incident.closedAt ? incident.closedAt.toISOString() : null,
       },
@@ -151,47 +105,18 @@ export class McpService {
   }
 
   /**
-   * Groups recurring incident patterns to identify common bottlenecks
+   * Groups recurring incident patterns by category directly from database
    */
   public static async detectRecurringCases() {
-    const incidents = await prisma.incident.findMany({
-      select: {
-        id: true,
-        ticketNo: true,
-        title: true,
-        category: true,
-        urgency: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+    const groups = await prisma.incident.groupBy({
+      by: ['category'],
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
     });
 
-    const clusters: Record<string, { pattern: string; count: number; tickets: string[] }> = {};
-
-    for (const inc of incidents) {
-      const lower = inc.title.toLowerCase();
-      let key = 'Other Recurring Items';
-
-      if (lower.includes('rfc') || lower.includes('sap')) {
-        key = 'SAP RFC Communication Faults';
-      } else if (lower.includes('bgp') || lower.includes('vpn') || lower.includes('network')) {
-        key = 'Network & VPN ExpressRoute Instability';
-      } else if (lower.includes('gateway') || lower.includes('timeout') || lower.includes('504')) {
-        key = 'API Gateway Timeouts';
-      } else if (lower.includes('lock') || lower.includes('password') || lower.includes('su01')) {
-        key = 'User Credential & Account Locks';
-      } else if (lower.includes('intune') || lower.includes('mdm') || lower.includes('certificate')) {
-        key = 'MDM Certificate Failures';
-      }
-
-      if (!clusters[key]) {
-        clusters[key] = { pattern: key, count: 0, tickets: [] };
-      }
-      clusters[key].count += 1;
-      clusters[key].tickets.push(inc.ticketNo);
-    }
-
-    return Object.values(clusters).filter((c) => c.count > 0);
+    return groups.map((g) => ({
+      pattern: g.category || 'General',
+      count: g._count.id,
+    }));
   }
 }

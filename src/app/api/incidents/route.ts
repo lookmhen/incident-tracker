@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IncidentService } from '@/lib/services/incident.service';
+import { checkApiAccess } from '@/lib/api-guard';
 
 export async function GET(req: NextRequest) {
+  const denied = await checkApiAccess(req, { requireAuth: true });
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || undefined;

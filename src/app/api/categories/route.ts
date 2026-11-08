@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CategoryService } from '@/lib/services/category.service';
+import { checkApiAccess } from '@/lib/api-guard';
 
 export async function GET() {
   try {
@@ -11,6 +12,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await checkApiAccess(req, { requireAuth: true });
+  if (denied) return denied;
+
   try {
     const body = await req.json();
     if (!body.name || !body.name.trim()) {

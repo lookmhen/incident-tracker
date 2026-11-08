@@ -7,26 +7,20 @@ import { TeamsService } from '../src/lib/services/teams.service';
 import { EmailService } from '../src/lib/services/email.service';
 import { IntegrationService } from '../src/lib/services/integration.service';
 
-describe('4. MCP Text Sanitization, Tag Extraction & Context Schema (src/lib/services/mcp.service.ts)', () => {
+describe('4. MCP Text Sanitization, Telemetry & Context Schema (src/lib/services/mcp.service.ts)', () => {
   it('strips HTML tags, Markdown links, and formatting symbols cleanly', () => {
     const dirty = '<b>Urgent:</b> Check [SAP Portal](https://example.com) `<script>alert(1)</script>` *now* #p1';
     const cleaned = McpService.cleanText(dirty);
     assert.equal(cleaned, 'Urgent: Check SAP Portal alert(1) now p1');
   });
 
-  it('extracts domain-specific remediation tags and falls back to GENERAL_TRIAGE', () => {
-    const sapTags = McpService.extractRemediationTags('SAP RFC COMMUNICATION_FAILURE on production');
-    assert.ok(sapTags.includes('RFC_TIMEOUT'));
-    assert.ok(sapTags.includes('SM59_DESTINATION'));
-
-    const netTags = McpService.extractRemediationTags('Azure ExpressRoute BGP flap detected');
-    assert.ok(netTags.includes('BGP_ROUTING'));
-
-    const gwTags = McpService.extractRemediationTags('Webhook failed with 504 Gateway Timeout');
-    assert.ok(gwTags.includes('HTTP_504'));
-
-    const generalTags = McpService.extractRemediationTags('Mouse battery is low on 3rd floor');
-    assert.deepEqual(generalTags, ['GENERAL_TRIAGE']);
+  it('aggregates real category clusters directly from database', async () => {
+    const recurring = await McpService.detectRecurringCases();
+    assert.ok(Array.isArray(recurring));
+    if (recurring.length > 0) {
+      assert.ok(typeof recurring[0].pattern === 'string');
+      assert.ok(typeof recurring[0].count === 'number');
+    }
   });
 
   it('formats incident into standard MCP context schema with accurate severity mapping', () => {
@@ -48,7 +42,7 @@ describe('4. MCP Text Sanitization, Tag Extraction & Context Schema (src/lib/ser
     assert.equal(context.severity, 'P1_CRITICAL');
     assert.equal(context.vectors_ready, true);
     assert.ok(!context.clean_text_corpus.includes('<b>'));
-    assert.ok(context.ai_remediation_tags.includes('HTTP_504'));
+    assert.equal(context.app_domain, 'Network / VPN');
   });
 });
 

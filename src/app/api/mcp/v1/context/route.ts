@@ -1,41 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { IncidentService } from '@/lib/services/incident.service';
-import { McpService } from '@/lib/services/mcp.service';
-import { checkApiAccess } from '@/lib/api-guard';
-import prisma from '@/lib/prisma';
+import { NextRequest } from 'next/server';
+import { GET as kmHandler } from '../km/route';
 
+/**
+ * GET /api/mcp/v1/context
+ * Unified alias forwarding to /api/mcp/v1/km?format=json.
+ * Preserves backward compatibility for external MCP clients and scripts.
+ */
 export async function GET(req: NextRequest) {
-  const denied = await checkApiAccess(req, { checkMcpEnabled: true });
-  if (denied) return denied;
-
-  try {
-    const { searchParams } = new URL(req.url);
-    const ticketNo = searchParams.get('ticketNo');
-
-    if (ticketNo) {
-      const incident = await IncidentService.getIncidentById(ticketNo);
-      if (!incident) {
-        return NextResponse.json({ error: `Incident ${ticketNo} not found` }, { status: 404 });
-      }
-      return NextResponse.json(McpService.formatMcpContext(incident));
-    }
-
-    // If no specific ticket requested, return the corpus of resolved incidents for model ingestion
-    const incidents = await prisma.incident.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      include: { attachments: true },
-    });
-
-    const dataset = incidents.map((inc) => McpService.formatMcpContext(inc));
-
-    return NextResponse.json({
-      mcp_protocol_version: '2024.11',
-      schema: 'mcp.incident.v1',
-      total_records: dataset.length,
-      incidents: dataset,
-    });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+  const url = new URL(req.url);
+  if (!url.searchParams.has('format')) {
+    url.searchParams.set('format', 'json');
   }
+  const forwardedReq = new NextRequest(url.toString(), req);
+  return kmHandler(forwardedReq);
 }

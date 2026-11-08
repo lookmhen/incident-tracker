@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CategoryService } from '@/lib/services/category.service';
+import { checkApiAccess } from '@/lib/api-guard';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await checkApiAccess(req, { requireAuth: true });
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     const body = await req.json();
@@ -20,6 +24,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await checkApiAccess(req, { requireAuth: true });
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     await CategoryService.deleteCategory(id);

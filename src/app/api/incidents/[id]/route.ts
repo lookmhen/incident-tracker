@@ -3,6 +3,9 @@ import { IncidentService } from '@/lib/services/incident.service';
 import { checkApiAccess } from '@/lib/api-guard';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await checkApiAccess(req, { requireAuth: true });
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     const incident = await IncidentService.getIncidentById(id);
@@ -18,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await checkApiAccess(req);
+  const denied = await checkApiAccess(req, { requireAuth: true });
   if (denied) return denied;
 
   try {

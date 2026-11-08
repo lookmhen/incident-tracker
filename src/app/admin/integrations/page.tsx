@@ -656,17 +656,23 @@ export default function IntegrationsSecurityHubPage() {
               {/* Endpoints List */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                  <div className="text-xs font-mono font-bold text-sky-700">GET /api/mcp/v1/context</div>
+                  <div className="text-xs font-mono font-bold text-sky-700">GET /api/mcp/v1/km</div>
                   <p className="text-[11px] text-slate-600">
-                    ดึงข้อมูลเคสที่ผ่านการ Sanitize เป็น Clean Text สำหรับให้ระบบวิเคราะห์ภายนอกนำไปประมวลผล
+                    Endpoint หลักสำหรับ AI Agent และ Vector DB รองรับ ?format=markdown สำหรับ RAG และ ?format=json สำหรับ Client ทั่วไป
                   </p>
                 </div>
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                   <div className="text-xs font-mono font-bold text-sky-700">
-                    GET /api/mcp/v1/insights &amp; /recurring
+                    GET /api/mcp/v1/insights
                   </div>
                   <p className="text-[11px] text-slate-600">
-                    ดึงตัวเลข KPI, MTTA, Resolution Rate และการจัดกลุ่มปัญหาที่เกิดซ้ำ (Recurring Patterns)
+                    ดึงข้อมูลสรุป KPI, ปริมาณเคสแยกตามหมวดหมู่, และอัตราการแก้ปัญหา (Resolution Rate)
+                  </p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="text-xs font-mono font-bold text-sky-700">GET /api/mcp/v1/context</div>
+                  <p className="text-[11px] text-slate-600">
+                    Alias เชื่อมต่อย้อนหลัง ส่งข้อมูล JSON มาตรฐานไปยัง /api/mcp/v1/km โดยอัตโนมัติ
                   </p>
                 </div>
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
@@ -687,6 +693,14 @@ export default function IntegrationsSecurityHubPage() {
                   </div>
                   <p className="text-[11px] text-slate-600">
                     สั่งอัปเดตสถานะหรือปิดเคส (RESOLVED) พร้อมแนบข้อความวิธีแก้ไขปัญหาจากระบบภายนอก
+                  </p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="text-xs font-mono font-bold text-sky-700">
+                    GET /api/mcp/v1/km
+                  </div>
+                  <p className="text-[11px] text-slate-600">
+                    ส่งออกเอกสาร RCA เป็น Markdown Knowledge Base Article สำหรับ Hermes RAG และ Vector Ingestion
                   </p>
                 </div>
               </div>

@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { TeamsService } from '@/lib/services/teams.service';
+import { checkApiAccess } from '@/lib/api-guard';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const denied = await checkApiAccess(req, { requireAuth: true });
+  if (denied) return denied;
+
   try {
     const res = await TeamsService.dispatch({
       ticketNo: 'PING-TEST-001',

@@ -35,6 +35,7 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 
 ### 5. 📈 Analytics & Operational Intelligence (`/admin/analytics`)
 * 4-dimension incident distribution graphs: Status breakdown, Urgency matrix, Category volume, and Department reporting frequency.
+* **Full-Year Monthly Trend:** 12-month timeline with zero-fill for empty months, preset button "ปีนี้ (12 เดือน)", and toggle between Monthly and Daily views.
 
 ---
 
@@ -82,6 +83,36 @@ Open [http://localhost:3000](http://localhost:3000) in your browser:
 
 ---
 
+## 📜 Project Scripts
+
+Run these scripts from the repository root:
+
+| Script | Command | Description |
+|---|---|---|
+| **Development Server** | `npm run dev` | Start Next.js development server on port 3000 |
+| **Production Build** | `npm run build` | Compile Next.js production build with type checking |
+| **Start Production** | `npm start` | Run compiled Next.js production server |
+| **Unit & Integration Tests** | `npm test` | Run all 34 automated tests across 10 test suites |
+| **MCP Server (Stdio)** | `npm run mcp` | Launch standalone Model Context Protocol server for Claude, Cursor, Hermes |
+| **Historical CSV Import** | `npm run import:csv [file]` | Import legacy incident CSV files into SQLite database with Thai Buddhist era parsing |
+| **Database Migration** | `npm run prisma:push` | Push Prisma schema changes directly to SQLite database |
+| **Seed Master Categories** | `npm run prisma:seed` | Seed default master categories (SAP Basis, Network, Interface, Helpdesk) |
+| **Generate Prisma Client** | `npm run prisma:generate` | Regenerate Prisma Client TypeScript types |
+
+### Importing Historical Incident CSVs
+```bash
+# Dry-run preview without database writes
+npm run import:csv "Incident Report.csv" -- --dry-run
+
+# Run actual import
+npm run import:csv "Incident Report.csv"
+
+# Import another month's file
+npm run import:csv "path/to/Incident_Report_Nov.csv"
+```
+
+---
+
 ## 🧪 Testing
 
 Comprehensive unit and integration test suite covering API guard, crypto, HMAC tokens, MCP sanitization, notification dispatch, and incident lifecycle:
@@ -106,13 +137,21 @@ The container maps:
 
 ---
 
-## 🤖 Model Context Protocol (MCP) Endpoints
+## 🤖 Model Context Protocol (MCP) & AI Integration
 
-Independent endpoints designed for Phase 2 AI Agents and LLMs:
-* `GET /api/mcp/v1/context?ticketNo=INC-202610-001`: Returns single incident clean context.
-* `GET /api/mcp/v1/context`: Returns all resolved incidents dataset for vector indexing.
-* `GET /api/mcp/v1/insights`: Aggregated KPIs, MTTA, resolution rate, and category load.
-* `GET /api/mcp/v1/recurring`: Recurring incident patterns and bottleneck clustering.
+Vendor-neutral AI interface supporting Claude, Cursor, Antigravity, and Hermes:
+
+### Stdio Transport (Desktop & Local Agents)
+```bash
+npm run mcp
+```
+Provides tools: `search_incidents`, `get_incident_detail`, `get_knowledge_insights`, and `export_km_article`.
+
+### HTTP Endpoints
+* `GET /api/mcp/v1/km`: Primary Knowledge Management endpoint. Supports `?format=markdown` for Vector DB RAG ingestion and `?format=json` for API clients.
+* `GET /api/mcp/v1/context`: Backward-compatible JSON forwarder to `/api/mcp/v1/km?format=json`.
+* `GET /api/mcp/v1/insights`: Aggregated KPIs, MTTA, resolution rate, and category distribution.
+* **Hermes & Local RAG Setup Guide:** [`docs/HERMES_KM_SETUP.md`](docs/HERMES_KM_SETUP.md)
 
 ---
 

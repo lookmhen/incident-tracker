@@ -208,7 +208,20 @@ export class IncidentService {
       ];
     }
 
-    const [total, incidents, totalAll, openCount, p1Count] = await Promise.all([
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [
+      total,
+      incidents,
+      totalAll,
+      activeCount,
+      p1Count,
+      todayCount,
+      resolvedCount,
+      teamsSent,
+      teamsFailed,
+    ] = await Promise.all([
       prisma.incident.count({ where }),
       prisma.incident.findMany({
         where,
@@ -221,9 +234,34 @@ export class IncidentService {
         },
       }),
       prisma.incident.count(),
-      prisma.incident.count({ where: { status: 'OPEN' } }),
+      prisma.incident.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
       prisma.incident.count({ where: { urgency: 'HIGH', status: { notIn: ['CLOSED', 'RESOLVED'] } } }),
+      prisma.incident.count({ where: { createdAt: { gte: todayStart } } }),
+      prisma.incident.count({ where: { status: { in: ['RESOLVED', 'CLOSED'] } } }),
+      prisma.notificationLog.count({ where: { channel: 'TEAMS' } }),
+      prisma.notificationLog.count({ where: { channel: 'TEAMS', status: 'FAILED' } }),
     ]);
+
+    // Average resolution time (MTTR) calculation from closed records
+    const resolvedSamples = await prisma.incident.findMany({
+      where: { status: { in: ['RESOLVED', 'CLOSED'] }, closedAt: { not: null } },
+      select: { createdAt: true, closedAt: true },
+      take: 50,
+    });
+    let totalMins = 0;
+    let sampleCount = 0;
+    for (const r of resolvedSamples) {
+      if (r.closedAt) {
+        const diff = (new Date(r.closedAt).getTime() - new Date(r.createdAt).getTime()) / 60000;
+        if (diff >= 0) {
+          totalMins += diff;
+          sampleCount++;
+        }
+      }
+    }
+    const avgResolutionMins = sampleCount > 0 ? Math.round(totalMins / sampleCount) : 0;
+    const slaRate = totalAll > 0 ? Math.round((resolvedCount / totalAll) * 100) : 100;
+    const teamsSuccessRate = teamsSent > 0 ? Math.round(((teamsSent - teamsFailed) / teamsSent) * 100) : 100;
 
     return {
       incidents,
@@ -235,8 +273,15 @@ export class IncidentService {
       },
       kpis: {
         totalRecords: totalAll,
-        activeCount: openCount,
+        activeCount,
         criticalP1Count: p1Count,
+        todayCount,
+        resolvedCount,
+        slaRate,
+        avgResolutionMins,
+        teamsSent,
+        teamsFailed,
+        teamsSuccessRate,
       },
     };
   }

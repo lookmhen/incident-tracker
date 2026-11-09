@@ -10,6 +10,11 @@ services:
     volumes:
       - ./data:/app/data
       - ./public/uploads:/app/public/uploads
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=file:/app/data/incident.db
-      - TEAMS_WEBHOOK_URL=https://outlook.office.com/webhook/your-webhook-url
+      - ADMIN_PASSCODE=${ADMIN_PASSCODE:-admin1234}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - ENCRYPTION_SECRET=${ENCRYPTION_SECRET:-incidenthub-aes256-enterprise-secret-key-2026}
+      - TEAMS_WEBHOOK_URL=${TEAMS_WEBHOOK_URL:-https://outlook.office.com/webhook/your-webhook-url}

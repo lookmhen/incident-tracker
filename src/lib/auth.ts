@@ -7,7 +7,7 @@ function getAdminSecret(): string {
 }
 
 export function getAdminPasscode(): string {
-  return process.env.ADMIN_PASSCODE || 'admin1234';
+  return process.env.ADMIN_PASSCODE || process.env.ADMIN_PASSWORD || 'admin1234';
 }
 
 /**

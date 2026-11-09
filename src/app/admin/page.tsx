@@ -27,11 +27,36 @@ interface CategoryItem {
   isActive: boolean;
 }
 
+interface DashboardKpis {
+  totalRecords: number;
+  activeCount: number;
+  criticalP1Count: number;
+  todayCount: number;
+  resolvedCount: number;
+  slaRate: number;
+  avgResolutionMins: number;
+  teamsSent: number;
+  teamsFailed: number;
+  teamsSuccessRate: number;
+}
+
 export default function AdminDashboardPage() {
   const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [kpis, setKpis] = useState<DashboardKpis>({
+    totalRecords: 0,
+    activeCount: 0,
+    criticalP1Count: 0,
+    todayCount: 0,
+    resolvedCount: 0,
+    slaRate: 100,
+    avgResolutionMins: 0,
+    teamsSent: 0,
+    teamsFailed: 0,
+    teamsSuccessRate: 100,
+  });
 
   // Filters
   const [search, setSearch] = useState('');
@@ -85,6 +110,9 @@ export default function AdminDashboardPage() {
         setIncidents(data.incidents || []);
         setTotalPages(data.pagination?.totalPages || 1);
         setTotalRecords(data.pagination?.total || 0);
+        if (data.kpis) {
+          setKpis(data.kpis);
+        }
       }
     } catch (e) {
       console.error('Fetch error:', e);
@@ -194,9 +222,7 @@ export default function AdminDashboardPage() {
     setPage(1);
   };
 
-  // Calculate KPIs
-  const activeCount = incidents.filter((i) => ['OPEN', 'IN_PROGRESS'].includes(i.status)).length;
-  const criticalCount = incidents.filter((i) => i.urgency === 'HIGH' && i.status !== 'CLOSED').length;
+
 
   // Age calculation helper
   const getAge = (dateStr: string) => {
@@ -285,9 +311,9 @@ export default function AdminDashboardPage() {
               <div>
                 <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Active Incidents</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-headline font-bold text-slate-900">{activeCount || 14}</span>
+                  <span className="text-3xl font-headline font-bold text-slate-900">{kpis.activeCount}</span>
                   <span className="text-xs font-semibold text-sky-600 flex items-center font-label">
-                    <span className="material-symbols-outlined text-[14px]">arrow_upward</span> +3 today
+                    <span className="material-symbols-outlined text-[14px]">arrow_upward</span> +{kpis.todayCount} today
                   </span>
                 </div>
               </div>
@@ -296,8 +322,10 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Target baseline &lt; 20</span>
-              <span className="text-sky-700 font-mono font-semibold bg-sky-50 px-1.5 py-0.5 rounded">Load: 70%</span>
+              <span>{kpis.activeCount === 0 ? 'All tickets resolved' : `${kpis.activeCount} in progress`}</span>
+              <span className="text-sky-700 font-mono font-semibold bg-sky-50 px-1.5 py-0.5 rounded">
+                {kpis.totalRecords > 0 ? `${Math.round((kpis.activeCount / kpis.totalRecords) * 100)}% load` : '0%'}
+              </span>
             </div>
           </div>
 
@@ -307,11 +335,13 @@ export default function AdminDashboardPage() {
               <div>
                 <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Critical • P1 Blocker</p>
                 <div className="flex items-baseline gap-2.5 mt-2">
-                  <span className="text-3xl font-headline font-bold text-rose-600">{criticalCount || 2}</span>
-                  <span className="flex h-2.5 w-2.5 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
-                  </span>
+                  <span className="text-3xl font-headline font-bold text-rose-600">{kpis.criticalP1Count}</span>
+                  {kpis.criticalP1Count > 0 && (
+                    <span className="flex h-2.5 w-2.5 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="w-10 h-10 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
@@ -319,21 +349,31 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-              <span className="text-slate-500">Incident bridge open</span>
-              <span className="text-rose-700 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
-                War Room #1
+              <span className="text-slate-500">
+                {kpis.criticalP1Count > 0 ? 'Active P1 in progress' : 'No critical blockers'}
+              </span>
+              <span className={`font-semibold px-1.5 py-0.5 rounded border ${
+                kpis.criticalP1Count > 0
+                  ? 'text-rose-700 bg-rose-50 border-rose-100'
+                  : 'text-emerald-700 bg-emerald-50 border-emerald-100'
+              }`}>
+                {kpis.criticalP1Count > 0 ? `${kpis.criticalP1Count} Urgent` : 'Nominal'}
               </span>
             </div>
           </div>
 
-          {/* Metric 3: MTTA & SLA */}
+          {/* Metric 3: MTTR & SLA */}
           <div className="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Mean Ack Time (MTTA)</p>
+                <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Resolution & SLA (MTTR)</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-headline font-bold text-slate-900">4.8</span>
-                  <span className="text-xs text-slate-500 font-medium">mins</span>
+                  <span className="text-3xl font-headline font-bold text-slate-900">
+                    {kpis.avgResolutionMins > 0
+                      ? (kpis.avgResolutionMins >= 60 ? `${(kpis.avgResolutionMins / 60).toFixed(1)}h` : `${kpis.avgResolutionMins}m`)
+                      : '—'}
+                  </span>
+                  <span className="text-xs text-slate-500 font-medium">avg</span>
                 </div>
               </div>
               <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
@@ -342,10 +382,12 @@ export default function AdminDashboardPage() {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
               <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span className="font-medium text-slate-600">94% SLA intact</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${kpis.slaRate >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                <span className="font-medium text-slate-600">{kpis.slaRate}% SLA resolved</span>
               </div>
-              <span className="text-sky-700 font-mono font-medium bg-sky-50 px-1.5 py-0.5 rounded">&lt; 5m goal</span>
+              <span className="text-sky-700 font-mono font-medium bg-sky-50 px-1.5 py-0.5 rounded">
+                {kpis.resolvedCount} closed
+              </span>
             </div>
           </div>
 
@@ -355,8 +397,8 @@ export default function AdminDashboardPage() {
               <div>
                 <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Teams Webhook Rate</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-headline font-bold text-slate-900">100%</span>
-                  <span className="text-xs text-sky-600 font-medium">{totalRecords} dispatched</span>
+                  <span className="text-3xl font-headline font-bold text-slate-900">{kpis.teamsSuccessRate}%</span>
+                  <span className="text-xs text-sky-600 font-medium">{kpis.teamsSent} sent</span>
                 </div>
               </div>
               <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
@@ -364,9 +406,13 @@ export default function AdminDashboardPage() {
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Latency: 284ms</span>
-              <span className="text-emerald-700 font-mono font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                0 failed
+              <span>{kpis.teamsFailed > 0 ? `${kpis.teamsFailed} failed dispatches` : 'Delivery status normal'}</span>
+              <span className={`font-mono font-semibold px-1.5 py-0.5 rounded border ${
+                kpis.teamsFailed > 0
+                  ? 'text-rose-700 bg-rose-50 border-rose-100'
+                  : 'text-emerald-700 bg-emerald-50 border-emerald-100'
+              }`}>
+                {kpis.teamsFailed} failed
               </span>
             </div>
           </div>
@@ -377,7 +423,7 @@ export default function AdminDashboardPage() {
               <div>
                 <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">MCP Clean Corpus</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-headline font-bold text-sky-800">{totalRecords || 842}</span>
+                  <span className="text-3xl font-headline font-bold text-sky-800">{kpis.totalRecords}</span>
                   <span className="text-xs text-slate-500 font-medium">sanitized records</span>
                 </div>
               </div>
@@ -387,7 +433,7 @@ export default function AdminDashboardPage() {
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
               <span>System Records</span>
-              <span className="text-sky-700 font-mono font-medium bg-sky-50 px-1.5 py-0.5 rounded">Online</span>
+              <span className="text-sky-700 font-mono font-medium bg-sky-50 px-1.5 py-0.5 rounded">Vector Ready</span>
             </div>
           </div>
         </div>

@@ -93,7 +93,7 @@ Run these scripts from the repository root:
 | **Production Build** | `npm run build` | Compile Next.js production build with type checking |
 | **Start Production** | `npm start` | Run compiled Next.js production server |
 | **Unit & Integration Tests** | `npm test` | Run all 34 automated tests across 10 test suites |
-| **MCP Server (Stdio)** | `npm run mcp` | Launch standalone Model Context Protocol server for Claude, Cursor, Hermes |
+| **MCP Server (Stdio)** | `npm run mcp` | Launch standalone Model Context Protocol server for Claude, Cursor, and AI Agents |
 | **Historical CSV Import** | `npm run import:csv [file]` | Import legacy incident CSV files into SQLite database with Thai Buddhist era parsing |
 | **Database Migration** | `npm run prisma:push` | Push Prisma schema changes directly to SQLite database |
 | **Seed Master Categories** | `npm run prisma:seed` | Seed default master categories (SAP Basis, Network, Interface, Helpdesk) |
@@ -139,7 +139,7 @@ The container maps:
 
 ## 🤖 Model Context Protocol (MCP) & AI Integration
 
-Vendor-neutral AI interface supporting Claude, Cursor, Antigravity, and Hermes:
+Vendor-neutral AI interface supporting Claude, Cursor, Antigravity, and AI Agents:
 
 ### Stdio Transport (Desktop & Local Agents)
 ```bash
@@ -151,7 +151,7 @@ Provides tools: `search_incidents`, `get_incident_detail`, `get_knowledge_insigh
 * `GET /api/mcp/v1/km`: Primary Knowledge Management endpoint. Supports `?format=markdown` for Vector DB RAG ingestion and `?format=json` for API clients.
 * `GET /api/mcp/v1/context`: Backward-compatible JSON forwarder to `/api/mcp/v1/km?format=json`.
 * `GET /api/mcp/v1/insights`: Aggregated KPIs, MTTA, resolution rate, and category distribution.
-* **Hermes & Local RAG Setup Guide:** [`docs/HERMES_KM_SETUP.md`](docs/HERMES_KM_SETUP.md)
+* **Agent & Local RAG Setup Guide:** [`docs/AGENT_KM_SETUP.md`](docs/AGENT_KM_SETUP.md)
 
 ---
 

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
     "mcp": "tsx src/mcp/server.ts",
     "import:csv": "tsx scripts/import-csv.ts",
     "prisma:generate": "prisma generate",

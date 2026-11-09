@@ -158,7 +158,7 @@ server.tool(
 /**
  * Tool 4: export_km_article
  * Export an incident as a clean, standardized Markdown Knowledge Management (KM) article.
- * Perfect for ingestion into Hermes RAG or vector database.
+ * Perfect for ingestion into Agent RAG or vector database.
  */
 server.tool(
   'export_km_article',

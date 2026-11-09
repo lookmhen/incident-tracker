@@ -6,7 +6,7 @@ import prisma from '@/lib/prisma';
 
 /**
  * GET /api/mcp/v1/km
- * Exports clean Markdown Knowledge Articles for Hermes RAG and Vector DB ingestion.
+ * Exports clean Markdown Knowledge Articles for Agent RAG and Vector DB ingestion.
  * Query params:
  *   - ticketNo: (optional) Fetch single ticket as Markdown
  *   - format: 'markdown' (default) or 'json'

@@ -8,7 +8,7 @@ import { GET as contextGetHandler } from '../src/app/api/mcp/v1/context/route';
 import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
 import { server } from '../src/mcp/server';
 
-describe('9. Hermes KM Export & Knowledge Ingestion Pipeline', () => {
+describe('9. Agent KM Export & Knowledge Ingestion Pipeline', () => {
   before(async () => {
     await IntegrationService.saveMcpSecurityConfig({ mcpEnabled: true });
   });

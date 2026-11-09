@@ -700,7 +700,7 @@ export default function IntegrationsSecurityHubPage() {
                     GET /api/mcp/v1/km
                   </div>
                   <p className="text-[11px] text-slate-600">
-                    ส่งออกเอกสาร RCA เป็น Markdown Knowledge Base Article สำหรับ Hermes RAG และ Vector Ingestion
+                    ส่งออกเอกสาร RCA เป็น Markdown Knowledge Base Article สำหรับ Agent RAG และ Vector Ingestion
                   </p>
                 </div>
               </div>

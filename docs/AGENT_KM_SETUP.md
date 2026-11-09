@@ -1,6 +1,6 @@
-# IncidentHub & Hermes KM Integration Guide
+# IncidentHub & AI Agent KM Integration Guide
 
-This guide describes how to connect **Hermes Agent** (or Nous Hermes LLMs) to IncidentHub as an enterprise Knowledge Management (KM) and AI IT Support Agent.
+This guide describes how to connect **AI Agents** (such as Claude Desktop, Cursor, Antigravity, or custom local LLM agents) to IncidentHub as an enterprise Knowledge Management (KM) and AI IT Support Agent.
 
 ---
 
@@ -8,8 +8,8 @@ This guide describes how to connect **Hermes Agent** (or Nous Hermes LLMs) to In
 
 ```
 ┌──────────────────────────────────────────────┐
-│             Hermes AI Assistant              │
-│  (Hermes Agent / Local LLM via Ollama/vLLM)  │
+│             AI Agent / Assistant             │
+│  (Claude / Cursor / Local LLM via Ollama)    │
 └───────────────────────┬──────────────────────┘
                         │
        ┌────────────────┴────────────────┐
@@ -30,13 +30,13 @@ This guide describes how to connect **Hermes Agent** (or Nous Hermes LLMs) to In
 ```
 
 - **IncidentHub**: The operational System of Record (Incident tracking, triage, resolution, clean text sanitization).
-- **Hermes**: The System of Intelligence (KM retrieval, semantic search, interactive troubleshooting).
+- **Agent**: The System of Intelligence (KM retrieval, semantic search, interactive troubleshooting).
 
 ---
 
 ## 2. MCP Realtime Connection (Stdio)
 
-Add IncidentHub to your Hermes agent configuration (e.g. `hermes.config.json` or MCP settings):
+Add IncidentHub to your AI agent configuration (e.g. `agent.config.json` or MCP settings):
 
 ```json
 {
@@ -53,19 +53,19 @@ Add IncidentHub to your Hermes agent configuration (e.g. `hermes.config.json` or
 }
 ```
 
-### Available MCP Tools for Hermes:
+### Available MCP Tools for Agents:
 1. `search_incidents`: Search closed and active incidents by keyword and category.
 2. `get_incident_diagnostics`: Retrieve sanitized resolution notes, error symptoms, and recovery steps.
 3. `export_km_article`: Generate formatted Markdown knowledge base articles with YAML frontmatter.
 
 ---
 
-## 3. Hermes System Prompt Template
+## 3. Agent System Prompt Template
 
-Use this prompt to align Hermes with your organization's IT Knowledge Base:
+Use this prompt to align your AI Agent with your organization's IT Knowledge Base:
 
 ```markdown
-You are Hermes IT Specialist, an enterprise support and knowledge management assistant powered by IncidentHub.
+You are IT Support Agent, an enterprise support and knowledge management assistant powered by IncidentHub.
 
 Your responsibilities:
 1. When a user reports an issue, invoke `search_incidents` using relevant keywords to check if this problem has been resolved previously.

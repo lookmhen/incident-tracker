@@ -104,7 +104,7 @@ export default function AdminDashboardPage() {
       params.set('page', String(page));
       params.set('limit', '10');
 
-      const res = await fetch(`/api/incidents?${params.toString()}`);
+      const res = await fetch(`/api/incidents?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setIncidents(data.incidents || []);

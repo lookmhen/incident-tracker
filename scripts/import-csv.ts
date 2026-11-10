@@ -41,19 +41,32 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
     return { total: 0, imported: 0, updated: 0, skipped: 0 };
   }
 
-  const header = rows[0].map((h) => h.trim().replace(/^"|"$/g, ''));
-  const idIdx = header.indexOf('ID');
-  const senderIdx = header.indexOf('Sender Name');
-  const dateIdx = header.indexOf('IncidentDate');
-  const typeIdx = header.indexOf('Incident Type');
-  const severityIdx = header.indexOf('Severity');
-  const statusIdx = header.indexOf('Status');
-  const detailIdx = header.indexOf('Detail');
-  const rootCauseIdx = header.indexOf('Root Cause');
-  const resDateIdx = header.indexOf('ResolutionDate');
+  const header = rows[0].map((h) =>
+    h
+      .trim()
+      .replace(/^\ufeff/, '')
+      .replace(/^"|"$/g, '')
+  );
+
+  const findCol = (candidates: string[]) => {
+    const lowerCandidates = candidates.map((c) => c.toLowerCase());
+    return header.findIndex((h) => lowerCandidates.includes(h.toLowerCase()));
+  };
+
+  const idIdx = findCol(['ID', 'Ticket ID', 'TicketId', 'TicketNo', 'No']);
+  const senderIdx = findCol(['Sender Name', 'Sender', 'Reporter', 'Reporter Name', 'ผู้แจ้ง', 'Name']);
+  const dateIdx = findCol(['IncidentDate', 'Incident Date', 'Date', 'วันที่']);
+  const typeIdx = findCol(['Incident Type', 'Type', 'Category', 'หมวดหมู่']);
+  const severityIdx = findCol(['Severity', 'Urgency', 'ความเร่งด่วน']);
+  const statusIdx = findCol(['Status', 'สถานะ']);
+  const detailIdx = findCol(['Detail', 'Details', 'Description', 'รายละเอียด', 'Problem', 'Summary']);
+  const rootCauseIdx = findCol(['Root Cause', 'RootCause', 'Resolution', 'Solution', 'วิธีแก้ไข', 'สาเหตุ']);
+  const resDateIdx = findCol(['ResolutionDate', 'Resolution Date', 'Resolved Date', 'Closed Date', 'วันที่แก้ไข']);
+  const deptIdx = findCol(['Department', 'Dept', 'แผนก']);
+  const contactIdx = findCol(['Contact', 'ContactInfo', 'Email', 'เบอร์ติดต่อ']);
 
   if (detailIdx === -1 || dateIdx === -1) {
-    throw new Error('CSV is missing required headers: "Detail" or "IncidentDate"');
+    throw new Error('CSV is missing required headers: "Detail" (or Description) or "IncidentDate" (or Date)');
   }
 
   // Pre-load or ensure categories in database
@@ -99,7 +112,8 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
     let catEntry = categoryCache.get(mappedCategoryName.toLowerCase());
 
     if (!catEntry && !options.dryRun) {
-      const slug = mappedCategoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const rawSlug = mappedCategoryName.toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g, '-').replace(/^-+|-+$/g, '');
+      const slug = rawSlug || `cat-${Date.now()}`;
       const createdCat = await prisma.category.upsert({
         where: { slug },
         update: { name: mappedCategoryName },
@@ -142,6 +156,9 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
       continue;
     }
 
+    const department = deptIdx !== -1 && row[deptIdx]?.trim() ? row[deptIdx].trim() : 'General';
+    const contactInfo = contactIdx !== -1 && row[contactIdx]?.trim() ? row[contactIdx].trim() : 'legacy-import@internal.local';
+
     // Check if ticket already exists
     const existing = await prisma.incident.findUnique({
       where: { ticketNo },
@@ -154,6 +171,8 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
           title,
           description: cleanDetail,
           reporterName: sender,
+          department: department !== 'General' ? department : existing.department,
+          contactInfo: contactInfo !== 'legacy-import@internal.local' ? contactInfo : existing.contactInfo,
           category: catEntry?.name || mappedCategoryName,
           categoryId: catEntry?.id,
           urgency,
@@ -171,8 +190,8 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
           title,
           description: cleanDetail,
           reporterName: sender,
-          contactInfo: 'legacy-import@internal.local',
-          department: 'General',
+          contactInfo,
+          department,
           category: catEntry?.name || mappedCategoryName,
           categoryId: catEntry?.id,
           urgency,

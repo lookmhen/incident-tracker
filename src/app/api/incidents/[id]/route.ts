@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { IncidentService } from '@/lib/services/incident.service';
 import { checkApiAccess } from '@/lib/api-guard';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const denied = await checkApiAccess(req, { requireAuth: true });
   if (denied) return denied;

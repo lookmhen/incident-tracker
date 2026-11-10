@@ -290,15 +290,39 @@ export class IncidentService {
    * Retrieves an incident by id or ticketNo
    */
   public static async getIncidentById(idOrTicketNo: string) {
-    return prisma.incident.findFirst({
+    if (!idOrTicketNo) return null;
+    const clean = decodeURIComponent(idOrTicketNo).trim();
+
+    // 1. Exact match by internal CUID or ticketNo
+    let found = await prisma.incident.findFirst({
       where: {
-        OR: [{ id: idOrTicketNo }, { ticketNo: idOrTicketNo }],
+        OR: [{ id: clean }, { ticketNo: clean }],
       },
       include: {
         attachments: true,
         categoryRel: true,
       },
     });
+
+    // 2. Fallback: match by ending ticket number or legacy ID (e.g. '129' -> 'INC-202608-0129')
+    if (!found) {
+      const padded = clean.padStart(4, '0');
+      found = await prisma.incident.findFirst({
+        where: {
+          OR: [
+            { ticketNo: { endsWith: `-${padded}` } },
+            { ticketNo: { endsWith: padded } },
+            { ticketNo: { contains: clean } },
+          ],
+        },
+        include: {
+          attachments: true,
+          categoryRel: true,
+        },
+      });
+    }
+
+    return found;
   }
 
   /**

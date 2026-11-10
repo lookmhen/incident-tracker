@@ -68,7 +68,7 @@ export default function IncidentDetailMcpHub({
 
   const fetchIncident = async () => {
     try {
-      const res = await fetch(`/api/incidents/${id}`);
+      const res = await fetch(`/api/incidents/${encodeURIComponent(id)}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setIncident(data);

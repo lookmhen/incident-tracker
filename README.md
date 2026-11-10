@@ -95,6 +95,7 @@ Run these scripts from the repository root:
 | **Unit & Integration Tests** | `npm test` | Run all 34 automated tests across 10 test suites |
 | **MCP Server (Stdio)** | `npm run mcp` | Launch standalone Model Context Protocol server for Claude, Cursor, and AI Agents |
 | **Historical CSV Import** | `npm run import:csv [file]` | Import legacy incident CSV files into SQLite database with Thai Buddhist era parsing |
+| **Reset Database** | `npm run db:reset` | Force reset SQLite database and re-seed default master categories |
 | **Database Migration** | `npm run prisma:push` | Push Prisma schema changes directly to SQLite database |
 | **Seed Master Categories** | `npm run prisma:seed` | Seed default master categories (SAP Basis, Network, Interface, Helpdesk) |
 | **Generate Prisma Client** | `npm run prisma:generate` | Regenerate Prisma Client TypeScript types |

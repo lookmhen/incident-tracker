@@ -12,6 +12,12 @@ export async function checkApiAccess(
   req: NextRequest,
   options?: { checkMcpEnabled?: boolean; requireAuth?: boolean }
 ): Promise<NextResponse | null> {
+  // Admin session needs no integration config; skipping it avoids the DB write
+  // getRawConfig() may do (API key auto-init), which fails on read-only volumes.
+  if (!options?.checkMcpEnabled && (await isAdminAuthenticated(req))) {
+    return null;
+  }
+
   const { mcpSecurity } = await IntegrationService.getRawConfig();
 
   if (options?.checkMcpEnabled && !mcpSecurity.mcpEnabled) {

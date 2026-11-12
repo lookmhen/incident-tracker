@@ -65,6 +65,13 @@ export default function IncidentDetailMcpHub({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [mcpExpanded, setMcpExpanded] = useState(false);
+  const [now, setNow] = useState<number>(Date.now());
+
+  useEffect(() => {
+    if (!incident || incident.status === 'RESOLVED' || incident.status === 'CLOSED') return;
+    const interval = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, [incident?.status]);
 
   const fetchIncident = async () => {
     try {
@@ -283,6 +290,22 @@ export default function IncidentDetailMcpHub({
   const attName = (att: IncidentDetail['attachments'][number]) =>
     att.fileName || att.fileUrl.split('/').pop() || att.fileUrl;
 
+  const formatDuration = (startStr: string, endStr?: string | null) => {
+    const start = new Date(startStr).getTime();
+    const end = endStr ? new Date(endStr).getTime() : now;
+    const diffMins = Math.max(0, Math.floor((end - start) / 60000));
+    if (diffMins < 1) return 'น้อยกว่า 1 นาที';
+    if (diffMins < 60) return `${diffMins} นาที`;
+    const hours = Math.floor(diffMins / 60);
+    const remainingMins = diffMins % 60;
+    if (hours < 24) {
+      return remainingMins > 0 ? `${hours} ชม. ${remainingMins} นาที` : `${hours} ชม.`;
+    }
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    return remainingHours > 0 ? `${days} วัน ${remainingHours} ชม.` : `${days} วัน`;
+  };
+
   if (loading) {
     return (
       <div className="w-full h-96 flex items-center justify-center text-slate-500 font-mono text-xs">
@@ -305,6 +328,7 @@ export default function IncidentDetailMcpHub({
   }
 
   const isHigh = incident.urgency === 'HIGH';
+  const isClosed = incident.status === 'RESOLVED' || incident.status === 'CLOSED';
   const charCount = resolutionText.length;
   const wordCount = resolutionText.trim() ? resolutionText.trim().split(/\s+/).length : 0;
 
@@ -341,10 +365,24 @@ export default function IncidentDetailMcpHub({
                   {incident.category || 'General IT'}
                 </span>
 
-                <span className="text-slate-500 flex items-center gap-1">
+                <span className="text-slate-500 flex items-center gap-1 font-mono">
                   <span className="material-symbols-outlined text-[15px]">schedule</span>
-                  Logged {new Date(incident.createdAt).toLocaleTimeString()}
+                  Logged {new Date(incident.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
                 </span>
+
+                {isClosed ? (
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold flex items-center gap-1 shadow-2xs">
+                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                    <span>แก้ไขสำเร็จใน {formatDuration(incident.createdAt, incident.closedAt)}</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200 font-semibold flex items-center gap-1 shadow-2xs">
+                    <span className="material-symbols-outlined text-[14px] text-sky-600 animate-spin" style={{ animationDuration: '8s' }}>
+                      timelapse
+                    </span>
+                    <span>เปิดมาแล้ว {formatDuration(incident.createdAt)}</span>
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-3">
@@ -591,6 +629,100 @@ export default function IncidentDetailMcpHub({
 
           {/* Right Column (40% -> col-span-5) */}
           <div className="lg:col-span-5 space-y-6">
+            {/* Incident Lifecycle & Duration Tracking Card */}
+            <div className="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
+                    <span className="material-symbols-outlined text-[18px]">timer</span>
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-headline font-bold text-slate-900">
+                      Lifecycle &amp; Duration Tracking
+                    </h3>
+                    <p className="text-[11px] text-slate-500">การติดตามระยะเวลาดำเนินงานของเคส</p>
+                  </div>
+                </div>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono ${
+                    isClosed
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  {isClosed ? 'RESOLVED' : 'ACTIVE'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">
+                    เปิดเคสเมื่อ (Created)
+                  </span>
+                  <div className="font-semibold text-slate-800 font-mono">
+                    {new Date(incident.createdAt).toLocaleDateString('th-TH')}
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    {new Date(incident.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                  </div>
+                </div>
+
+                <div
+                  className={`p-3 rounded-xl border space-y-1 ${
+                    isClosed
+                      ? 'bg-emerald-50/60 border-emerald-200/80'
+                      : 'bg-sky-50/60 border-sky-200/80'
+                  }`}
+                >
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">
+                    {isClosed ? 'ปิดเคสเมื่อ (Closed)' : 'สถานะเวลาปัจจุบัน'}
+                  </span>
+                  {isClosed ? (
+                    <>
+                      <div className="font-semibold text-emerald-800 font-mono">
+                        {incident.closedAt ? new Date(incident.closedAt).toLocaleDateString('th-TH') : '-'}
+                      </div>
+                      <div className="text-[11px] text-emerald-600 font-mono">
+                        {incident.closedAt
+                          ? `${new Date(incident.closedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`
+                          : '-'}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="font-semibold text-sky-800 flex items-center gap-1.5 font-mono">
+                        <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
+                        Active Counting
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        นับเวลาต่อเนื่องจนกว่าจะปิดเคส
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Summary Duration Banner */}
+              <div
+                className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
+                  isClosed
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-gradient-to-r from-sky-50 to-blue-50 border-sky-200 text-sky-900'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">
+                    {isClosed ? 'task_alt' : 'timelapse'}
+                  </span>
+                  <span className="font-medium">
+                    {isClosed ? 'ระยะเวลาแก้ไขทั้งหมด:' : 'เปิดเคสมาแล้วเป็นเวลา:'}
+                  </span>
+                </div>
+                <div className="text-sm font-bold font-mono">
+                  {formatDuration(incident.createdAt, incident.closedAt)}
+                </div>
+              </div>
+            </div>
             {/* Dynamic Category & Triage Routing Selector */}
             <div className="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-3.5">
               <div className="flex items-center justify-between">

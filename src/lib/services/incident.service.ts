@@ -354,6 +354,8 @@ export class IncidentService {
       updatePayload.status = data.status.toUpperCase();
       if (['RESOLVED', 'CLOSED'].includes(updatePayload.status)) {
         updatePayload.closedAt = new Date();
+      } else {
+        updatePayload.closedAt = null;
       }
     }
 

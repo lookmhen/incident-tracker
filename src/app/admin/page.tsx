@@ -311,8 +311,8 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Frosted Metric KPI Cards (5 Cards Glacier Grid) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Frosted Metric KPI Cards (3 Core Operational Cards) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Metric 1: Total Active */}
           <div className="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
             <div className="flex items-start justify-between">
@@ -396,52 +396,6 @@ export default function AdminDashboardPage() {
               <span className="text-sky-700 font-mono font-medium bg-sky-50 px-1.5 py-0.5 rounded">
                 {kpis.resolvedCount} closed
               </span>
-            </div>
-          </div>
-
-          {/* Metric 4: Teams Dispatch */}
-          <div className="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Teams Webhook Rate</p>
-                <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-headline font-bold text-slate-900">{kpis.teamsSuccessRate}%</span>
-                  <span className="text-xs text-sky-600 font-medium">{kpis.teamsSent} sent</span>
-                </div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
-                <span className="material-symbols-outlined text-[20px]">forum</span>
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-              <span>{kpis.teamsFailed > 0 ? `${kpis.teamsFailed} failed dispatches` : 'Delivery status normal'}</span>
-              <span className={`font-mono font-semibold px-1.5 py-0.5 rounded border ${
-                kpis.teamsFailed > 0
-                  ? 'text-rose-700 bg-rose-50 border-rose-100'
-                  : 'text-emerald-700 bg-emerald-50 border-emerald-100'
-              }`}>
-                {kpis.teamsFailed} failed
-              </span>
-            </div>
-          </div>
-
-          {/* Metric 5: MCP Context Readiness */}
-          <div className="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">MCP Clean Corpus</p>
-                <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-headline font-bold text-sky-800">{kpis.totalRecords}</span>
-                  <span className="text-xs text-slate-500 font-medium">sanitized records</span>
-                </div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
-                <span className="material-symbols-outlined text-[20px]">dataset</span>
-              </div>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-              <span>System Records</span>
-              <span className="text-sky-700 font-mono font-medium bg-sky-50 px-1.5 py-0.5 rounded">Vector Ready</span>
             </div>
           </div>
         </div>

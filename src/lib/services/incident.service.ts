@@ -452,7 +452,7 @@ export class IncidentService {
         }
       }
     }
-    const avgResolutionMins = durationSamples > 0 ? Math.round(totalDurationMins / durationSamples) : 24;
+    const avgResolutionMins = durationSamples > 0 ? Math.round(totalDurationMins / durationSamples) : 0;
 
     // Determine Grouping: 'day' vs 'month'
     let effectiveGroupBy: 'day' | 'month' = 'day';

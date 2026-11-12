@@ -28,6 +28,9 @@ export default function AnalyticsDashboardPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [groupBy, setGroupBy] = useState<'auto' | 'day' | 'month'>('auto');
+  // null = custom range from the date inputs
+  const [preset, setPreset] = useState<'7' | '30' | 'year' | 'all' | null>('all');
+  const currentYear = new Date().getFullYear();
 
   const fetchAnalytics = async (start = startDate, end = endDate, group = groupBy) => {
     setLoading(true);
@@ -55,22 +58,26 @@ export default function AnalyticsDashboardPage() {
 
   const applyPreset = (days: number | null) => {
     if (days === null) {
+      setPreset('all');
       setStartDate('');
       setEndDate('');
       fetchAnalytics('', '', groupBy);
       return;
     }
+    setPreset(days === 7 ? '7' : '30');
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - days);
-    const sStr = start.toISOString().slice(0, 10);
-    const eStr = end.toISOString().slice(0, 10);
+    // sv-SE formats as YYYY-MM-DD in local time (toISOString is UTC, off by a day in UTC+7)
+    const sStr = start.toLocaleDateString('sv-SE');
+    const eStr = end.toLocaleDateString('sv-SE');
     setStartDate(sStr);
     setEndDate(eStr);
     fetchAnalytics(sStr, eStr, groupBy);
   };
 
-  const applyYearPreset = (year = 2026) => {
+  const applyYearPreset = (year = currentYear) => {
+    setPreset('year');
     const sStr = `${year}-01-01`;
     const eStr = `${year}-12-31`;
     setStartDate(sStr);
@@ -78,6 +85,13 @@ export default function AnalyticsDashboardPage() {
     setGroupBy('month');
     fetchAnalytics(sStr, eStr, 'month');
   };
+
+  const presetClass = (p: typeof preset) =>
+    `px-2.5 py-1.5 rounded-lg border text-xs font-medium cursor-pointer ${
+      preset === p
+        ? 'bg-sky-600 text-white border-sky-600 font-semibold'
+        : 'bg-white hover:bg-sky-50 border-slate-200 text-slate-600'
+    }`;
 
   const getExportUrl = () => {
     const params = new URLSearchParams();
@@ -122,7 +136,10 @@ export default function AnalyticsDashboardPage() {
               />
               <button
                 type="button"
-                onClick={() => fetchAnalytics(startDate, endDate)}
+                onClick={() => {
+                  setPreset(null);
+                  fetchAnalytics(startDate, endDate);
+                }}
                 className="ml-1 px-2.5 py-1 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700 cursor-pointer"
               >
                 กรอง
@@ -133,29 +150,33 @@ export default function AnalyticsDashboardPage() {
               <button
                 type="button"
                 onClick={() => applyPreset(7)}
-                className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 text-xs text-slate-600 font-medium cursor-pointer"
+                aria-pressed={preset === '7'}
+                className={presetClass('7')}
               >
                 7 วัน
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset(30)}
-                className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 text-xs text-slate-600 font-medium cursor-pointer"
+                aria-pressed={preset === '30'}
+                className={presetClass('30')}
               >
                 30 วัน
               </button>
               <button
                 type="button"
-                onClick={() => applyYearPreset(2026)}
-                className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-xs text-sky-800 font-semibold cursor-pointer"
-                title="ดูแนวโน้มตลอดทั้งปี 2026 (12 เดือน)"
+                onClick={() => applyYearPreset()}
+                aria-pressed={preset === 'year'}
+                className={presetClass('year')}
+                title={`ดูแนวโน้มตลอดทั้งปี ${currentYear} (12 เดือน)`}
               >
                 ปีนี้ (12 เดือน)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset(null)}
-                className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 text-xs text-slate-600 font-medium cursor-pointer"
+                aria-pressed={preset === 'all'}
+                className={presetClass('all')}
               >
                 ทั้งหมด
               </button>

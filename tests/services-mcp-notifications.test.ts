@@ -74,7 +74,7 @@ describe('5. Webhook & Email Payload Builders (TeamsService & EmailService)', ()
     const content = card.attachments[0].content;
     assert.equal(content.type, 'AdaptiveCard');
     assert.equal(content.version, '1.4');
-    assert.equal(content.body[0].items[0].color, 'Attention');
+    assert.equal((content.body[0] as any).items[0].color, 'Attention');
   });
 
   it('gracefully skips EmailService.dispatch when SMTP is disabled and logs FAILED when recipients are missing on forceSend', async () => {

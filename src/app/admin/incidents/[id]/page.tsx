@@ -58,8 +58,8 @@ export default function IncidentDetailMcpHub({
   const [editDescription, setEditDescription] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
 
-  // Dump Inspector Modal
-  const [showDumpModal, setShowDumpModal] = useState(false);
+  // Attachment preview modal (holds the clicked attachment)
+  const [previewAtt, setPreviewAtt] = useState<IncidentDetail['attachments'][number] | null>(null);
 
   // Status message / toast
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -236,22 +236,52 @@ export default function IncidentDetailMcpHub({
   };
 
   // Copy JSON Payload for External MCP Client
-  const handleCopyJson = () => {
+  const buildMcpPayload = (inc: IncidentDetail) => ({
+    mcp_resource_uri: `mcp://incidenthub/incidents/${inc.ticketNo}`,
+    ticketNo: inc.ticketNo,
+    category: inc.category || 'General',
+    urgency: inc.urgency,
+    status: inc.status,
+    clean_text_corpus: resolutionText,
+  });
+
+  const handleCopyJson = async () => {
     if (!incident) return;
-    const payload = {
-      mcp_resource_uri: `mcp://incidenthub/incidents/${incident.ticketNo}`,
-      ticketNo: incident.ticketNo,
-      category: incident.category || 'General',
-      urgency: incident.urgency,
-      status: incident.status,
-      clean_text_corpus: resolutionText,
-      remediation_tags: ['RFC_TIMEOUT', 'SM50_WORKPROCESS', 'SM59_DESTINATION'],
-    };
-    navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    showToast('Copied MCP Schema JSON payload');
+    const text = JSON.stringify(buildMcpPayload(incident), null, 2);
+    let ok = false;
+    try {
+      if (window.isSecureContext && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    } catch {}
+    if (!ok) {
+      // navigator.clipboard is unavailable over plain HTTP / LAN IPs
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        ok = document.execCommand('copy');
+      } catch {}
+      document.body.removeChild(ta);
+    }
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      showToast('Copied MCP Schema JSON payload');
+    } else {
+      showToast('คัดลอกไม่สำเร็จ กรุณาคัดลอกจากตัวอย่าง JSON ด้วยตนเอง');
+    }
   };
+
+  const formatSize = (bytes: number) =>
+    bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(2)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  const attName = (att: IncidentDetail['attachments'][number]) =>
+    att.fileName || att.fileUrl.split('/').pop() || att.fileUrl;
 
   if (loading) {
     return (
@@ -329,13 +359,6 @@ export default function IncidentDetailMcpHub({
                   <span className="text-slate-900 font-semibold">{incident.reporterName}</span>
                   <span className="text-slate-500">
                     ({incident.department || 'General'}, {incident.contactInfo})
-                  </span>
-                </div>
-                <span className="hidden sm:inline text-slate-300">•</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] text-sky-700">dns</span>
-                  <span>
-                    Cluster: <strong className="text-slate-700">PROD-AP02</strong>
                   </span>
                 </div>
                 <span className="hidden sm:inline text-slate-300">•</span>
@@ -611,7 +634,6 @@ export default function IncidentDetailMcpHub({
                   <span className="material-symbols-outlined text-[14px] text-sky-600">verified_user</span>
                   Queue: <strong className="text-slate-900">{incident.category || 'Triage'}</strong>
                 </span>
-                <span className="text-sky-700 font-mono font-bold">SLA: 45m left</span>
               </div>
             </div>
 
@@ -627,65 +649,45 @@ export default function IncidentDetailMcpHub({
                       Diagnostics &amp; Evidence
                     </h3>
                     <p className="text-[11px] text-slate-500">
-                      {incident.attachments.length > 0
-                        ? `${incident.attachments.length} attachment file(s)`
-                        : 'System snapshot & OCR dump'}
+                      {incident.attachments.length} attachment file(s)
                     </p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-red-50 text-red-700 border border-red-200">
-                  OCR Validated
-                </span>
               </div>
 
               {incident.attachments.length > 0 ? (
-                incident.attachments.map((att) => (
-                  <div
-                    key={att.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-sky-50/60 border border-sky-200/80 hover:bg-sky-50 transition-all"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
-                        <span className="material-symbols-outlined text-[22px]">image</span>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold text-slate-800 font-mono truncate">
-                          {att.fileName || 'sap_error_dump_0918.png'}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          {att.fileType} • {att.fileSize ? `${(att.fileSize / 1024).toFixed(0)} KB` : '1.42 MB'}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setShowDumpModal(true)}
-                      className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
+                incident.attachments.map((att) => {
+                  const isImage = att.fileType.startsWith('image/');
+                  return (
+                    <div
+                      key={att.id}
+                      className="flex items-center justify-between p-3 rounded-xl bg-sky-50/60 border border-sky-200/80 hover:bg-sky-50 transition-all"
                     >
-                      <span className="material-symbols-outlined text-[15px]">visibility</span>
-                      <span>Preview</span>
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <div className="flex items-center justify-between p-3 rounded-xl bg-sky-50/60 border border-sky-200/80 hover:bg-sky-50 transition-all">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
-                      <span className="material-symbols-outlined text-[22px]">image</span>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-800 font-mono truncate">
-                        sap_error_dump_0918.png
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600 shrink-0">
+                          <span className="material-symbols-outlined text-[22px]">{isImage ? 'image' : 'description'}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-800 font-mono truncate">{attName(att)}</div>
+                          <div className="text-[11px] text-slate-500">
+                            {att.fileType}
+                            {att.fileSize != null && ` • ${formatSize(att.fileSize)}`}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500">PNG Image • 1.42 MB • Validated</div>
+                      <button
+                        onClick={() => setPreviewAtt(att)}
+                        className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">visibility</span>
+                        <span>Preview</span>
+                      </button>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => setShowDumpModal(true)}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">visibility</span>
-                    <span>Preview</span>
-                  </button>
+                  );
+                })
+              ) : (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500 text-center">
+                  ไม่มีไฟล์แนบ
                 </div>
               )}
             </div>
@@ -768,7 +770,7 @@ export default function IncidentDetailMcpHub({
                     </div>
                     <div className="bg-white border border-slate-200 p-2.5 rounded-xl shadow-xs">
                       <div className="text-[10px] text-slate-500 uppercase font-medium">Text Corpus</div>
-                      <div className="text-xs font-bold text-emerald-700 font-mono mt-0.5">100% Clean</div>
+                      <div className="text-xs font-bold text-emerald-700 font-mono mt-0.5">{charCount} chars</div>
                     </div>
                   </div>
 
@@ -777,13 +779,9 @@ export default function IncidentDetailMcpHub({
                     <pre className="text-slate-200 selection:bg-sky-700">
                       {JSON.stringify(
                         {
-                          mcp_resource_uri: `mcp://incidenthub/incidents/${incident.ticketNo}`,
-                          ticketNo: incident.ticketNo,
-                          category: incident.category || 'General',
-                          urgency: incident.urgency,
-                          status: incident.status,
-                          clean_text_corpus: resolutionText.slice(0, 180) + '...',
-                          remediation_tags: ['RFC_TIMEOUT', 'SM50_WORKPROCESS', 'SM59_DESTINATION'],
+                          ...buildMcpPayload(incident),
+                          clean_text_corpus:
+                            resolutionText.length > 180 ? resolutionText.slice(0, 180) + '...' : resolutionText,
                         },
                         null,
                         2
@@ -814,51 +812,52 @@ export default function IncidentDetailMcpHub({
         </div>
       </div>
 
-      {/* Modal Dump Preview Dialog */}
-      {showDumpModal && (
+      {/* Attachment Preview Dialog */}
+      {previewAtt && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-sky-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-red-600">bug_report</span>
-                <span className="text-sm font-bold text-slate-900 font-mono">
-                  Diagnostics Stack Snapshot ({incident.ticketNo})
-                </span>
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-sky-200 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="material-symbols-outlined text-sky-600">attachment</span>
+                <span className="text-sm font-bold text-slate-900 font-mono truncate">{attName(previewAtt)}</span>
               </div>
               <button
-                onClick={() => setShowDumpModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition-colors"
+                onClick={() => setPreviewAtt(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition-colors shrink-0"
+                aria-label="Close preview"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
 
-            {/* Simulated Screenshot / Dump view */}
-            <div className="bg-slate-900 rounded-xl p-4 font-mono text-xs text-red-400 space-y-2 overflow-x-auto shadow-inner border border-slate-800">
-              <div className="text-slate-400 text-[11px]">SAP GUI Release 770 Final [Build 192830] System ID: PRD Client: 100</div>
-              <div className="p-2 bg-red-950/60 border border-red-800 rounded text-red-300 font-bold">
-                SYSTEM ERROR: RFC_COMMUNICATION_FAILURE (Destination AP02_RFC)
+            {previewAtt.fileType.startsWith('image/') ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={previewAtt.fileUrl}
+                alt={attName(previewAtt)}
+                className="max-h-[70vh] w-full object-contain rounded-xl border border-slate-200 bg-slate-50"
+              />
+            ) : (
+              <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-600">
+                ไม่สามารถแสดงตัวอย่างไฟล์ประเภท {previewAtt.fileType} ได้
               </div>
-              <div className="text-slate-300 text-[11px] leading-relaxed">
-                Runtime Errors: CALL_FUNCTION_REMOTE_ERROR
-                <br />
-                ABAP Program: SAPMSSY1
-                <br />
-                Termination type: RFC_ERROR_SYSTEMFAILURE
-                <br />
-                Error text: &quot;CPIC-CALL: &apos;ThSAPCMINIT&apos; : cmRc=17 thRc=243 Connection to partner broken.&quot;
-                <br />
-                Server Context: sap-prd-ap02_PRD_00 (Work Process WP03, Dialog)
-              </div>
-            </div>
+            )}
 
             <div className="flex items-center justify-between text-xs pt-2">
-              <span className="text-slate-500 font-medium">OCR Analysis: 100% matched error token RFC_COMMUNICATION_FAILURE</span>
+              <a
+                href={previewAtt.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                Open / Download
+              </a>
               <button
-                onClick={() => setShowDumpModal(false)}
+                onClick={() => setPreviewAtt(null)}
                 className="px-4 py-2 rounded-xl bg-sky-600 text-white font-semibold text-xs hover:bg-sky-700 transition-colors"
               >
-                Close Inspector
+                Close
               </button>
             </div>
           </div>

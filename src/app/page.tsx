@@ -28,6 +28,7 @@ export default function SimplePublicReportPortal() {
     ticketNo: string;
     urgency: string;
     title: string;
+    status: string;
   } | null>(null);
 
   const [copied, setCopied] = useState(false);
@@ -152,6 +153,7 @@ export default function SimplePublicReportPortal() {
         ticketNo: created.ticketNo,
         urgency: created.urgency,
         title: created.title,
+        status: created.status || 'OPEN',
       });
     } catch (err: any) {
       alert(`เกิดข้อผิดพลาด: ${err.message}`);
@@ -187,7 +189,7 @@ export default function SimplePublicReportPortal() {
             <div className="space-y-2">
               <h2 className="text-2xl font-headline font-bold text-slate-900">บันทึกแจ้งปัญหาเรียบร้อยแล้ว!</h2>
               <p className="text-sm text-slate-600">
-                ระบบได้ส่งแจ้งเตือนเข้าห้อง Microsoft Teams ของทีม IT เรียบร้อยแล้ว เจ้าหน้าที่จะดำเนินการตรวจสอบโดยเร็วที่สุด
+                ระบบได้บันทึกข้อมูลการแจ้งปัญหาเรียบร้อยแล้ว เจ้าหน้าที่จะดำเนินการตรวจสอบโดยเร็วที่สุด
               </p>
             </div>
 
@@ -225,10 +227,12 @@ export default function SimplePublicReportPortal() {
             {/* Additional Info Pill */}
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Teams Webhook Dispatched</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>สถานะ: {submittedTicket.status || 'OPEN'}</span>
               </span>
-              <span className="font-mono text-slate-500">SLA: &lt; 30 mins</span>
+              <span className="font-mono text-slate-500 font-medium">
+                ระดับความสำคัญ: {submittedTicket.urgency || 'MEDIUM'}
+              </span>
             </div>
 
             {/* Reset for another ticket */}

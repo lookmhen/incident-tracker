@@ -4,6 +4,9 @@ import { IntegrationService } from '@/lib/services/integration.service';
 import { TeamsService } from '@/lib/services/teams.service';
 import { EmailService } from '@/lib/services/email.service';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   if (!(await isAdminAuthenticated(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

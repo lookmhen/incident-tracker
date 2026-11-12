@@ -7,19 +7,37 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   try {
-    const res = await TeamsService.dispatch({
-      ticketNo: 'PING-TEST-001',
-      title: 'IncidentHub Test Diagnostic Pulse',
-      description: 'Test ping triggered from IncidentHub Operations Console to verify Teams incoming webhook connectivity.',
-      reporterName: 'SysAdmin Bot',
-      department: 'IT Operations Core',
-      contactInfo: 'ops@company.internal',
-      urgency: 'LOW',
-      category: 'Diagnostic',
-    });
+    let body: any = null;
+    try {
+      body = await req.json();
+    } catch {}
+
+    const payload = body?.ticketNo
+      ? {
+          ticketNo: body.ticketNo,
+          title: body.title,
+          description: body.description,
+          reporterName: body.reporterName,
+          department: body.department,
+          contactInfo: body.contactInfo || '-',
+          urgency: body.urgency || 'MEDIUM',
+          category: body.category,
+        }
+      : {
+          ticketNo: 'PING-TEST-001',
+          title: 'IncidentHub Test Diagnostic Pulse',
+          description: 'Test ping triggered from IncidentHub Operations Console to verify Teams incoming webhook connectivity.',
+          reporterName: 'SysAdmin Bot',
+          department: 'IT Operations Core',
+          contactInfo: 'ops@company.internal',
+          urgency: 'LOW',
+          category: 'Diagnostic',
+        };
+
+    const res = await TeamsService.dispatch(payload);
 
     return NextResponse.json(res);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to dispatch test card' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to dispatch card' }, { status: 500 });
   }
 }

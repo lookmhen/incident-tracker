@@ -30,9 +30,7 @@ export interface AllIntegrationsConfig {
   mcpSecurity: McpSecuritySettings;
 }
 
-const DEFAULT_TEAMS_URL =
-  process.env.TEAMS_WEBHOOK_URL ||
-  'https://default169f130f0f3f4a2c942df5741e9746.c1.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/27/workflows/c432d57f1a4244efb1a562849052b582/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=eLjXNKC8OJvpxQQXDYHADFD2NkdIp8QevGgF5nw89tg';
+const DEFAULT_TEAMS_URL = process.env.TEAMS_WEBHOOK_URL || '';
 
 export class IntegrationService {
   /**
@@ -46,18 +44,28 @@ export class IntegrationService {
     }
 
     // 1. Teams Config
+    const envTeamsUrl = (process.env.TEAMS_WEBHOOK_URL || '').trim();
+    const isEnvConfigured = Boolean(envTeamsUrl && !envTeamsUrl.includes('your-webhook-url') && envTeamsUrl.startsWith('http'));
+
     let teams: TeamsIntegrationSettings = {
       isEnabled: true,
-      webhookUrl: DEFAULT_TEAMS_URL,
+      webhookUrl: isEnvConfigured ? envTeamsUrl : '',
       payloadMode: 'power_automate',
     };
     const teamsRecord = map.get('teams');
     if (teamsRecord) {
       try {
         const parsed = JSON.parse(teamsRecord.value);
+        const decryptedUrl = parsed.webhookUrl ? decryptSecret(parsed.webhookUrl).trim() : '';
+        // If DB has a real URL (not dummy placeholder), use DB URL.
+        // If DB has a dummy placeholder or empty string, fallback to process.env if configured.
+        const effectiveUrl = (decryptedUrl && !decryptedUrl.includes('your-webhook-url'))
+          ? decryptedUrl
+          : (isEnvConfigured ? envTeamsUrl : decryptedUrl);
+
         teams = {
           isEnabled: teamsRecord.isEnabled,
-          webhookUrl: parsed.webhookUrl ? decryptSecret(parsed.webhookUrl) : DEFAULT_TEAMS_URL,
+          webhookUrl: effectiveUrl,
           payloadMode: parsed.payloadMode || 'power_automate',
         };
       } catch {}

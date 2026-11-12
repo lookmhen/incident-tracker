@@ -161,7 +161,18 @@ export class TeamsService {
       };
     }
 
-    const webhookUrl = customUrl || teams.webhookUrl || process.env.TEAMS_WEBHOOK_URL;
+    let webhookUrl = customUrl;
+    if (!webhookUrl) {
+      const dbUrl = teams.webhookUrl?.trim();
+      const envUrl = process.env.TEAMS_WEBHOOK_URL?.trim();
+      if (dbUrl && !dbUrl.includes('your-webhook-url') && dbUrl.startsWith('http')) {
+        webhookUrl = dbUrl;
+      } else if (envUrl && !envUrl.includes('your-webhook-url') && envUrl.startsWith('http')) {
+        webhookUrl = envUrl;
+      } else {
+        webhookUrl = dbUrl || envUrl || '';
+      }
+    }
     const bodyPayload =
       teams.payloadMode === 'adaptive_card'
         ? this.buildAdaptiveCard(payload)
@@ -256,7 +267,18 @@ export class TeamsService {
     event: CustomEventPayload
   ): Promise<{ success: boolean; statusCode: number; message: string; responseBody?: string }> {
     const { teams } = await IntegrationService.getRawConfig();
-    const webhookUrl = event.webhookUrl || teams.webhookUrl || process.env.TEAMS_WEBHOOK_URL;
+    let webhookUrl = event.webhookUrl;
+    if (!webhookUrl) {
+      const dbUrl = teams.webhookUrl?.trim();
+      const envUrl = process.env.TEAMS_WEBHOOK_URL?.trim();
+      if (dbUrl && !dbUrl.includes('your-webhook-url') && dbUrl.startsWith('http')) {
+        webhookUrl = dbUrl;
+      } else if (envUrl && !envUrl.includes('your-webhook-url') && envUrl.startsWith('http')) {
+        webhookUrl = envUrl;
+      } else {
+        webhookUrl = dbUrl || envUrl || '';
+      }
+    }
 
     if (!webhookUrl || !webhookUrl.startsWith('http')) {
       return {

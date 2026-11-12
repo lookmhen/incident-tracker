@@ -79,20 +79,48 @@ export default function IntegrationsSecurityHubPage() {
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [testingTeams, setTestingTeams] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
+  const [savingTeams, setSavingTeams] = useState(false);
+  const [savingSmtp, setSavingSmtp] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 4000);
   };
 
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    let ok = false;
+    try {
+      if (window.isSecureContext && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    } catch {}
+    if (!ok) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch {}
+    }
+    return ok;
+  };
+
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/integrations');
+      const res = await fetch('/api/integrations', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setTeams(data.teams);
         setSmtp(data.smtp);
         setMcpSec(data.mcpSecurity);
+      } else if (res.status === 401) {
+        showToast('⚠️ เซสชันผู้ดูแลหมดอายุ กรุณาเข้าสู่ระบบใหม่ที่ /admin/login');
       }
     } catch (e) {
       console.error(e);
@@ -106,7 +134,7 @@ export default function IntegrationsSecurityHubPage() {
       const params = new URLSearchParams();
       if (channelFilter !== 'ALL') params.set('channel', channelFilter);
       if (statusFilter !== 'ALL') params.set('status', statusFilter);
-      const res = await fetch(`/api/integrations/logs?${params.toString()}`);
+      const res = await fetch(`/api/integrations/logs?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);
@@ -129,29 +157,47 @@ export default function IntegrationsSecurityHubPage() {
 
   const handleSaveTeams = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/integrations', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section: 'teams', data: teams }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setTeams(data.teams);
-      showToast('บันทึกการตั้งค่า Webhook เรียบร้อยแล้ว');
+    setSavingTeams(true);
+    try {
+      const res = await fetch('/api/integrations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'teams', data: teams }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.teams) {
+        setTeams(data.teams);
+        showToast('✅ บันทึกการตั้งค่า Webhook เรียบร้อยแล้ว');
+      } else {
+        showToast(`❌ บันทึกไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`);
+      }
+    } catch (err: any) {
+      showToast(`❌ ข้อผิดพลาดเครือข่าย: ${err.message}`);
+    } finally {
+      setSavingTeams(false);
     }
   };
 
   const handleSaveSmtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/integrations', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section: 'smtp', data: smtp }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setSmtp(data.smtp);
-      showToast('บันทึกการตั้งค่า SMTP (เข้ารหัส AES-256) เรียบร้อยแล้ว');
+    setSavingSmtp(true);
+    try {
+      const res = await fetch('/api/integrations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'smtp', data: smtp }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.smtp) {
+        setSmtp(data.smtp);
+        showToast('✅ บันทึกการตั้งค่า SMTP เรียบร้อยแล้ว');
+      } else {
+        showToast(`❌ บันทึกไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`);
+      }
+    } catch (err: any) {
+      showToast(`❌ ข้อผิดพลาดเครือข่าย: ${err.message}`);
+    } finally {
+      setSavingSmtp(false);
     }
   };
 
@@ -192,9 +238,19 @@ export default function IntegrationsSecurityHubPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'test_teams' }),
       });
-      const data = await res.json();
-      showToast(data.message || 'ส่ง Test Ping เรียบร้อยแล้ว');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(`❌ ทดสอบไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`);
+      } else if (data.simulated) {
+        showToast(`⚠️ โหมดจำลอง: ${data.message}`);
+      } else if (data.success) {
+        showToast(`✅ ส่งข้อความเข้า Teams สำเร็จ (HTTP ${data.statusCode || 200})`);
+      } else {
+        showToast(`❌ Teams ปลายทางตอบกลับ: ${data.message || 'Failed'}`);
+      }
       fetchLogs();
+    } catch (err: any) {
+      showToast(`❌ ข้อผิดพลาดเครือข่าย: ${err.message}`);
     } finally {
       setTestingTeams(false);
     }
@@ -433,10 +489,13 @@ export default function IntegrationsSecurityHubPage() {
 
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  disabled={savingTeams}
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[16px]">save</span>
-                  <span>Save Webhook Config</span>
+                  <span className={`material-symbols-outlined text-[16px] ${savingTeams ? 'animate-spin' : ''}`}>
+                    {savingTeams ? 'sync' : 'save'}
+                  </span>
+                  <span>{savingTeams ? 'Saving...' : 'Save Webhook Config'}</span>
                 </button>
               </div>
             </form>
@@ -568,10 +627,13 @@ export default function IntegrationsSecurityHubPage() {
 
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  disabled={savingSmtp}
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[16px]">save</span>
-                  <span>Save SMTP Config</span>
+                  <span className={`material-symbols-outlined text-[16px] ${savingSmtp ? 'animate-spin' : ''}`}>
+                    {savingSmtp ? 'sync' : 'save'}
+                  </span>
+                  <span>{savingSmtp ? 'Saving...' : 'Save SMTP Config'}</span>
                 </button>
               </div>
             </form>
@@ -630,10 +692,12 @@ export default function IntegrationsSecurityHubPage() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(mcpSec.apiKey);
-                    setCopiedKey(true);
-                    setTimeout(() => setCopiedKey(false), 2000);
+                  onClick={async () => {
+                    const ok = await copyToClipboard(mcpSec.apiKey);
+                    if (ok) {
+                      setCopiedKey(true);
+                      setTimeout(() => setCopiedKey(false), 2000);
+                    }
                   }}
                   className="px-4 py-2.5 rounded-xl bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
@@ -752,10 +816,12 @@ export default function IntegrationsSecurityHubPage() {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(getSnippetCode());
-                          setCopiedSnippet(true);
-                          setTimeout(() => setCopiedSnippet(false), 2000);
+                        onClick={async () => {
+                          const ok = await copyToClipboard(getSnippetCode() || '');
+                          if (ok) {
+                            setCopiedSnippet(true);
+                            setTimeout(() => setCopiedSnippet(false), 2000);
+                          }
                         }}
                         className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono text-sky-400 flex items-center gap-1 cursor-pointer"
                       >

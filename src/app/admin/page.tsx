@@ -199,16 +199,24 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Send Test Teams Ping
-  const handleSendTeamsPing = async () => {
-    setTeamsPingStatus('Sending ping...');
+  // Send Teams Dispatch (specific incident or diagnostic ping)
+  const handleSendTeamsPing = async (targetIncident?: IncidentRecord) => {
+    setTeamsPingStatus(targetIncident ? `Sending ${targetIncident.ticketNo}...` : 'Sending ping...');
     try {
-      const res = await fetch('/api/teams/ping', { method: 'POST' });
+      const res = await fetch('/api/teams/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: targetIncident ? JSON.stringify(targetIncident) : undefined,
+      });
       const data = await res.json();
-      setTeamsPingStatus(data.simulated ? 'Ping Sent (Simulated Mode)' : 'Ping Sent (HTTP 200)');
+      if (targetIncident) {
+        setTeamsPingStatus(data.simulated ? `Forwarded ${targetIncident.ticketNo} (Simulated)` : `Forwarded ${targetIncident.ticketNo}`);
+      } else {
+        setTeamsPingStatus(data.simulated ? 'Ping Sent (Simulated Mode)' : 'Ping Sent (HTTP 200)');
+      }
       setTimeout(() => setTeamsPingStatus(null), 4000);
     } catch (e) {
-      setTeamsPingStatus('Ping failed');
+      setTeamsPingStatus('Forwarding failed');
     }
   };
 
@@ -695,9 +703,9 @@ export default function AdminDashboardPage() {
                             )}
 
                             <button
-                              onClick={handleSendTeamsPing}
-                              className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors"
-                              title="Forward payload to Microsoft Teams channel"
+                              onClick={() => handleSendTeamsPing(inc)}
+                              className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors cursor-pointer"
+                              title={`Forward payload for ${inc.ticketNo} to Microsoft Teams channel`}
                             >
                               <span className="material-symbols-outlined text-[15px]">send_to_mobile</span>
                             </button>

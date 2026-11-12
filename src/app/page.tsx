@@ -170,10 +170,31 @@ export default function SimplePublicReportPortal() {
     setSubmittedTicket(null);
   };
 
-  const handleCopyTicket = (ticketNo: string) => {
-    navigator.clipboard.writeText(ticketNo);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyTicket = async (ticketNo: string) => {
+    let ok = false;
+    try {
+      if (window.isSecureContext && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(ticketNo);
+        ok = true;
+      }
+    } catch {}
+    if (!ok) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = ticketNo;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch {}
+    }
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (

@@ -514,7 +514,7 @@ export default function AdminDashboardPage() {
                 <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-label tracking-wider uppercase text-[11px]">
                   <th className="py-3.5 px-4 font-semibold">Ticket ID</th>
                   <th className="py-3.5 px-3 font-semibold">Age</th>
-                  <th className="py-3.5 px-3 font-semibold">Urgency</th>
+                  <th className="py-3.5 px-3 font-semibold whitespace-nowrap">Urgency</th>
                   <th className="py-3.5 px-3 font-semibold">Category</th>
                   <th className="py-3.5 px-4 font-semibold min-w-[320px]">Incident Summary &amp; Reporter</th>
                   <th className="py-3.5 px-3 font-semibold">Status</th>
@@ -554,18 +554,18 @@ export default function AdminDashboardPage() {
                           </Link>
                         </td>
                         <td className="py-3.5 px-3 font-mono text-slate-500">{getAge(inc.createdAt)}</td>
-                        <td className="py-3.5 px-3">
+                        <td className="py-3.5 px-3 whitespace-nowrap">
                           {isHigh ? (
-                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 whitespace-nowrap">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
                               P1 HIGH
                             </span>
                           ) : isMed ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60 whitespace-nowrap">
                               P2 MED
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
                               P3 LOW
                             </span>
                           )}

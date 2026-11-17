@@ -40,11 +40,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       status: body.status,
       assignedTo: body.assignedTo,
       resolution: body.resolution,
+      closedAt: body.closedAt,
     });
 
     return NextResponse.json(updated);
   } catch (error: any) {
+    const msg = error?.message || 'Failed to update incident';
+    if (msg.startsWith('Incident not found:')) {
+      return NextResponse.json({ error: msg }, { status: 404 });
+    }
+    if (msg.includes('closedAt')) {
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
     console.error('Error updating incident:', error);
-    return NextResponse.json({ error: error.message || 'Failed to update incident' }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

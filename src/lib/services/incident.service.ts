@@ -339,8 +339,14 @@ export class IncidentService {
       status?: string;
       assignedTo?: string;
       resolution?: string;
+      closedAt?: string | Date | null;
     }
   ) {
+    const target = await this.getIncidentById(idOrTicketNo);
+    if (!target) {
+      throw new Error(`Incident not found: ${idOrTicketNo}`);
+    }
+
     const updatePayload: any = {};
 
     if (data.title !== undefined) updatePayload.title = McpService.cleanText(data.title);
@@ -353,19 +359,34 @@ export class IncidentService {
     if (data.status !== undefined) {
       updatePayload.status = data.status.toUpperCase();
       if (['RESOLVED', 'CLOSED'].includes(updatePayload.status)) {
-        updatePayload.closedAt = new Date();
+        if (data.closedAt === undefined) {
+          updatePayload.closedAt = target.closedAt ?? new Date();
+        }
       } else {
         updatePayload.closedAt = null;
       }
     }
 
-    if (data.resolution !== undefined) {
-      updatePayload.resolution = McpService.cleanText(data.resolution);
+    const effectiveStatus = updatePayload.status ?? target.status;
+    if (data.closedAt !== undefined && ['RESOLVED', 'CLOSED'].includes(effectiveStatus)) {
+      if (data.closedAt === null) {
+        updatePayload.closedAt = null;
+      } else {
+        const parsed = data.closedAt instanceof Date ? data.closedAt : new Date(data.closedAt);
+        if (Number.isNaN(parsed.getTime())) {
+          throw new Error('Invalid closedAt date');
+        }
+        if (parsed.getTime() < target.createdAt.getTime()) {
+          throw new Error('closedAt cannot be earlier than createdAt');
+        }
+        updatePayload.closedAt = parsed;
+      }
+    } else if (data.closedAt !== undefined && data.closedAt !== null && data.status === undefined) {
+      throw new Error('Cannot set closedAt unless incident is RESOLVED or CLOSED');
     }
 
-    const target = await this.getIncidentById(idOrTicketNo);
-    if (!target) {
-      throw new Error(`Incident not found: ${idOrTicketNo}`);
+    if (data.resolution !== undefined) {
+      updatePayload.resolution = McpService.cleanText(data.resolution);
     }
 
     return prisma.incident.update({

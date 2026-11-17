@@ -58,6 +58,11 @@ export default function IncidentDetailMcpHub({
   const [editDescription, setEditDescription] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
 
+  // Edit closedAt state
+  const [isEditingClosedAt, setIsEditingClosedAt] = useState(false);
+  const [editClosedAt, setEditClosedAt] = useState('');
+  const [savingClosedAt, setSavingClosedAt] = useState(false);
+
   // Attachment preview modal (holds the clicked attachment)
   const [previewAtt, setPreviewAtt] = useState<IncidentDetail['attachments'][number] | null>(null);
 
@@ -141,11 +146,9 @@ export default function IncidentDetailMcpHub({
         }),
       });
       if (res.ok) {
-        setIncident({
-          ...incident,
-          assignedTo: 'Admin (Me)',
-          status: 'IN_PROGRESS',
-        });
+        const updated = await res.json();
+        setIncident(updated);
+        setIsEditingClosedAt(false);
         showToast('Claimed ticket • Status set to IN_PROGRESS');
       }
     } catch (e) {
@@ -163,7 +166,9 @@ export default function IncidentDetailMcpHub({
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        setIncident({ ...incident, status: newStatus });
+        const updated = await res.json();
+        setIncident(updated);
+        setIsEditingClosedAt(false);
         showToast(`Status updated to ${newStatus}`);
       }
     } catch (e) {
@@ -239,6 +244,47 @@ export default function IncidentDetailMcpHub({
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const toLocalDateTimeInput = (iso: string) => {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const handleSaveClosedAt = async () => {
+    if (!incident || !editClosedAt) return;
+    const parsed = new Date(editClosedAt);
+    if (Number.isNaN(parsed.getTime())) {
+      showToast('รูปแบบวันเวลาไม่ถูกต้อง');
+      return;
+    }
+    if (parsed.getTime() < new Date(incident.createdAt).getTime()) {
+      showToast('วันเวลาปิดเคสต้องไม่ก่อนเวลาเปิดเคส');
+      return;
+    }
+    setSavingClosedAt(true);
+    try {
+      const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ closedAt: parsed.toISOString() }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setIncident(updated);
+        setIsEditingClosedAt(false);
+        showToast('อัปเดตวันเวลาปิดเคสเรียบร้อยแล้ว');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || 'ไม่สามารถอัปเดตวันเวลาปิดเคสได้');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setSavingClosedAt(false);
     }
   };
 
@@ -674,20 +720,65 @@ export default function IncidentDetailMcpHub({
                       : 'bg-sky-50/60 border-sky-200/80'
                   }`}
                 >
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">
-                    {isClosed ? 'ปิดเคสเมื่อ (Closed)' : 'สถานะเวลาปัจจุบัน'}
-                  </span>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
+                      {isClosed ? 'ปิดเคสเมื่อ (Closed)' : 'สถานะเวลาปัจจุบัน'}
+                    </span>
+                    {isClosed && !isEditingClosedAt && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditClosedAt(toLocalDateTimeInput(incident.closedAt || new Date().toISOString()));
+                          setIsEditingClosedAt(true);
+                        }}
+                        className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
+                        title="แก้ไขวันเวลาปิดเคส"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">edit</span>
+                        <span>แก้ไข</span>
+                      </button>
+                    )}
+                  </div>
                   {isClosed ? (
-                    <>
-                      <div className="font-semibold text-emerald-800 font-mono">
-                        {incident.closedAt ? new Date(incident.closedAt).toLocaleDateString('th-TH') : '-'}
+                    isEditingClosedAt ? (
+                      <div className="space-y-1.5 pt-0.5">
+                        <input
+                          type="datetime-local"
+                          value={editClosedAt}
+                          min={toLocalDateTimeInput(incident.createdAt)}
+                          onChange={(e) => setEditClosedAt(e.target.value)}
+                          className="w-full px-2 py-1 rounded-lg border border-emerald-300 bg-white text-[11px] font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingClosedAt(false)}
+                            className="px-2 py-0.5 rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-[10px] text-slate-600 cursor-pointer"
+                          >
+                            ยกเลิก
+                          </button>
+                          <button
+                            type="button"
+                            disabled={savingClosedAt || !editClosedAt}
+                            onClick={handleSaveClosedAt}
+                            className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold cursor-pointer disabled:opacity-50"
+                          >
+                            {savingClosedAt ? 'กำลังบันทึก...' : 'บันทึก'}
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-emerald-600 font-mono">
-                        {incident.closedAt
-                          ? `${new Date(incident.closedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`
-                          : '-'}
-                      </div>
-                    </>
+                    ) : (
+                      <>
+                        <div className="font-semibold text-emerald-800 font-mono">
+                          {incident.closedAt ? new Date(incident.closedAt).toLocaleDateString('th-TH') : '-'}
+                        </div>
+                        <div className="text-[11px] text-emerald-600 font-mono">
+                          {incident.closedAt
+                            ? `${new Date(incident.closedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`
+                            : '-'}
+                        </div>
+                      </>
+                    )
                   ) : (
                     <>
                       <div className="font-semibold text-sky-800 flex items-center gap-1.5 font-mono">

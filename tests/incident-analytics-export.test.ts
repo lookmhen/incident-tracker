@@ -8,6 +8,7 @@ import { IntegrationService } from '../src/lib/services/integration.service';
 import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
 import { GET as exportCsvHandler } from '../src/app/api/incidents/export/route';
 import { GET as inboundGetHandler, POST as inboundPostHandler } from '../src/app/api/incidents/inbound/route';
+import { PATCH as incidentPatchHandler } from '../src/app/api/incidents/[id]/route';
 
 describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
   const testCategoryIds: string[] = [];
@@ -186,5 +187,47 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.ok(inDb);
     assert.equal(inDb.title, 'Core Switch STP Loop Detected');
     assert.equal(inDb.reporterName, 'Zabbix NOC Alerting');
+  });
+
+  it('allows Admin to edit closedAt on resolved/closed incidents and validates bounds', async () => {
+    const ticketNo = testTicketNos[0];
+    const existing = await IncidentService.getIncidentById(ticketNo);
+    assert.ok(existing);
+
+    const adminToken = await createAdminSessionToken();
+    const customClosedAt = new Date(existing.createdAt.getTime() + 90 * 60 * 1000).toISOString();
+
+    const validReq = new NextRequest(`http://localhost:3000/api/incidents/${ticketNo}`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
+      },
+      body: JSON.stringify({ closedAt: customClosedAt }),
+    });
+    const validRes = await incidentPatchHandler(validReq, { params: Promise.resolve({ id: ticketNo }) });
+    assert.equal(validRes.status, 200);
+    const updated = await validRes.json();
+    assert.equal(new Date(updated.closedAt).toISOString(), customClosedAt);
+
+    // Reject closedAt earlier than createdAt
+    const earlierIso = new Date(existing.createdAt.getTime() - 60 * 1000).toISOString();
+    const invalidReq = new NextRequest(`http://localhost:3000/api/incidents/${ticketNo}`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
+      },
+      body: JSON.stringify({ closedAt: earlierIso }),
+    });
+    const invalidRes = await incidentPatchHandler(invalidReq, { params: Promise.resolve({ id: ticketNo }) });
+    assert.equal(invalidRes.status, 400);
+
+    // Preserves custom closedAt when transitioning RESOLVED -> CLOSED, clears on OPEN
+    const closedStatus = await IncidentService.updateIncident(ticketNo, { status: 'CLOSED' });
+    assert.equal(closedStatus.closedAt?.toISOString(), customClosedAt);
+
+    const reopened = await IncidentService.updateIncident(ticketNo, { status: 'OPEN' });
+    assert.equal(reopened.closedAt, null);
   });
 });

@@ -246,7 +246,6 @@ export class IncidentService {
     const resolvedSamples = await prisma.incident.findMany({
       where: { status: { in: ['RESOLVED', 'CLOSED'] }, closedAt: { not: null } },
       select: { createdAt: true, closedAt: true },
-      take: 50,
     });
     let totalMins = 0;
     let sampleCount = 0;
@@ -455,12 +454,15 @@ export class IncidentService {
       orderBy: { createdAt: 'asc' },
     });
 
+    const normStatus = (s?: string | null) => (s || 'OPEN').trim().toUpperCase();
+    const normUrgency = (u?: string | null) => (u || 'MEDIUM').trim().toUpperCase();
+
     const total = records.length;
-    const resolvedRecords = records.filter((r) => r.status === 'RESOLVED' || r.status === 'CLOSED');
+    const resolvedRecords = records.filter((r) => ['RESOLVED', 'CLOSED'].includes(normStatus(r.status)));
     const resolvedCount = resolvedRecords.length;
-    const openCount = records.filter((r) => r.status === 'OPEN').length;
-    const inProgressCount = records.filter((r) => r.status === 'IN_PROGRESS').length;
-    const criticalCount = records.filter((r) => r.urgency === 'HIGH').length;
+    const openCount = records.filter((r) => normStatus(r.status) === 'OPEN').length;
+    const inProgressCount = records.filter((r) => normStatus(r.status) === 'IN_PROGRESS').length;
+    const criticalCount = records.filter((r) => normUrgency(r.urgency) === 'HIGH').length;
     const resolutionRate = total > 0 ? Math.round((resolvedCount / total) * 100) : 0;
 
     // Avg resolution time in minutes
@@ -539,8 +541,8 @@ export class IncidentService {
           resolved: 0,
         };
         entry.total++;
-        if (r.urgency === 'HIGH') entry.high++;
-        if (r.status === 'RESOLVED' || r.status === 'CLOSED') entry.resolved++;
+        if (normUrgency(r.urgency) === 'HIGH') entry.high++;
+        if (['RESOLVED', 'CLOSED'].includes(normStatus(r.status))) entry.resolved++;
         trendMap.set(key, entry);
       }
     } else {
@@ -555,8 +557,8 @@ export class IncidentService {
           resolved: 0,
         };
         entry.total++;
-        if (r.urgency === 'HIGH') entry.high++;
-        if (r.status === 'RESOLVED' || r.status === 'CLOSED') entry.resolved++;
+        if (normUrgency(r.urgency) === 'HIGH') entry.high++;
+        if (['RESOLVED', 'CLOSED'].includes(normStatus(r.status))) entry.resolved++;
         trendMap.set(day, entry);
       }
     }
@@ -593,14 +595,14 @@ export class IncidentService {
     const byStatus = [
       { status: 'OPEN', count: openCount },
       { status: 'IN_PROGRESS', count: inProgressCount },
-      { status: 'RESOLVED', count: records.filter((r) => r.status === 'RESOLVED').length },
-      { status: 'CLOSED', count: records.filter((r) => r.status === 'CLOSED').length },
+      { status: 'RESOLVED', count: records.filter((r) => normStatus(r.status) === 'RESOLVED').length },
+      { status: 'CLOSED', count: records.filter((r) => normStatus(r.status) === 'CLOSED').length },
     ];
 
     const byUrgency = [
       { urgency: 'HIGH', count: criticalCount },
-      { urgency: 'MEDIUM', count: records.filter((r) => r.urgency === 'MEDIUM').length },
-      { urgency: 'LOW', count: records.filter((r) => r.urgency === 'LOW').length },
+      { urgency: 'MEDIUM', count: records.filter((r) => normUrgency(r.urgency) === 'MEDIUM').length },
+      { urgency: 'LOW', count: records.filter((r) => normUrgency(r.urgency) === 'LOW').length },
     ];
 
     return {

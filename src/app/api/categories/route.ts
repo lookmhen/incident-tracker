@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CategoryService } from '@/lib/services/category.service';
 import { checkApiAccess } from '@/lib/api-guard';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const categories = await CategoryService.getAllCategories();

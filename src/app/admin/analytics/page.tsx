@@ -40,7 +40,7 @@ export default function AnalyticsDashboardPage() {
       if (end) params.set('endDate', end);
       if (group && group !== 'auto') params.set('groupBy', group);
 
-      const res = await fetch(`/api/incidents/analytics?${params.toString()}`);
+      const res = await fetch(`/api/incidents/analytics?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -57,11 +57,12 @@ export default function AnalyticsDashboardPage() {
   }, []);
 
   const applyPreset = (days: number | null) => {
+    setGroupBy('auto');
     if (days === null) {
       setPreset('all');
       setStartDate('');
       setEndDate('');
-      fetchAnalytics('', '', groupBy);
+      fetchAnalytics('', '', 'auto');
       return;
     }
     setPreset(days === 7 ? '7' : '30');
@@ -73,7 +74,7 @@ export default function AnalyticsDashboardPage() {
     const eStr = end.toLocaleDateString('sv-SE');
     setStartDate(sStr);
     setEndDate(eStr);
-    fetchAnalytics(sStr, eStr, groupBy);
+    fetchAnalytics(sStr, eStr, 'auto');
   };
 
   const applyYearPreset = (year = currentYear) => {
@@ -138,7 +139,8 @@ export default function AnalyticsDashboardPage() {
                 type="button"
                 onClick={() => {
                   setPreset(null);
-                  fetchAnalytics(startDate, endDate);
+                  setGroupBy('auto');
+                  fetchAnalytics(startDate, endDate, 'auto');
                 }}
                 className="ml-1 px-2.5 py-1 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700 cursor-pointer"
               >
@@ -318,7 +320,10 @@ export default function AnalyticsDashboardPage() {
             </div>
 
             <div className="space-y-3 pt-2">
-              {data?.byCategory.map((cat, idx) => (
+              {!data || data.byCategory.length === 0 ? (
+                <div className="py-10 text-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
+              ) : (
+                data.byCategory.map((cat, idx) => (
                 <div key={cat.name} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-slate-800 flex items-center gap-2">
@@ -342,7 +347,8 @@ export default function AnalyticsDashboardPage() {
                     />
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </div>
 
@@ -359,25 +365,29 @@ export default function AnalyticsDashboardPage() {
             </div>
 
             <div className="space-y-3 pt-2">
-              {data?.byDepartment.map((dept) => {
-                const widthPct = Math.max(Math.round((dept.count / maxDept) * 100), 6);
-                return (
-                  <div key={dept.department} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-slate-800">{dept.department}</span>
-                      <span className="font-mono text-sky-700 font-bold">
-                        {dept.count} เคส ({dept.percentage}%)
-                      </span>
+              {!data || data.byDepartment.length === 0 ? (
+                <div className="py-10 text-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
+              ) : (
+                data.byDepartment.map((dept) => {
+                  const widthPct = Math.max(Math.round((dept.count / maxDept) * 100), 6);
+                  return (
+                    <div key={dept.department} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-slate-800">{dept.department}</span>
+                        <span className="font-mono text-sky-700 font-bold">
+                          {dept.count} เคส ({dept.percentage}%)
+                        </span>
+                      </div>
+                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-indigo-500 rounded-full transition-all"
+                          style={{ width: `${widthPct}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-indigo-500 rounded-full transition-all"
-                        style={{ width: `${widthPct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 

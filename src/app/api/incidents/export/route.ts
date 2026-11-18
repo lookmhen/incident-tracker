@@ -3,6 +3,9 @@ import { isAdminAuthenticated } from '@/lib/auth';
 import { IncidentService } from '@/lib/services/incident.service';
 import prisma from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function escapeCsvCell(value: any): string {
   if (value === null || value === undefined) return '""';
   const str = String(value).replace(/"/g, '""');
@@ -73,6 +76,7 @@ export async function GET(req: NextRequest) {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="incidents_report_${dateTag}.csv"`,
+        'Cache-Control': 'no-store, max-age=0',
       },
     });
   } catch (err: any) {

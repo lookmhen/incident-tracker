@@ -9,6 +9,7 @@ import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
 import { GET as exportCsvHandler } from '../src/app/api/incidents/export/route';
 import { GET as inboundGetHandler, POST as inboundPostHandler } from '../src/app/api/incidents/inbound/route';
 import { PATCH as incidentPatchHandler } from '../src/app/api/incidents/[id]/route';
+import { GET as analyticsGetHandler } from '../src/app/api/incidents/analytics/route';
 
 describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
   const testCategoryIds: string[] = [];
@@ -229,5 +230,36 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
 
     const reopened = await IncidentService.updateIncident(ticketNo, { status: 'OPEN' });
     assert.equal(reopened.closedAt, null);
+  });
+
+  it('serves fresh analytics with no-store headers and consistent status/urgency totals', async () => {
+    const adminToken = await createAdminSessionToken();
+    const fetchAnalytics = async () => {
+      const req = new NextRequest('http://localhost:3000/api/incidents/analytics', {
+        headers: { cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
+      });
+      const res = await analyticsGetHandler(req);
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('cache-control'), 'no-store, max-age=0');
+      return res.json();
+    };
+
+    const beforeData = await fetchAnalytics();
+    const statusSum = beforeData.byStatus.reduce((acc: number, s: { count: number }) => acc + s.count, 0);
+    const urgencySum = beforeData.byUrgency.reduce((acc: number, u: { count: number }) => acc + u.count, 0);
+    assert.equal(statusSum, beforeData.summary.total);
+    assert.equal(urgencySum, beforeData.summary.total);
+
+    const openBefore = beforeData.byStatus.find((s: { status: string }) => s.status === 'OPEN')?.count ?? 0;
+    const resolvedBefore = beforeData.byStatus.find((s: { status: string }) => s.status === 'RESOLVED')?.count ?? 0;
+
+    // Resolve the reopened test ticket and verify analytics updates immediately
+    await IncidentService.updateIncident(testTicketNos[0], { status: 'RESOLVED' });
+    const afterData = await fetchAnalytics();
+    const openAfter = afterData.byStatus.find((s: { status: string }) => s.status === 'OPEN')?.count ?? 0;
+    const resolvedAfter = afterData.byStatus.find((s: { status: string }) => s.status === 'RESOLVED')?.count ?? 0;
+
+    assert.equal(openAfter, openBefore - 1);
+    assert.equal(resolvedAfter, resolvedBefore + 1);
   });
 });

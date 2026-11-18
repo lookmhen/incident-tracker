@@ -67,6 +67,82 @@ export class IncidentService {
     });
   }
 
+  private static readonly MTTR_EXCLUDED_KEY = 'mttr_excluded_tickets';
+  private static readonly ROOT_CAUSE_OPTIONS_KEY = 'root_cause_options';
+  private static readonly DEFAULT_ROOT_CAUSES = ['Human', 'System', 'Data'];
+
+  public static async getRootCauseOptions(): Promise<string[]> {
+    const row = await prisma.integrationConfig.findUnique({
+      where: { key: this.ROOT_CAUSE_OPTIONS_KEY },
+    });
+    if (!row?.value) return [...this.DEFAULT_ROOT_CAUSES];
+    try {
+      const parsed = JSON.parse(row.value);
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean);
+        if (cleaned.length > 0) return cleaned;
+      }
+    } catch {}
+    return [...this.DEFAULT_ROOT_CAUSES];
+  }
+
+  public static async addRootCauseOption(name: string): Promise<string[]> {
+    const clean = name.trim().replace(/\s+/g, ' ');
+    if (!clean) throw new Error('Root cause name is required');
+    const current = await this.getRootCauseOptions();
+    if (current.some((c) => c.toLowerCase() === clean.toLowerCase())) {
+      throw new Error(`Root cause "${clean}" already exists`);
+    }
+    const next = [...current, clean];
+    await prisma.integrationConfig.upsert({
+      where: { key: this.ROOT_CAUSE_OPTIONS_KEY },
+      update: { value: JSON.stringify(next), isEnabled: true },
+      create: { key: this.ROOT_CAUSE_OPTIONS_KEY, value: JSON.stringify(next), isEnabled: true },
+    });
+    return next;
+  }
+
+  public static async deleteRootCauseOption(name: string): Promise<string[]> {
+    const targetLower = name.trim().toLowerCase();
+    const current = await this.getRootCauseOptions();
+    const next = current.filter((c) => c.toLowerCase() !== targetLower);
+    if (next.length === 0) {
+      throw new Error('At least one root cause option is required');
+    }
+    await prisma.integrationConfig.upsert({
+      where: { key: this.ROOT_CAUSE_OPTIONS_KEY },
+      update: { value: JSON.stringify(next), isEnabled: true },
+      create: { key: this.ROOT_CAUSE_OPTIONS_KEY, value: JSON.stringify(next), isEnabled: true },
+    });
+    return next;
+  }
+
+  public static async getMttrExcludedIds(): Promise<Set<string>> {
+    const row = await prisma.integrationConfig.findUnique({
+      where: { key: this.MTTR_EXCLUDED_KEY },
+    });
+    if (!row?.value) return new Set();
+    try {
+      const parsed = JSON.parse(row.value);
+      return Array.isArray(parsed) ? new Set(parsed.filter((v): v is string => typeof v === 'string')) : new Set();
+    } catch {
+      return new Set();
+    }
+  }
+
+  public static async setMttrExcluded(incidentId: string, excluded: boolean): Promise<boolean> {
+    const ids = await this.getMttrExcludedIds();
+    if (excluded) ids.add(incidentId);
+    else ids.delete(incidentId);
+    const value = JSON.stringify(Array.from(ids));
+    await prisma.integrationConfig.upsert({
+      where: { key: this.MTTR_EXCLUDED_KEY },
+      update: { value, isEnabled: true },
+      create: { key: this.MTTR_EXCLUDED_KEY, value, isEnabled: true },
+    });
+    return excluded;
+  }
+
   /**
    * Generates a safe, sequential Ticket ID in format: INC-YYYYMM-XXX
    */
@@ -233,7 +309,7 @@ export class IncidentService {
       }),
       prisma.incident.count(),
       prisma.incident.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
-      prisma.incident.count({ where: { urgency: 'HIGH', status: { notIn: ['CLOSED', 'RESOLVED'] } } }),
+      prisma.incident.count({ where: { urgency: 'HIGH', status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
       prisma.incident.count({ where: { createdAt: { gte: todayStart } } }),
       prisma.incident.count({ where: { status: { in: ['RESOLVED', 'CLOSED'] } } }),
       prisma.notificationLog.count({ where: { channel: 'TEAMS' } }),
@@ -244,7 +320,8 @@ export class IncidentService {
       const up = (s || '').trim().toUpperCase();
       if (up === 'OPEN') return 0;
       if (up === 'IN_PROGRESS') return 1;
-      return 2;
+      if (up === 'ON_HOLD') return 2;
+      return 3;
     };
     const urgencyRank = (u: string) => {
       const up = (u || '').trim().toUpperCase();
@@ -257,7 +334,7 @@ export class IncidentService {
       const sa = statusRank(a.status);
       const sb = statusRank(b.status);
       if (sa !== sb) return sa - sb;
-      if (sa < 2) {
+      if (sa < 3) {
         const ua = urgencyRank(a.urgency);
         const ub = urgencyRank(b.urgency);
         if (ua !== ub) return ua - ub;
@@ -279,14 +356,18 @@ export class IncidentService {
     const byId = new Map(unsortedIncidents.map((inc) => [inc.id, inc]));
     const incidents = pageIds.map((id) => byId.get(id)!).filter(Boolean);
 
-    // Average resolution time (MTTR) calculation from closed records
-    const resolvedSamples = await prisma.incident.findMany({
-      where: { status: { in: ['RESOLVED', 'CLOSED'] }, closedAt: { not: null } },
-      select: { createdAt: true, closedAt: true },
-    });
+    // Average resolution time (MTTR) calculation from closed records (excluding ON_HOLD / mttrExcluded)
+    const [resolvedSamples, excludedIds] = await Promise.all([
+      prisma.incident.findMany({
+        where: { status: { in: ['RESOLVED', 'CLOSED'] }, closedAt: { not: null } },
+        select: { id: true, createdAt: true, closedAt: true },
+      }),
+      this.getMttrExcludedIds(),
+    ]);
     let totalMins = 0;
     let sampleCount = 0;
     for (const r of resolvedSamples) {
+      if (excludedIds.has(r.id)) continue;
       if (r.closedAt) {
         const diff = (new Date(r.closedAt).getTime() - new Date(r.createdAt).getTime()) / 60000;
         if (diff >= 0) {
@@ -358,7 +439,12 @@ export class IncidentService {
       });
     }
 
-    return found;
+    if (!found) return null;
+    const excludedIds = await this.getMttrExcludedIds();
+    return {
+      ...found,
+      mttrExcluded: excludedIds.has(found.id),
+    };
   }
 
   /**
@@ -371,12 +457,14 @@ export class IncidentService {
       description?: string;
       category?: string;
       categoryId?: string;
+      rootCause?: string | null;
       urgency?: string;
       status?: string;
       assignedTo?: string;
       resolution?: string;
       createdAt?: string | Date;
       closedAt?: string | Date | null;
+      mttrExcluded?: boolean;
     }
   ) {
     const target = await this.getIncidentById(idOrTicketNo);
@@ -390,6 +478,9 @@ export class IncidentService {
     if (data.description !== undefined) updatePayload.description = McpService.cleanText(data.description);
     if (data.category !== undefined) updatePayload.category = data.category;
     if (data.categoryId !== undefined) updatePayload.categoryId = data.categoryId;
+    if (data.rootCause !== undefined) {
+      updatePayload.rootCause = data.rootCause ? data.rootCause.trim() : null;
+    }
     if (data.urgency !== undefined) updatePayload.urgency = data.urgency;
     if (data.assignedTo !== undefined) updatePayload.assignedTo = data.assignedTo;
 
@@ -404,6 +495,11 @@ export class IncidentService {
     if (data.status !== undefined) {
       updatePayload.status = data.status.toUpperCase();
       if (['RESOLVED', 'CLOSED'].includes(updatePayload.status)) {
+        const effCategory = (updatePayload.category !== undefined ? updatePayload.category : target.category)?.trim();
+        const effRootCause = (updatePayload.rootCause !== undefined ? updatePayload.rootCause : target.rootCause)?.trim();
+        if (!effCategory || !effRootCause) {
+          throw new Error('Category and Root Cause are required before closing an incident');
+        }
         if (data.closedAt === undefined) {
           updatePayload.closedAt = target.closedAt ?? new Date();
         }
@@ -442,7 +538,7 @@ export class IncidentService {
       updatePayload.resolution = McpService.cleanText(data.resolution);
     }
 
-    return prisma.incident.update({
+    const updated = await prisma.incident.update({
       where: { id: target.id },
       data: updatePayload,
       include: {
@@ -450,6 +546,19 @@ export class IncidentService {
         categoryRel: true,
       },
     });
+
+    let mttrExcluded = target.mttrExcluded;
+    if (data.mttrExcluded !== undefined) {
+      mttrExcluded = await this.setMttrExcluded(target.id, Boolean(data.mttrExcluded));
+    } else if (updatePayload.status === 'ON_HOLD') {
+      // Auto-exclude from MTTR whenever placed ON_HOLD so hold duration never skews SLA averages
+      mttrExcluded = await this.setMttrExcluded(target.id, true);
+    }
+
+    return {
+      ...updated,
+      mttrExcluded,
+    };
   }
 
   /**
@@ -460,6 +569,7 @@ export class IncidentService {
     status?: string;
     urgency?: string;
     category?: string;
+    rootCause?: string;
     department?: string;
     startDate?: string;
     endDate?: string;
@@ -472,6 +582,10 @@ export class IncidentService {
     if (query.urgency && query.urgency !== 'ALL') where.urgency = query.urgency.toUpperCase();
     if (query.category && query.category !== 'ALL') {
       where.category = { contains: query.category };
+    }
+    if (query.rootCause && query.rootCause !== 'ALL') {
+      where.rootCause =
+        query.rootCause === 'Unspecified' ? null : query.rootCause.trim();
     }
     if (query.department && query.department !== 'ALL') {
       where.department = { contains: query.department };
@@ -506,17 +620,20 @@ export class IncidentService {
     groupBy?: 'auto' | 'day' | 'month';
     urgency?: string;
     category?: string;
+    rootCause?: string;
     department?: string;
   }) {
     const where = this.buildFilterWhere(query);
-    const [records, distinctFilterRows] = await Promise.all([
+    const [records, distinctFilterRows, excludedIds, configuredRootCauses] = await Promise.all([
       prisma.incident.findMany({
         where,
         orderBy: { createdAt: 'asc' },
       }),
       prisma.incident.findMany({
-        select: { category: true, department: true },
+        select: { category: true, department: true, rootCause: true },
       }),
+      this.getMttrExcludedIds(),
+      this.getRootCauseOptions(),
     ]);
 
     const normStatus = (s?: string | null) => (s || 'OPEN').trim().toUpperCase();
@@ -527,10 +644,11 @@ export class IncidentService {
     const resolvedCount = resolvedRecords.length;
     const openCount = records.filter((r) => normStatus(r.status) === 'OPEN').length;
     const inProgressCount = records.filter((r) => normStatus(r.status) === 'IN_PROGRESS').length;
+    const onHoldCount = records.filter((r) => normStatus(r.status) === 'ON_HOLD').length;
     const criticalCount = records.filter((r) => normUrgency(r.urgency) === 'HIGH').length;
     const resolutionRate = total > 0 ? Math.round((resolvedCount / total) * 100) : 0;
 
-    // Avg resolution time in minutes (overall, by urgency, and by category)
+    // Avg resolution time in minutes (overall, by urgency, and by category; excludes ON_HOLD / mttrExcluded)
     let totalDurationMins = 0;
     let durationSamples = 0;
     const mttrUrgencyMap = new Map<string, { sum: number; count: number }>([
@@ -541,6 +659,7 @@ export class IncidentService {
     const mttrCatMap = new Map<string, { sum: number; count: number }>();
 
     for (const r of resolvedRecords) {
+      if (excludedIds.has(r.id)) continue;
       if (r.closedAt) {
         const diff = (new Date(r.closedAt).getTime() - new Date(r.createdAt).getTime()) / 60000;
         if (diff >= 0) {
@@ -581,11 +700,11 @@ export class IncidentService {
       }))
       .sort((a, b) => b.avgMins - a.avgMins);
 
-    // Backlog Aging (for active OPEN / IN_PROGRESS records)
+    // Backlog Aging (for active OPEN / IN_PROGRESS records; excludes ON_HOLD, RESOLVED, CLOSED)
     const nowMs = Date.now();
     const agingCounts = { under_24h: 0, d1_3: 0, d4_7: 0, over_7d: 0 };
     for (const r of records) {
-      if (['RESOLVED', 'CLOSED'].includes(normStatus(r.status))) continue;
+      if (!['OPEN', 'IN_PROGRESS'].includes(normStatus(r.status))) continue;
       const ageHours = Math.max(0, (nowMs - new Date(r.createdAt).getTime()) / 3600000);
       if (ageHours < 24) agingCounts.under_24h++;
       else if (ageHours < 72) agingCounts.d1_3++;
@@ -603,6 +722,12 @@ export class IncidentService {
       categories: Array.from(
         new Set(distinctFilterRows.map((r) => r.category?.trim()).filter((v): v is string => Boolean(v)))
       ).sort(),
+      rootCauses: Array.from(
+        new Set([
+          ...configuredRootCauses,
+          ...distinctFilterRows.map((r) => r.rootCause?.trim()).filter((v): v is string => Boolean(v)),
+        ])
+      ),
       departments: this.groupDepartments(distinctFilterRows, false)
         .map((d) => d.department)
         .sort((a, b) => a.localeCompare(b)),
@@ -715,10 +840,25 @@ export class IncidentService {
       }))
       .sort((a, b) => b.count - a.count);
 
+    // 3b. Root Cause Breakdown
+    const rcMap = new Map<string, number>();
+    for (const r of records) {
+      const rc = r.rootCause?.trim() || 'Unspecified';
+      rcMap.set(rc, (rcMap.get(rc) || 0) + 1);
+    }
+    const byRootCause = Array.from(rcMap.entries())
+      .map(([rootCause, count]) => ({
+        rootCause,
+        count,
+        percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
     // 4. Status & Urgency Breakdown
     const byStatus = [
       { status: 'OPEN', count: openCount },
       { status: 'IN_PROGRESS', count: inProgressCount },
+      { status: 'ON_HOLD', count: onHoldCount },
       { status: 'RESOLVED', count: records.filter((r) => normStatus(r.status) === 'RESOLVED').length },
       { status: 'CLOSED', count: records.filter((r) => normStatus(r.status) === 'CLOSED').length },
     ];
@@ -735,6 +875,7 @@ export class IncidentService {
         resolvedCount,
         openCount,
         inProgressCount,
+        onHoldCount,
         criticalCount,
         resolutionRate,
         avgResolutionMins,
@@ -742,6 +883,7 @@ export class IncidentService {
       groupBy: effectiveGroupBy,
       trend: Array.from(trendMap.values()),
       byCategory,
+      byRootCause,
       byDepartment,
       byStatus,
       byUrgency,

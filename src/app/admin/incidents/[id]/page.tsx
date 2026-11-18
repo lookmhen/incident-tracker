@@ -15,12 +15,14 @@ interface IncidentDetail {
   urgency: string;
   category: string | null;
   categoryId: string | null;
+  rootCause: string | null;
   status: string;
   assignedTo: string | null;
   resolution: string | null;
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  mttrExcluded?: boolean;
   attachments: Array<{
     id: string;
     fileUrl: string;
@@ -47,6 +49,9 @@ export default function IncidentDetailMcpHub({
 
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [rootCauses, setRootCauses] = useState<string[]>(['Human', 'System', 'Data']);
+  const [newRootCause, setNewRootCause] = useState('');
+  const [addingRootCause, setAddingRootCause] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Resolution editor state
@@ -73,7 +78,7 @@ export default function IncidentDetailMcpHub({
   const [now, setNow] = useState<number>(Date.now());
 
   useEffect(() => {
-    if (!incident || incident.status === 'RESOLVED' || incident.status === 'CLOSED') return;
+    if (!incident || ['RESOLVED', 'CLOSED', 'ON_HOLD'].includes(incident.status)) return;
     const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, [incident?.status]);
@@ -105,9 +110,20 @@ export default function IncidentDetailMcpHub({
     } catch (e) {}
   };
 
+  const fetchRootCauses = async () => {
+    try {
+      const res = await fetch('/api/root-causes', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) setRootCauses(data);
+      }
+    } catch (e) {}
+  };
+
   useEffect(() => {
     fetchIncident();
     fetchCategories();
+    fetchRootCauses();
   }, [id]);
 
   const showToast = (msg: string) => {
@@ -125,12 +141,67 @@ export default function IncidentDetailMcpHub({
         body: JSON.stringify({ category: catName }),
       });
       if (res.ok) {
-        setIncident({ ...incident, category: catName });
+        const updated = await res.json();
+        setIncident(updated);
         showToast(`Category updated to ${catName}`);
       }
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleSelectRootCause = async (rcName: string) => {
+    if (!incident) return;
+    try {
+      const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rootCause: rcName }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setIncident(updated);
+        showToast(`Root Cause updated to ${rcName}`);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAddRootCause = async () => {
+    const clean = newRootCause.trim();
+    if (!clean) return;
+    setAddingRootCause(true);
+    try {
+      const res = await fetch('/api/root-causes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: clean }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(data)) {
+        setRootCauses(data);
+        setNewRootCause('');
+        await handleSelectRootCause(clean);
+      } else {
+        showToast(data.error || 'ไม่สามารถเพิ่ม Root Cause ได้');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAddingRootCause(false);
+    }
+  };
+
+  const validateReadyToClose = (inc: IncidentDetail) => {
+    const missing: string[] = [];
+    if (!inc.category?.trim()) missing.push('Category');
+    if (!inc.rootCause?.trim()) missing.push('Root Cause');
+    if (missing.length > 0) {
+      showToast(`⚠️ กรุณาเลือก ${missing.join(' และ ')} ก่อนปิดเคส`);
+      return false;
+    }
+    return true;
   };
 
   // Assign / Claim Ticket
@@ -159,6 +230,7 @@ export default function IncidentDetailMcpHub({
   // Update Status
   const handleUpdateStatus = async (newStatus: string) => {
     if (!incident) return;
+    if (['RESOLVED', 'CLOSED'].includes(newStatus) && !validateReadyToClose(incident)) return;
     try {
       const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
         method: 'PATCH',
@@ -170,6 +242,9 @@ export default function IncidentDetailMcpHub({
         setIncident(updated);
         setEditingTimeField(null);
         showToast(`Status updated to ${newStatus}`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || 'ไม่สามารถอัปเดตสถานะได้');
       }
     } catch (e) {
       console.error(e);
@@ -228,6 +303,7 @@ export default function IncidentDetailMcpHub({
   // Close Incident & Save Resolution (Clean text available via MCP)
   const handleCloseAndIndex = async () => {
     if (!incident) return;
+    if (!validateReadyToClose(incident)) return;
     try {
       const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
         method: 'PATCH',
@@ -241,6 +317,9 @@ export default function IncidentDetailMcpHub({
         const updated = await res.json();
         setIncident(updated);
         showToast(`Incident ${incident.ticketNo} marked as RESOLVED (Clean text saved)`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || 'ไม่สามารถปิดเคสได้');
       }
     } catch (e) {
       console.error(e);
@@ -326,6 +405,25 @@ export default function IncidentDetailMcpHub({
       </div>
     </div>
   );
+
+  const handleToggleMttrExcluded = async () => {
+    if (!incident) return;
+    const nextVal = !incident.mttrExcluded;
+    try {
+      const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mttrExcluded: nextVal }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setIncident(updated);
+        showToast(nextVal ? 'ตั้งค่าไม่นำเคสนี้ไปคำนวณ MTTR แล้ว' : 'นำเคสนี้กลับเข้าคำนวณ MTTR แล้ว');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // Copy JSON Payload for External MCP Client
   const buildMcpPayload = (inc: IncidentDetail) => ({
@@ -413,6 +511,7 @@ export default function IncidentDetailMcpHub({
   }
 
   const isHigh = incident.urgency === 'HIGH';
+  const isOnHold = incident.status === 'ON_HOLD';
   const isClosed = incident.status === 'RESOLVED' || incident.status === 'CLOSED';
   const charCount = resolutionText.length;
   const wordCount = resolutionText.trim() ? resolutionText.trim().split(/\s+/).length : 0;
@@ -447,8 +546,14 @@ export default function IncidentDetailMcpHub({
                 </span>
 
                 <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
-                  {incident.category || 'General IT'}
+                  {incident.category || 'Uncategorized'}
                 </span>
+
+                {incident.rootCause && (
+                  <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200">
+                    RCA: {incident.rootCause}
+                  </span>
+                )}
 
                 <span className="text-slate-500 flex items-center gap-1 font-mono">
                   <span className="material-symbols-outlined text-[15px]">schedule</span>
@@ -459,6 +564,11 @@ export default function IncidentDetailMcpHub({
                   <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold flex items-center gap-1 shadow-2xs">
                     <span className="material-symbols-outlined text-[14px]">check_circle</span>
                     <span>แก้ไขสำเร็จใน {formatDuration(incident.createdAt, incident.closedAt)}</span>
+                  </span>
+                ) : isOnHold ? (
+                  <span className="px-2.5 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 font-semibold flex items-center gap-1 shadow-2xs">
+                    <span className="material-symbols-outlined text-[14px]">pause_circle</span>
+                    <span>On Hold • รอ Solution (ไม่คิด MTTR)</span>
                   </span>
                 ) : (
                   <span className="px-2.5 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200 font-semibold flex items-center gap-1 shadow-2xs">
@@ -522,7 +632,7 @@ export default function IncidentDetailMcpHub({
                 </button>
                 <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-30 min-w-[150px]">
                   <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 flex flex-col gap-1">
-                    {['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map((st) => (
+                    {['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'].map((st) => (
                       <button
                         key={st}
                         onClick={() => handleUpdateStatus(st)}
@@ -734,10 +844,12 @@ export default function IncidentDetailMcpHub({
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono ${
                     isClosed
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : isOnHold
+                      ? 'bg-violet-50 text-violet-700 border border-violet-200'
                       : 'bg-amber-50 text-amber-700 border border-amber-200'
                   }`}
                 >
-                  {isClosed ? 'RESOLVED' : 'ACTIVE'}
+                  {isClosed ? 'RESOLVED' : isOnHold ? 'ON HOLD' : 'ACTIVE'}
                 </span>
               </div>
 
@@ -784,6 +896,8 @@ export default function IncidentDetailMcpHub({
                   className={`p-3 rounded-xl border space-y-1 ${
                     isClosed
                       ? 'bg-emerald-50/60 border-emerald-200/80'
+                      : isOnHold
+                      ? 'bg-violet-50/60 border-violet-200/80'
                       : 'bg-sky-50/60 border-sky-200/80'
                   }`}
                 >
@@ -825,6 +939,16 @@ export default function IncidentDetailMcpHub({
                         </div>
                       </>
                     )
+                  ) : isOnHold ? (
+                    <>
+                      <div className="font-semibold text-violet-800 flex items-center gap-1.5 font-mono">
+                        <span className="w-2 h-2 rounded-full bg-violet-500"></span>
+                        พักรอ Solution
+                      </div>
+                      <div className="text-[11px] text-violet-600">
+                        หยุดนับคิวค้างและไม่รวมใน MTTR
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div className="font-semibold text-sky-800 flex items-center gap-1.5 font-mono">
@@ -844,30 +968,68 @@ export default function IncidentDetailMcpHub({
                 className={`p-3.5 rounded-xl border flex items-center justify-between text-xs ${
                   isClosed
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : isOnHold
+                    ? 'bg-violet-50 border-violet-200 text-violet-900'
                     : 'bg-gradient-to-r from-sky-50 to-blue-50 border-sky-200 text-sky-900'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[18px]">
-                    {isClosed ? 'task_alt' : 'timelapse'}
+                    {isClosed ? 'task_alt' : isOnHold ? 'pause_circle' : 'timelapse'}
                   </span>
                   <span className="font-medium">
-                    {isClosed ? 'ระยะเวลาแก้ไขทั้งหมด:' : 'เปิดเคสมาแล้วเป็นเวลา:'}
+                    {isClosed
+                      ? 'ระยะเวลาแก้ไขทั้งหมด:'
+                      : isOnHold
+                      ? 'พักรอ Solution (On Hold):'
+                      : 'เปิดเคสมาแล้วเป็นเวลา:'}
                   </span>
                 </div>
                 <div className="text-sm font-bold font-mono">
                   {formatDuration(incident.createdAt, incident.closedAt)}
                 </div>
               </div>
+
+              {(isOnHold || isClosed || incident.mttrExcluded) && (
+                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-[11px]">
+                  <span className="text-slate-600 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[15px] text-violet-600">
+                      {incident.mttrExcluded ? 'timer_off' : 'timer'}
+                    </span>
+                    {incident.mttrExcluded
+                      ? 'ไม่นำไปคำนวณค่าเฉลี่ย MTTR (เคย On Hold)'
+                      : 'นับรวมในค่าเฉลี่ย MTTR'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleToggleMttrExcluded}
+                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold cursor-pointer shrink-0"
+                  >
+                    {incident.mttrExcluded ? 'นับเข้า MTTR' : 'ยกเว้น MTTR'}
+                  </button>
+                </div>
+              )}
             </div>
             {/* Dynamic Category & Triage Routing Selector */}
-            <div className="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-3.5">
+            <div
+              className={`bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border space-y-3.5 ${
+                !incident.category?.trim() ? 'border-amber-300' : 'border-sky-100'
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <label className="text-xs font-headline font-bold text-slate-900 flex items-center gap-2">
                   <span className="material-symbols-outlined text-[16px] text-sky-600">alt_route</span>
                   Category &amp; Routing
                 </label>
-                <span className="text-[11px] text-slate-500 font-medium">Triage Queue</span>
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    incident.category?.trim()
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  {incident.category?.trim() ? 'Selected' : '* จำเป็นก่อนปิดเคส'}
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
@@ -877,7 +1039,7 @@ export default function IncidentDetailMcpHub({
                     <button
                       key={cat.id}
                       onClick={() => handleSelectCategory(cat.name)}
-                      className={`py-2 px-2.5 rounded-xl flex items-center gap-2 transition-all text-xs font-semibold ${
+                      className={`py-2 px-2.5 rounded-xl flex items-center gap-2 transition-all text-xs font-semibold cursor-pointer ${
                         isSelected
                           ? 'bg-sky-600 text-white shadow-[0_4px_12px_rgba(2,132,199,0.3)] border border-sky-600'
                           : 'bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-slate-700'
@@ -901,8 +1063,75 @@ export default function IncidentDetailMcpHub({
               <div className="p-3 rounded-xl bg-sky-50/70 border border-sky-200/80 text-[11px] text-slate-600 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[14px] text-sky-600">verified_user</span>
-                  Queue: <strong className="text-slate-900">{incident.category || 'Triage'}</strong>
+                  Queue: <strong className="text-slate-900">{incident.category || 'ยังไม่ได้เลือก'}</strong>
                 </span>
+              </div>
+            </div>
+
+            {/* Root Cause Analysis (RCA Category) Selector */}
+            <div
+              className={`bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border space-y-3.5 ${
+                !incident.rootCause?.trim() ? 'border-amber-300' : 'border-sky-100'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-headline font-bold text-slate-900 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-indigo-600">troubleshoot</span>
+                  Root Cause Analysis
+                </label>
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    incident.rootCause?.trim()
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  {incident.rootCause?.trim() ? 'Selected' : '* จำเป็นก่อนปิดเคส'}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {rootCauses.map((rc) => {
+                  const isSelected = incident.rootCause === rc;
+                  return (
+                    <button
+                      key={rc}
+                      type="button"
+                      onClick={() => handleSelectRootCause(rc)}
+                      className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-600/25'
+                          : 'bg-slate-50 hover:bg-indigo-50 text-slate-700 border-slate-200 hover:border-indigo-200'
+                      }`}
+                    >
+                      {rc}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  value={newRootCause}
+                  onChange={(e) => setNewRootCause(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddRootCause();
+                    }
+                  }}
+                  placeholder="เพิ่ม Root Cause ใหม่ (เช่น Vendor, Network)..."
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400"
+                />
+                <button
+                  type="button"
+                  disabled={addingRootCause || !newRootCause.trim()}
+                  onClick={handleAddRootCause}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold cursor-pointer disabled:opacity-50 shrink-0"
+                >
+                  + เพิ่ม
+                </button>
               </div>
             </div>
 

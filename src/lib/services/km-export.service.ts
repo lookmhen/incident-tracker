@@ -18,6 +18,7 @@ export class KmExportService {
     title: string;
     description: string;
     category?: string | null;
+    rootCause?: string | null;
     urgency?: string | null;
     department?: string | null;
     resolution?: string | null;
@@ -35,6 +36,7 @@ export class KmExportService {
     return `---
 ticket_id: "${incident.ticketNo}"
 category: "${incident.category || 'General'}"
+root_cause: "${incident.rootCause || 'Unspecified'}"
 urgency: "${incident.urgency || 'MEDIUM'}"
 department: "${incident.department || 'General'}"
 resolved_at: "${resolvedIso}"

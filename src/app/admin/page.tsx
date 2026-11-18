@@ -13,6 +13,7 @@ interface IncidentRecord {
   contactInfo: string;
   urgency: string;
   category: string | null;
+  rootCause?: string | null;
   status: string;
   assignedTo: string | null;
   createdAt: string;
@@ -417,6 +418,7 @@ export default function AdminDashboardPage() {
                 <option value="ACTIVE">Active (Open + In Progress)</option>
                 <option value="OPEN">Open</option>
                 <option value="IN_PROGRESS">In Progress</option>
+                <option value="ON_HOLD">On Hold (รอ Solution)</option>
                 <option value="RESOLVED">Resolved</option>
                 <option value="CLOSED">Closed</option>
               </select>
@@ -556,9 +558,16 @@ export default function AdminDashboardPage() {
                           )}
                         </td>
                         <td className="py-3.5 px-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-100 font-medium">
-                            {inc.category || 'General'}
-                          </span>
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-100 font-medium">
+                              {inc.category || 'General'}
+                            </span>
+                            {inc.rootCause && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium">
+                                RCA: {inc.rootCause}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="space-y-0.5">
@@ -587,6 +596,8 @@ export default function AdminDashboardPage() {
                                 ? 'bg-sky-50 text-sky-700 border border-sky-200'
                                 : inc.status === 'IN_PROGRESS'
                                 ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : inc.status === 'ON_HOLD'
+                                ? 'bg-violet-50 text-violet-700 border border-violet-200'
                                 : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             }`}
                           >
@@ -596,6 +607,8 @@ export default function AdminDashboardPage() {
                                   ? 'bg-sky-500'
                                   : inc.status === 'IN_PROGRESS'
                                   ? 'bg-amber-500'
+                                  : inc.status === 'ON_HOLD'
+                                  ? 'bg-violet-500'
                                   : 'bg-emerald-500'
                               }`}
                             ></span>

@@ -36,12 +36,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       description: body.description,
       category: body.category,
       categoryId: body.categoryId,
+      rootCause: body.rootCause,
       urgency: body.urgency,
       status: body.status,
       assignedTo: body.assignedTo,
       resolution: body.resolution,
       createdAt: body.createdAt,
       closedAt: body.closedAt,
+      mttrExcluded: body.mttrExcluded,
     });
 
     return NextResponse.json(updated);
@@ -50,7 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (msg.startsWith('Incident not found:')) {
       return NextResponse.json({ error: msg }, { status: 404 });
     }
-    if (msg.includes('closedAt') || msg.includes('createdAt')) {
+    if (msg.includes('closedAt') || msg.includes('createdAt') || msg.includes('required before closing')) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
     console.error('Error updating incident:', error);

@@ -10,6 +10,7 @@ import { GET as exportCsvHandler } from '../src/app/api/incidents/export/route';
 import { GET as inboundGetHandler, POST as inboundPostHandler } from '../src/app/api/incidents/inbound/route';
 import { PATCH as incidentPatchHandler } from '../src/app/api/incidents/[id]/route';
 import { GET as analyticsGetHandler } from '../src/app/api/incidents/analytics/route';
+import { GET as rootCausesGet, POST as rootCausesPost, DELETE as rootCausesDelete } from '../src/app/api/root-causes/route';
 
 describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
   const testCategoryIds: string[] = [];
@@ -31,6 +32,9 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       await prisma.notificationLog.deleteMany({ where: { ticketNo: { in: testTicketNos } } });
     }
     if (testIncidentIds.length > 0) {
+      for (const id of testIncidentIds) {
+        await IncidentService.setMttrExcluded(id, false);
+      }
       await prisma.incident.deleteMany({ where: { id: { in: testIncidentIds } } });
     }
     if (testCategoryIds.length > 0) {
@@ -98,6 +102,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     // Resolve incident via ticketNo (same path used by PATCH /api/incidents/[id])
     const resolved = await IncidentService.updateIncident(created.ticketNo, {
       status: 'RESOLVED',
+      rootCause: 'System',
       assignedTo: 'Tier-2 Network Admin',
       resolution: '<p>รีเซ็ต BGP Session และอัปเดต Profile เรียบร้อย</p>',
     });
@@ -118,7 +123,8 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.ok(Array.isArray(analytics.trend));
     assert.ok(Array.isArray(analytics.byCategory));
     assert.ok(Array.isArray(analytics.byDepartment));
-    assert.equal(analytics.byStatus.length, 4);
+    assert.equal(analytics.byStatus.length, 5);
+    assert.ok(analytics.byStatus.some((s) => s.status === 'ON_HOLD'));
     assert.equal(analytics.byUrgency.length, 3);
   });
 
@@ -302,7 +308,11 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       });
       testIncidentIds.push(inc.id);
       if (status) {
-        await IncidentService.updateIncident(inc.ticketNo, { status });
+        await IncidentService.updateIncident(inc.ticketNo, {
+          status,
+          category: 'Helpdesk',
+          rootCause: 'Human',
+        });
       }
       return inc.ticketNo;
     };
@@ -394,5 +404,157 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       1
     );
     assert.ok(a.department);
+  });
+
+  it('supports ON_HOLD status, excludes from backlog aging and MTTR even after resolving, and allows toggling', async () => {
+    const dept = `HoldTest${Date.now()}`;
+    const fast = await IncidentService.createIncident({
+      reporterName: 'Hold Tester',
+      contactInfo: 'hold@test.local',
+      department: dept,
+      title: 'Fast fix',
+      description: 'Solved in 30m',
+      urgency: 'MEDIUM',
+    });
+    const held = await IncidentService.createIncident({
+      reporterName: 'Hold Tester',
+      contactInfo: 'hold@test.local',
+      department: dept,
+      title: 'No solution yet',
+      description: 'Waiting vendor',
+      urgency: 'HIGH',
+    });
+    testIncidentIds.push(fast.id, held.id);
+
+    await IncidentService.updateIncident(fast.ticketNo, {
+      status: 'RESOLVED',
+      category: 'Helpdesk',
+      rootCause: 'Human',
+      closedAt: new Date(fast.createdAt.getTime() + 30 * 60 * 1000),
+    });
+
+    const onHold = await IncidentService.updateIncident(held.ticketNo, { status: 'ON_HOLD' });
+    assert.equal(onHold.status, 'ON_HOLD');
+    assert.equal(onHold.closedAt, null);
+    assert.equal(onHold.mttrExcluded, true);
+
+    const midStats = await IncidentService.getAnalyticsData({ department: dept });
+    assert.equal(midStats.summary.onHoldCount, 1);
+    assert.equal(midStats.backlogAging.reduce((s, b) => s + b.count, 0), 0, 'ON_HOLD must not appear in backlog aging');
+    assert.equal(midStats.summary.avgResolutionMins, 30);
+
+    // Queue order puts ON_HOLD before RESOLVED
+    const queue = await IncidentService.getIncidents({ department: dept, limit: 10 });
+    assert.deepEqual(
+      queue.incidents.map((i) => i.ticketNo),
+      [held.ticketNo, fast.ticketNo]
+    );
+
+    // Resolving after 10 days still keeps mttrExcluded=true so MTTR stays 30m
+    const resolvedAfterHold = await IncidentService.updateIncident(held.ticketNo, {
+      status: 'RESOLVED',
+      category: 'Interface',
+      rootCause: 'Data',
+      closedAt: new Date(held.createdAt.getTime() + 10 * 24 * 60 * 60 * 1000),
+    });
+    assert.equal(resolvedAfterHold.mttrExcluded, true);
+
+    const afterStats = await IncidentService.getAnalyticsData({ department: dept });
+    assert.equal(afterStats.summary.avgResolutionMins, 30);
+
+    // Admin can toggle mttrExcluded off via PATCH API
+    const adminToken = await createAdminSessionToken();
+    const toggleReq = new NextRequest(`http://localhost:3000/api/incidents/${held.ticketNo}`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
+      },
+      body: JSON.stringify({ mttrExcluded: false }),
+    });
+    const toggleRes = await incidentPatchHandler(toggleReq, { params: Promise.resolve({ id: held.ticketNo }) });
+    assert.equal(toggleRes.status, 200);
+    const toggled = await toggleRes.json();
+    assert.equal(toggled.mttrExcluded, false);
+
+    const includedStats = await IncidentService.getAnalyticsData({ department: dept });
+    assert.ok(includedStats.summary.avgResolutionMins > 30);
+  });
+
+  it('requires both category and rootCause before closing, supports custom root causes, and aggregates byRootCause', async () => {
+    const adminToken = await createAdminSessionToken();
+    const customName = `Vendor-${Date.now()}`;
+
+    // 1. Custom root cause options CRUD
+    const addRes = await rootCausesPost(
+      new NextRequest('http://localhost:3000/api/root-causes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
+        body: JSON.stringify({ name: customName }),
+      })
+    );
+    assert.equal(addRes.status, 201);
+    const listRes = await rootCausesGet();
+    const options = await listRes.json();
+    assert.ok(options.includes('Human') && options.includes('System') && options.includes('Data'));
+    assert.ok(options.includes(customName));
+
+    // 2. Reject closing without category and rootCause
+    const inc = await IncidentService.createIncident({
+      reporterName: 'RCA Tester',
+      contactInfo: 'rca@test.local',
+      department: `RCADept${Date.now()}`,
+      title: 'Missing category & rootCause test',
+      description: 'Should fail close without both categories',
+    });
+    testIncidentIds.push(inc.id);
+
+    const failCloseBoth = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
+        body: JSON.stringify({ status: 'RESOLVED' }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(failCloseBoth.status, 400);
+
+    // Reject closing with category set but rootCause missing
+    const failNoRootCause = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
+        body: JSON.stringify({ status: 'CLOSED', category: 'SAP Basis' }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(failNoRootCause.status, 400);
+
+    // 3. Succeeds when both category and rootCause are provided
+    const okClose = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
+        body: JSON.stringify({ status: 'RESOLVED', category: 'SAP Basis', rootCause: customName }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(okClose.status, 200);
+    const closedData = await okClose.json();
+    assert.equal(closedData.rootCause, customName);
+
+    // 4. Analytics breakdown & filter by rootCause
+    const rcAnalytics = await IncidentService.getAnalyticsData({ rootCause: customName });
+    assert.equal(rcAnalytics.summary.total, 1);
+    assert.equal(rcAnalytics.byRootCause?.[0].rootCause, customName);
+
+    // Cleanup custom root cause option
+    const delRes = await rootCausesDelete(
+      new NextRequest(`http://localhost:3000/api/root-causes?name=${encodeURIComponent(customName)}`, {
+        method: 'DELETE',
+        headers: { cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
+      })
+    );
+    assert.equal(delRes.status, 200);
   });
 });

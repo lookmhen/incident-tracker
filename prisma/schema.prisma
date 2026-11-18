@@ -31,7 +31,8 @@ model Incident {
   categoryId   String?
   categoryRel  Category?     @relation(fields: [categoryId], references: [id])
   category     String?       // Quick string tag for legacy/fast filter e.g. "SAP Basis", "Network"
-  status       String        @default("OPEN")   // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  rootCause    String?       // Root cause analysis category e.g. "Human", "System", "Data"
+  status       String        @default("OPEN")   // OPEN, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED
   assignedTo   String?
   resolution   String?       // Clean-text fix note for AI context & MCP
   attachments  Attachment[]

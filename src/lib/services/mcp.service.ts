@@ -4,6 +4,7 @@ export interface McpContextSchema {
   mcp_resource_uri: string;
   ticketNo: string;
   app_domain: string;
+  root_cause: string | null;
   severity: string;
   status: string;
   vectors_ready: boolean;
@@ -47,6 +48,7 @@ export class McpService {
       mcp_resource_uri: `mcp://incidenthub/incidents/${incident.ticketNo}`,
       ticketNo: incident.ticketNo,
       app_domain: incident.category || 'General',
+      root_cause: incident.rootCause || null,
       severity: `P${incident.urgency === 'HIGH' ? '1_CRITICAL' : incident.urgency === 'MEDIUM' ? '2_MODERATE' : '3_NORMAL'}`,
       status: incident.status,
       vectors_ready: true,
@@ -66,10 +68,11 @@ export class McpService {
     const total = await prisma.incident.count();
     const open = await prisma.incident.count({ where: { status: 'OPEN' } });
     const inProgress = await prisma.incident.count({ where: { status: 'IN_PROGRESS' } });
+    const onHold = await prisma.incident.count({ where: { status: 'ON_HOLD' } });
     const resolved = await prisma.incident.count({ where: { status: 'RESOLVED' } });
     const closed = await prisma.incident.count({ where: { status: 'CLOSED' } });
     const critical = await prisma.incident.count({
-      where: { urgency: 'HIGH', status: { notIn: ['RESOLVED', 'CLOSED'] } },
+      where: { urgency: 'HIGH', status: { in: ['OPEN', 'IN_PROGRESS'] } },
     });
 
     const categoryBreakdown = await prisma.incident.groupBy({
@@ -81,6 +84,7 @@ export class McpService {
       overview: {
         totalIncidents: total,
         activeIncidents: open + inProgress,
+        onHoldIncidents: onHold,
         criticalP1Blockers: critical,
         resolvedCount: resolved + closed,
         resolutionRatePercent: total > 0 ? Math.round(((resolved + closed) / total) * 100) : 0,

@@ -8,6 +8,7 @@ interface AnalyticsData {
     resolvedCount: number;
     openCount: number;
     inProgressCount: number;
+    onHoldCount?: number;
     criticalCount: number;
     resolutionRate: number;
     avgResolutionMins: number;
@@ -15,13 +16,14 @@ interface AnalyticsData {
   groupBy?: 'day' | 'month';
   trend: Array<{ date: string; label?: string; total: number; high: number; resolved: number }>;
   byCategory: Array<{ name: string; count: number; percentage: number }>;
+  byRootCause?: Array<{ rootCause: string; count: number; percentage: number }>;
   byDepartment: Array<{ department: string; count: number; percentage: number }>;
   byStatus: Array<{ status: string; count: number }>;
   byUrgency: Array<{ urgency: string; count: number }>;
   mttrByUrgency: Array<{ urgency: string; avgMins: number; count: number }>;
   mttrByCategory: Array<{ category: string; avgMins: number; count: number }>;
   backlogAging: Array<{ key: string; label: string; count: number }>;
-  filterOptions?: { categories: string[]; departments: string[] };
+  filterOptions?: { categories: string[]; rootCauses?: string[]; departments: string[] };
 }
 
 const COLORS = ['#0284c7', '#0ea5e9', '#38bdf8', '#6366f1', '#8b5cf6', '#ec4899', '#14b8a6'];
@@ -45,6 +47,7 @@ export default function AnalyticsDashboardPage() {
   const [groupBy, setGroupBy] = useState<'auto' | 'day' | 'month'>('auto');
   const [urgencyFilter, setUrgencyFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [rootCauseFilter, setRootCauseFilter] = useState('ALL');
   const [deptFilter, setDeptFilter] = useState('ALL');
   // null = custom range from the date inputs
   const [preset, setPreset] = useState<'7' | '30' | 'year' | 'all' | null>('all');
@@ -56,6 +59,7 @@ export default function AnalyticsDashboardPage() {
     groupBy?: 'auto' | 'day' | 'month';
     urgency?: string;
     category?: string;
+    rootCause?: string;
     department?: string;
   }) => {
     setLoading(true);
@@ -65,6 +69,7 @@ export default function AnalyticsDashboardPage() {
       const g = overrides?.groupBy !== undefined ? overrides.groupBy : groupBy;
       const u = overrides?.urgency !== undefined ? overrides.urgency : urgencyFilter;
       const c = overrides?.category !== undefined ? overrides.category : categoryFilter;
+      const rc = overrides?.rootCause !== undefined ? overrides.rootCause : rootCauseFilter;
       const d = overrides?.department !== undefined ? overrides.department : deptFilter;
 
       const params = new URLSearchParams();
@@ -73,6 +78,7 @@ export default function AnalyticsDashboardPage() {
       if (g && g !== 'auto') params.set('groupBy', g);
       if (u !== 'ALL') params.set('urgency', u);
       if (c !== 'ALL') params.set('category', c);
+      if (rc !== 'ALL') params.set('rootCause', rc);
       if (d !== 'ALL') params.set('department', d);
 
       const res = await fetch(`/api/incidents/analytics?${params.toString()}`, { cache: 'no-store' });
@@ -135,6 +141,7 @@ export default function AnalyticsDashboardPage() {
     if (endDate) params.set('endDate', endDate);
     if (urgencyFilter !== 'ALL') params.set('urgency', urgencyFilter);
     if (categoryFilter !== 'ALL') params.set('category', categoryFilter);
+    if (rootCauseFilter !== 'ALL') params.set('rootCause', rootCauseFilter);
     if (deptFilter !== 'ALL') params.set('department', deptFilter);
     return `/api/incidents/export?${params.toString()}`;
   };
@@ -223,6 +230,25 @@ export default function AnalyticsDashboardPage() {
             </select>
 
             <select
+              value={rootCauseFilter}
+              onChange={(e) => {
+                const v = e.target.value;
+                setRootCauseFilter(v);
+                fetchAnalytics({ rootCause: v });
+              }}
+              aria-label="Filter by root cause"
+              className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-sky-500"
+            >
+              <option value="ALL">Root Cause: All</option>
+              {(data?.filterOptions?.rootCauses || []).map((rc) => (
+                <option key={rc} value={rc}>
+                  {rc}
+                </option>
+              ))}
+              <option value="Unspecified">Unspecified</option>
+            </select>
+
+            <select
               value={deptFilter}
               onChange={(e) => {
                 const v = e.target.value;
@@ -294,6 +320,12 @@ export default function AnalyticsDashboardPage() {
             <div className="text-[11px] text-slate-500 mt-2">
               Open: <strong className="text-sky-700">{data?.summary.openCount || 0}</strong> • In Progress:{' '}
               <strong className="text-amber-600">{data?.summary.inProgressCount || 0}</strong>
+              {(data?.summary.onHoldCount || 0) > 0 && (
+                <>
+                  {' '}
+                  • On Hold: <strong className="text-violet-700">{data?.summary.onHoldCount}</strong>
+                </>
+              )}
             </div>
           </div>
 
@@ -615,6 +647,13 @@ export default function AnalyticsDashboardPage() {
               </span>
             </div>
 
+            {(data?.summary.onHoldCount || 0) > 0 && (
+              <div className="px-3 py-2 rounded-xl bg-violet-50 border border-violet-200 text-[11px] text-violet-800 flex items-center justify-between">
+                <span>พักรอ Solution (On Hold — แยกออกจากคิวค้าง &amp; MTTR):</span>
+                <strong className="font-mono">{data?.summary.onHoldCount} เคส</strong>
+              </div>
+            )}
+
             {totalBacklogAging === 0 ? (
               <div className="py-12 text-center text-xs text-emerald-600 font-medium bg-emerald-50/50 rounded-xl border border-emerald-100">
                 ไม่มีเคสเปิดค้างในช่วงตัวกรองที่เลือก
@@ -647,6 +686,47 @@ export default function AnalyticsDashboardPage() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* Chart 7: Root Cause Analysis */}
+          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4 lg:col-span-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  7. การวิเคราะห์ต้นตอปัญหา (Root Cause Breakdown)
+                </h2>
+                <p className="text-[11px] text-slate-500">จำแนกสาเหตุต้นตอที่แท้จริง เช่น Human, System, Data</p>
+              </div>
+              <span className="material-symbols-outlined text-indigo-600">troubleshoot</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+              {!data || !data.byRootCause || data.byRootCause.length === 0 ? (
+                <div className="sm:col-span-2 lg:col-span-3 py-8 text-center text-xs text-slate-400">
+                  ไม่มีข้อมูลในช่วงเวลานี้
+                </div>
+              ) : (
+                data.byRootCause.map((rc, idx) => (
+                  <div key={rc.rootCause} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-800">{rc.rootCause}</span>
+                      <span className="font-mono text-indigo-700 font-bold">
+                        {rc.count} เคส ({rc.percentage}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.max(rc.percentage, 4)}%`,
+                          backgroundColor: rc.rootCause === 'Unspecified' ? '#94a3b8' : COLORS[(idx + 3) % COLORS.length],
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

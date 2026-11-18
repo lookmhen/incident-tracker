@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const groupBy = (searchParams.get('groupBy') as 'auto' | 'day' | 'month') || undefined;
     const urgency = searchParams.get('urgency') || undefined;
     const category = searchParams.get('category') || undefined;
+    const rootCause = searchParams.get('rootCause') || undefined;
     const department = searchParams.get('department') || undefined;
 
     const data = await IncidentService.getAnalyticsData({
@@ -25,6 +26,7 @@ export async function GET(req: NextRequest) {
       groupBy,
       urgency,
       category,
+      rootCause,
       department,
     });
     return NextResponse.json(data, {

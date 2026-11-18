@@ -425,8 +425,8 @@ export default function IncidentDetailMcpHub({
         <div className="absolute top-1/2 right-10 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-[140px] pointer-events-none"></div>
 
         {/* Top Incident Header Crisp White Glass Card */}
-        <section className="relative bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.06)] border border-sky-100 overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-sky-400 via-blue-500 to-sky-300"></div>
+        <section className="relative z-20 bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.06)] border border-sky-100">
+          <div className="absolute inset-x-0 top-0 h-[3px] rounded-t-2xl bg-gradient-to-r from-sky-400 via-blue-500 to-sky-300"></div>
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-3 min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -520,20 +520,22 @@ export default function IncidentDetailMcpHub({
                   <span>Status: {incident.status}</span>
                   <span className="material-symbols-outlined text-[16px] text-slate-400">expand_more</span>
                 </button>
-                <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 hidden group-hover:flex flex-col gap-1 z-20 min-w-[140px]">
-                  {['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => handleUpdateStatus(st)}
-                      className={`px-2.5 py-1.5 text-xs text-left rounded-lg font-medium transition-colors ${
-                        incident.status === st
-                          ? 'bg-sky-50 text-sky-700 font-semibold'
-                          : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      {st}
-                    </button>
-                  ))}
+                <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-30 min-w-[150px]">
+                  <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 flex flex-col gap-1">
+                    {['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => handleUpdateStatus(st)}
+                        className={`px-2.5 py-1.5 text-xs text-left rounded-lg font-medium transition-colors ${
+                          incident.status === st
+                            ? 'bg-sky-50 text-sky-700 font-semibold'
+                            : 'hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

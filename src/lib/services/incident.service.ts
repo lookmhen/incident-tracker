@@ -14,6 +14,7 @@ export interface CreateIncidentDTO {
   urgency?: 'LOW' | 'MEDIUM' | 'HIGH';
   category?: string;
   categoryId?: string;
+  portalBaseUrl?: string;
   file?: {
     buffer: Buffer;
     fileName: string;
@@ -195,6 +196,7 @@ export class IncidentService {
         urgency: created.urgency,
         category: created.category,
         attachmentUrl: firstAttachmentUrl,
+        portalBaseUrl: data.portalBaseUrl,
       }),
     ]).catch((e) => console.error('Background notification dispatch error:', e));
 

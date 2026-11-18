@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IncidentService } from '@/lib/services/incident.service';
 import { IntegrationService } from '@/lib/services/integration.service';
+import { EmailService } from '@/lib/services/email.service';
 import { checkApiAccess } from '@/lib/api-guard';
 
 /**
@@ -128,6 +129,7 @@ export async function POST(req: NextRequest) {
       contactInfo,
       category,
       categoryId: body.categoryId || undefined,
+      portalBaseUrl: EmailService.resolvePortalUrl(req),
     });
 
     // Record audit log entry

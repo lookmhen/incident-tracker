@@ -95,6 +95,38 @@ describe('5. Webhook & Email Payload Builders (TeamsService & EmailService)', ()
       where: { ticketNo: samplePayload.ticketNo, channel: 'EMAIL' },
     });
   });
+
+  it('resolves portalBaseUrl from request headers and APP_URL env safely', () => {
+    const prevAppUrl = process.env.APP_URL;
+    try {
+      delete process.env.APP_URL;
+      const fromHost = EmailService.resolvePortalUrl({
+        headers: new Headers({ host: '192.168.1.156:3001' }),
+        url: 'http://localhost:3000/api/incidents',
+      });
+      assert.equal(fromHost, 'http://192.168.1.156:3001');
+
+      const fromProxy = EmailService.resolvePortalUrl({
+        headers: new Headers({ 'x-forwarded-host': 'portal.company.com', 'x-forwarded-proto': 'https' }),
+        url: 'http://0.0.0.0:3000/api/incidents',
+      });
+      assert.equal(fromProxy, 'https://portal.company.com');
+
+      const bindZero = EmailService.resolvePortalUrl({
+        headers: new Headers({ host: '0.0.0.0:3000' }),
+      });
+      assert.equal(bindZero, undefined);
+
+      process.env.APP_URL = 'https://incidents.internal/';
+      assert.equal(
+        EmailService.resolvePortalUrl({ headers: new Headers({ host: '192.168.1.156:3001' }) }),
+        'https://incidents.internal'
+      );
+    } finally {
+      if (prevAppUrl === undefined) delete process.env.APP_URL;
+      else process.env.APP_URL = prevAppUrl;
+    }
+  });
 });
 
 describe('6. IntegrationService Encryption at Rest, Masking & Audit Logs', () => {

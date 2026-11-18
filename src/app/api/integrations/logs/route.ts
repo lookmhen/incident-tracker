@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
           urgency: incident?.urgency || 'MEDIUM',
           category: incident?.category || 'General IT',
           attachmentUrl: incident?.attachments?.[0]?.fileUrl || null,
+          portalBaseUrl: EmailService.resolvePortalUrl(req),
         },
         true
       );

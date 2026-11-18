@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IncidentService } from '@/lib/services/incident.service';
+import { EmailService } from '@/lib/services/email.service';
 import { checkApiAccess } from '@/lib/api-guard';
 
 export const dynamic = 'force-dynamic';
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest) {
       urgency,
       category,
       categoryId,
+      portalBaseUrl: EmailService.resolvePortalUrl(req),
       file: filePayload,
     });
 

@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
           contactInfo: 'admin@internal',
           urgency: 'MEDIUM',
           category: 'Diagnostic',
+          portalBaseUrl: EmailService.resolvePortalUrl(req),
         },
         true
       );

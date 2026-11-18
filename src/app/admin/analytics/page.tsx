@@ -196,7 +196,7 @@ export default function AnalyticsDashboardPage() {
                 fetchAnalytics({ urgency: v });
               }}
               aria-label="Filter by urgency"
-              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-sky-500"
+              className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-sky-500"
             >
               <option value="ALL">Urgency: All</option>
               <option value="HIGH">P1 - High</option>
@@ -212,7 +212,7 @@ export default function AnalyticsDashboardPage() {
                 fetchAnalytics({ category: v });
               }}
               aria-label="Filter by category"
-              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-sky-500"
+              className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-sky-500"
             >
               <option value="ALL">Category: All</option>
               {(data?.filterOptions?.categories || []).map((c) => (
@@ -230,7 +230,7 @@ export default function AnalyticsDashboardPage() {
                 fetchAnalytics({ department: v });
               }}
               aria-label="Filter by department"
-              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-sky-500"
+              className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-sky-500"
             >
               <option value="ALL">Dept: All</option>
               {(data?.filterOptions?.departments || []).map((d) => (

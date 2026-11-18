@@ -264,9 +264,15 @@ export default function IntegrationsSecurityHubPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'test_email' }),
       });
-      const data = await res.json();
-      showToast(data.message || 'ส่งอีเมลทดสอบเรียบร้อยแล้ว');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showToast(`❌ ส่งอีเมลไม่สำเร็จ: ${data.message || data.error || `HTTP ${res.status}`}`);
+      } else {
+        showToast(`✅ ${data.message || 'ส่งอีเมลทดสอบเรียบร้อยแล้ว'}`);
+      }
       fetchLogs();
+    } catch (err: any) {
+      showToast(`❌ ข้อผิดพลาดเครือข่าย: ${err.message}`);
     } finally {
       setTestingEmail(false);
     }
@@ -398,11 +404,11 @@ export default function IntegrationsSecurityHubPage() {
 
         {/* TAB 1: OUTBOUND WEBHOOK & EMAIL */}
         {activeTab === 'outbound' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Card 1: Teams / Power Automate */}
             <form
               onSubmit={handleSaveTeams}
-              className="bg-white rounded-2xl p-6 shadow-xs border border-sky-100 space-y-5"
+              className="h-full flex flex-col bg-white rounded-2xl p-6 shadow-xs border border-sky-100 gap-5"
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
@@ -476,7 +482,7 @@ export default function IntegrationsSecurityHubPage() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+              <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
                 <button
                   type="button"
                   onClick={handleTestTeams}
@@ -503,7 +509,7 @@ export default function IntegrationsSecurityHubPage() {
             {/* Card 2: Admin Email SMTP Relay */}
             <form
               onSubmit={handleSaveSmtp}
-              className="bg-white rounded-2xl p-6 shadow-xs border border-sky-100 space-y-5"
+              className="h-full flex flex-col bg-white rounded-2xl p-6 shadow-xs border border-sky-100 gap-5"
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
@@ -571,17 +577,27 @@ export default function IntegrationsSecurityHubPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="block text-[11px] font-semibold text-slate-700">
-                      SMTP Username / Sender
+                      SMTP Username (Auth)
                     </label>
                     <input
                       type="text"
                       value={smtp.username}
-                      onChange={(e) =>
-                        setSmtp({ ...smtp, username: e.target.value, senderEmail: e.target.value })
-                      }
+                      onChange={(e) => setSmtp({ ...smtp, username: e.target.value })}
+                      placeholder="svc-smtp หรือ user@company.com"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold text-slate-700">
+                      Sender Email (From)
+                    </label>
+                    <input
+                      type="email"
+                      value={smtp.senderEmail}
+                      onChange={(e) => setSmtp({ ...smtp, senderEmail: e.target.value })}
                       placeholder="it-alert@company.com"
                       className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono"
                     />
@@ -614,7 +630,7 @@ export default function IntegrationsSecurityHubPage() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+              <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
                 <button
                   type="button"
                   onClick={handleTestEmail}

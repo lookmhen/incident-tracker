@@ -15,8 +15,18 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
     const groupBy = (searchParams.get('groupBy') as 'auto' | 'day' | 'month') || undefined;
+    const urgency = searchParams.get('urgency') || undefined;
+    const category = searchParams.get('category') || undefined;
+    const department = searchParams.get('department') || undefined;
 
-    const data = await IncidentService.getAnalyticsData({ startDate, endDate, groupBy });
+    const data = await IncidentService.getAnalyticsData({
+      startDate,
+      endDate,
+      groupBy,
+      urgency,
+      category,
+      department,
+    });
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     });

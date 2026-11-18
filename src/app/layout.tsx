@@ -18,14 +18,7 @@ export default function RootLayout({
         <Navbar />
         <main className="flex-1 w-full pt-16">{children}</main>
         <footer className="w-full bg-white border-t border-sky-100 py-6">
-          <div className="w-full px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-            <div className="flex items-center gap-4">
-              <span className="font-semibold text-slate-800">IncidentHub Engine</span>
-              <span className="text-slate-300">|</span>
-              <span>SQLite • Pure Docker Node 26 Container</span>
-              <span className="text-slate-300">|</span>
-              <span>Model Context Protocol v2024.11</span>
-            </div>
+          <div className="w-full px-6 lg:px-8 flex items-center justify-center text-xs text-slate-500">
             <div>© 2026 IncidentHub Operations. High-Reliability Incident Response Architecture.</div>
           </div>
         </footer>

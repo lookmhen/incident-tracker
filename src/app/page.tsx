@@ -296,7 +296,7 @@ export default function SimplePublicReportPortal() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-label font-medium text-slate-700 flex items-center justify-between" htmlFor="reporterName">
                     <span>
-                      ชื่อ-นามสกุล ผู้แจ้ง <span className="text-red-500">*</span>
+                      ชื่อ ผู้แจ้ง <span className="text-red-500">*</span>
                     </span>
                     <span className="text-[11px] text-slate-400">จำไว้ในเครื่องอัตโนมัติ</span>
                   </label>

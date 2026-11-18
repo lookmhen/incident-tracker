@@ -34,6 +34,39 @@ export interface IncidentFilterQuery {
 
 export class IncidentService {
   /**
+   * Normalizes free-text department names (trims spaces, uppercases short ASCII codes, capitalizes lowercase ASCII words).
+   */
+  public static normalizeDepartment(raw?: string | null): string | null {
+    const cleaned = raw?.trim().replace(/\s+/g, ' ');
+    if (!cleaned) return null;
+    if (/^[a-zA-Z0-9]{1,4}$/.test(cleaned)) return cleaned.toUpperCase();
+    if (/^[a-z\s-]+$/.test(cleaned)) {
+      return cleaned.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+    }
+    return cleaned;
+  }
+
+  private static groupDepartments(rows: Array<{ department: string | null }>, includeEmpty: boolean) {
+    const buckets = new Map<string, { count: number; variants: Map<string, number> }>();
+    for (const r of rows) {
+      const normalized = this.normalizeDepartment(r.department);
+      if (!normalized && !includeEmpty) continue;
+      const display = normalized || 'General / Unspecified';
+      const key = display.toLowerCase();
+      const bucket = buckets.get(key) || { count: 0, variants: new Map() };
+      bucket.count++;
+      bucket.variants.set(display, (bucket.variants.get(display) || 0) + 1);
+      buckets.set(key, bucket);
+    }
+    return Array.from(buckets.values()).map((b) => {
+      const label = Array.from(b.variants.entries()).sort(
+        (a, c) => c[1] - a[1] || a[0].localeCompare(c[0])
+      )[0][0];
+      return { department: label, count: b.count };
+    });
+  }
+
+  /**
    * Generates a safe, sequential Ticket ID in format: INC-YYYYMM-XXX
    */
   public static async generateTicketNo(): Promise<string> {
@@ -114,7 +147,7 @@ export class IncidentService {
       data: {
         ticketNo,
         reporterName: data.reporterName.trim(),
-        department: data.department?.trim() || null,
+        department: this.normalizeDepartment(data.department),
         contactInfo: data.contactInfo.trim(),
         title: cleanTitle,
         description: cleanDesc,
@@ -340,6 +373,7 @@ export class IncidentService {
       status?: string;
       assignedTo?: string;
       resolution?: string;
+      createdAt?: string | Date;
       closedAt?: string | Date | null;
     }
   ) {
@@ -357,6 +391,14 @@ export class IncidentService {
     if (data.urgency !== undefined) updatePayload.urgency = data.urgency;
     if (data.assignedTo !== undefined) updatePayload.assignedTo = data.assignedTo;
 
+    if (data.createdAt !== undefined) {
+      const parsedCreated = data.createdAt instanceof Date ? data.createdAt : new Date(data.createdAt);
+      if (!data.createdAt || Number.isNaN(parsedCreated.getTime())) {
+        throw new Error('Invalid createdAt date');
+      }
+      updatePayload.createdAt = parsedCreated;
+    }
+
     if (data.status !== undefined) {
       updatePayload.status = data.status.toUpperCase();
       if (['RESOLVED', 'CLOSED'].includes(updatePayload.status)) {
@@ -368,7 +410,9 @@ export class IncidentService {
       }
     }
 
+    const effectiveCreatedAt: Date = updatePayload.createdAt ?? target.createdAt;
     const effectiveStatus = updatePayload.status ?? target.status;
+
     if (data.closedAt !== undefined && ['RESOLVED', 'CLOSED'].includes(effectiveStatus)) {
       if (data.closedAt === null) {
         updatePayload.closedAt = null;
@@ -377,13 +421,19 @@ export class IncidentService {
         if (Number.isNaN(parsed.getTime())) {
           throw new Error('Invalid closedAt date');
         }
-        if (parsed.getTime() < target.createdAt.getTime()) {
+        if (parsed.getTime() < effectiveCreatedAt.getTime()) {
           throw new Error('closedAt cannot be earlier than createdAt');
         }
         updatePayload.closedAt = parsed;
       }
     } else if (data.closedAt !== undefined && data.closedAt !== null && data.status === undefined) {
       throw new Error('Cannot set closedAt unless incident is RESOLVED or CLOSED');
+    } else if (updatePayload.createdAt) {
+      const effectiveClosedAt: Date | null =
+        updatePayload.closedAt !== undefined ? updatePayload.closedAt : target.closedAt;
+      if (effectiveClosedAt && effectiveCreatedAt.getTime() > effectiveClosedAt.getTime()) {
+        throw new Error('createdAt cannot be later than closedAt');
+      }
     }
 
     if (data.resolution !== undefined) {
@@ -452,12 +502,20 @@ export class IncidentService {
     startDate?: string;
     endDate?: string;
     groupBy?: 'auto' | 'day' | 'month';
+    urgency?: string;
+    category?: string;
+    department?: string;
   }) {
     const where = this.buildFilterWhere(query);
-    const records = await prisma.incident.findMany({
-      where,
-      orderBy: { createdAt: 'asc' },
-    });
+    const [records, distinctFilterRows] = await Promise.all([
+      prisma.incident.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.incident.findMany({
+        select: { category: true, department: true },
+      }),
+    ]);
 
     const normStatus = (s?: string | null) => (s || 'OPEN').trim().toUpperCase();
     const normUrgency = (u?: string | null) => (u || 'MEDIUM').trim().toUpperCase();
@@ -470,19 +528,83 @@ export class IncidentService {
     const criticalCount = records.filter((r) => normUrgency(r.urgency) === 'HIGH').length;
     const resolutionRate = total > 0 ? Math.round((resolvedCount / total) * 100) : 0;
 
-    // Avg resolution time in minutes
+    // Avg resolution time in minutes (overall, by urgency, and by category)
     let totalDurationMins = 0;
     let durationSamples = 0;
+    const mttrUrgencyMap = new Map<string, { sum: number; count: number }>([
+      ['HIGH', { sum: 0, count: 0 }],
+      ['MEDIUM', { sum: 0, count: 0 }],
+      ['LOW', { sum: 0, count: 0 }],
+    ]);
+    const mttrCatMap = new Map<string, { sum: number; count: number }>();
+
     for (const r of resolvedRecords) {
       if (r.closedAt) {
         const diff = (new Date(r.closedAt).getTime() - new Date(r.createdAt).getTime()) / 60000;
         if (diff >= 0) {
           totalDurationMins += diff;
           durationSamples++;
+
+          const uKey = normUrgency(r.urgency);
+          const uBucket = mttrUrgencyMap.get(uKey);
+          if (uBucket) {
+            uBucket.sum += diff;
+            uBucket.count++;
+          }
+
+          const cKey = r.category?.trim() || 'Uncategorized';
+          const cBucket = mttrCatMap.get(cKey) || { sum: 0, count: 0 };
+          cBucket.sum += diff;
+          cBucket.count++;
+          mttrCatMap.set(cKey, cBucket);
         }
       }
     }
     const avgResolutionMins = durationSamples > 0 ? Math.round(totalDurationMins / durationSamples) : 0;
+
+    const mttrByUrgency = (['HIGH', 'MEDIUM', 'LOW'] as const).map((urgency) => {
+      const b = mttrUrgencyMap.get(urgency)!;
+      return {
+        urgency,
+        avgMins: b.count > 0 ? Math.round(b.sum / b.count) : 0,
+        count: b.count,
+      };
+    });
+
+    const mttrByCategory = Array.from(mttrCatMap.entries())
+      .map(([category, b]) => ({
+        category,
+        avgMins: Math.round(b.sum / b.count),
+        count: b.count,
+      }))
+      .sort((a, b) => b.avgMins - a.avgMins);
+
+    // Backlog Aging (for active OPEN / IN_PROGRESS records)
+    const nowMs = Date.now();
+    const agingCounts = { under_24h: 0, d1_3: 0, d4_7: 0, over_7d: 0 };
+    for (const r of records) {
+      if (['RESOLVED', 'CLOSED'].includes(normStatus(r.status))) continue;
+      const ageHours = Math.max(0, (nowMs - new Date(r.createdAt).getTime()) / 3600000);
+      if (ageHours < 24) agingCounts.under_24h++;
+      else if (ageHours < 72) agingCounts.d1_3++;
+      else if (ageHours <= 168) agingCounts.d4_7++;
+      else agingCounts.over_7d++;
+    }
+    const backlogAging = [
+      { key: 'under_24h', label: '< 24 ชม.', count: agingCounts.under_24h },
+      { key: '1_3d', label: '1–3 วัน', count: agingCounts.d1_3 },
+      { key: '4_7d', label: '4–7 วัน', count: agingCounts.d4_7 },
+      { key: 'over_7d', label: '> 7 วัน', count: agingCounts.over_7d },
+    ];
+
+    const filterOptions = {
+      categories: Array.from(
+        new Set(distinctFilterRows.map((r) => r.category?.trim()).filter((v): v is string => Boolean(v)))
+      ).sort(),
+      departments: this.groupDepartments(distinctFilterRows, false)
+        .map((d) => d.department)
+        .sort((a, b) => a.localeCompare(b)),
+    };
 
     // Determine Grouping: 'day' vs 'month'
     let effectiveGroupBy: 'day' | 'month' = 'day';
@@ -582,14 +704,9 @@ export class IncidentService {
       }))
       .sort((a, b) => b.count - a.count);
 
-    // 3. Top Departments
-    const deptMap = new Map<string, number>();
-    for (const r of records) {
-      const dept = r.department?.trim() || 'General / Unspecified';
-      deptMap.set(dept, (deptMap.get(dept) || 0) + 1);
-    }
-    const byDepartment = Array.from(deptMap.entries())
-      .map(([department, count]) => ({
+    // 3. Top Departments (case-insensitive grouping)
+    const byDepartment = this.groupDepartments(records, true)
+      .map(({ department, count }) => ({
         department,
         count,
         percentage: total > 0 ? Math.round((count / total) * 100) : 0,
@@ -626,6 +743,10 @@ export class IncidentService {
       byDepartment,
       byStatus,
       byUrgency,
+      mttrByUrgency,
+      mttrByCategory,
+      backlogAging,
+      filterOptions,
     };
   }
 }

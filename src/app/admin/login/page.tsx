@@ -49,7 +49,7 @@ function AdminLoginForm() {
           </div>
           <h1 className="text-xl font-headline font-bold text-slate-900">IT Admin Console Access</h1>
           <p className="text-xs text-slate-500">
-            กรุณากรอกรหัสผ่านผู้ดูแลระบบ (Admin Passcode) เพื่อเข้าถึงโซนจัดการเคสและตั้งค่า API
+            กรุณากรอกรหัสผ่านผู้ดูแลระบบ
           </p>
         </div>
 
@@ -77,9 +77,6 @@ function AdminLoginForm() {
                 key
               </span>
             </div>
-            <p className="text-[11px] text-slate-400">
-              กำหนดค่าได้ผ่านตัวแปร <code className="font-mono text-slate-600">ADMIN_PASSCODE</code> ในไฟล์ <code className="font-mono text-slate-600">.env</code>
-            </p>
           </div>
 
           <button

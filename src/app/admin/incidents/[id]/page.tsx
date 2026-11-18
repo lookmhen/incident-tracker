@@ -58,10 +58,10 @@ export default function IncidentDetailMcpHub({
   const [editDescription, setEditDescription] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
 
-  // Edit closedAt state
-  const [isEditingClosedAt, setIsEditingClosedAt] = useState(false);
-  const [editClosedAt, setEditClosedAt] = useState('');
-  const [savingClosedAt, setSavingClosedAt] = useState(false);
+  // Edit createdAt / closedAt timestamp state
+  const [editingTimeField, setEditingTimeField] = useState<'createdAt' | 'closedAt' | null>(null);
+  const [editTimeValue, setEditTimeValue] = useState('');
+  const [savingTime, setSavingTime] = useState(false);
 
   // Attachment preview modal (holds the clicked attachment)
   const [previewAtt, setPreviewAtt] = useState<IncidentDetail['attachments'][number] | null>(null);
@@ -148,7 +148,7 @@ export default function IncidentDetailMcpHub({
       if (res.ok) {
         const updated = await res.json();
         setIncident(updated);
-        setIsEditingClosedAt(false);
+        setEditingTimeField(null);
         showToast('Claimed ticket • Status set to IN_PROGRESS');
       }
     } catch (e) {
@@ -168,7 +168,7 @@ export default function IncidentDetailMcpHub({
       if (res.ok) {
         const updated = await res.json();
         setIncident(updated);
-        setIsEditingClosedAt(false);
+        setEditingTimeField(null);
         showToast(`Status updated to ${newStatus}`);
       }
     } catch (e) {
@@ -253,40 +253,79 @@ export default function IncidentDetailMcpHub({
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
-  const handleSaveClosedAt = async () => {
-    if (!incident || !editClosedAt) return;
-    const parsed = new Date(editClosedAt);
+  const handleSaveTimestamp = async () => {
+    if (!incident || !editingTimeField || !editTimeValue) return;
+    const parsed = new Date(editTimeValue);
     if (Number.isNaN(parsed.getTime())) {
       showToast('รูปแบบวันเวลาไม่ถูกต้อง');
       return;
     }
-    if (parsed.getTime() < new Date(incident.createdAt).getTime()) {
+    if (editingTimeField === 'closedAt' && parsed.getTime() < new Date(incident.createdAt).getTime()) {
       showToast('วันเวลาปิดเคสต้องไม่ก่อนเวลาเปิดเคส');
       return;
     }
-    setSavingClosedAt(true);
+    if (
+      editingTimeField === 'createdAt' &&
+      incident.closedAt &&
+      parsed.getTime() > new Date(incident.closedAt).getTime()
+    ) {
+      showToast('วันเวลาเปิดเคสต้องไม่หลังเวลาปิดเคส');
+      return;
+    }
+    setSavingTime(true);
     try {
       const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ closedAt: parsed.toISOString() }),
+        body: JSON.stringify({ [editingTimeField]: parsed.toISOString() }),
       });
       if (res.ok) {
         const updated = await res.json();
         setIncident(updated);
-        setIsEditingClosedAt(false);
-        showToast('อัปเดตวันเวลาปิดเคสเรียบร้อยแล้ว');
+        const label = editingTimeField === 'createdAt' ? 'เปิดเคส' : 'ปิดเคส';
+        setEditingTimeField(null);
+        showToast(`อัปเดตวันเวลา${label}เรียบร้อยแล้ว`);
       } else {
         const err = await res.json().catch(() => ({}));
-        showToast(err.error || 'ไม่สามารถอัปเดตวันเวลาปิดเคสได้');
+        showToast(err.error || 'ไม่สามารถอัปเดตวันเวลาได้');
       }
     } catch (e) {
       console.error(e);
       showToast('เกิดข้อผิดพลาดในการบันทึก');
     } finally {
-      setSavingClosedAt(false);
+      setSavingTime(false);
     }
   };
+
+  const renderTimeEditor = (bounds: { min?: string; max?: string }, ringClass: string, btnClass: string) => (
+    <div className="space-y-1.5 pt-0.5">
+      <input
+        type="datetime-local"
+        value={editTimeValue}
+        min={bounds.min}
+        max={bounds.max}
+        onChange={(e) => setEditTimeValue(e.target.value)}
+        className={`w-full px-2 py-1 rounded-lg border bg-white text-[11px] font-mono text-slate-900 focus:outline-none focus:ring-1 ${ringClass}`}
+      />
+      <div className="flex items-center justify-end gap-1.5">
+        <button
+          type="button"
+          onClick={() => setEditingTimeField(null)}
+          className="px-2 py-0.5 rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-[10px] text-slate-600 cursor-pointer"
+        >
+          ยกเลิก
+        </button>
+        <button
+          type="button"
+          disabled={savingTime || !editTimeValue}
+          onClick={handleSaveTimestamp}
+          className={`px-2 py-0.5 rounded-md text-white text-[10px] font-semibold cursor-pointer disabled:opacity-50 ${btnClass}`}
+        >
+          {savingTime ? 'กำลังบันทึก...' : 'บันทึก'}
+        </button>
+      </div>
+    </div>
+  );
 
   // Copy JSON Payload for External MCP Client
   const buildMcpPayload = (inc: IncidentDetail) => ({
@@ -702,15 +741,41 @@ export default function IncidentDetailMcpHub({
 
               <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-medium">
-                    เปิดเคสเมื่อ (Created)
-                  </span>
-                  <div className="font-semibold text-slate-800 font-mono">
-                    {new Date(incident.createdAt).toLocaleDateString('th-TH')}
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
+                      เปิดเคสเมื่อ (Created)
+                    </span>
+                    {editingTimeField !== 'createdAt' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditTimeValue(toLocalDateTimeInput(incident.createdAt));
+                          setEditingTimeField('createdAt');
+                        }}
+                        className="text-[10px] font-semibold text-sky-700 hover:text-sky-900 flex items-center gap-0.5 cursor-pointer"
+                        title="แก้ไขวันเวลาเปิดเคส"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">edit</span>
+                        <span>แก้ไข</span>
+                      </button>
+                    )}
                   </div>
-                  <div className="text-[11px] text-slate-500 font-mono">
-                    {new Date(incident.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
-                  </div>
+                  {editingTimeField === 'createdAt' ? (
+                    renderTimeEditor(
+                      { max: incident.closedAt ? toLocalDateTimeInput(incident.closedAt) : undefined },
+                      'border-sky-300 focus:ring-sky-500',
+                      'bg-sky-600 hover:bg-sky-700'
+                    )
+                  ) : (
+                    <>
+                      <div className="font-semibold text-slate-800 font-mono">
+                        {new Date(incident.createdAt).toLocaleDateString('th-TH')}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono">
+                        {new Date(incident.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div
@@ -724,12 +789,12 @@ export default function IncidentDetailMcpHub({
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
                       {isClosed ? 'ปิดเคสเมื่อ (Closed)' : 'สถานะเวลาปัจจุบัน'}
                     </span>
-                    {isClosed && !isEditingClosedAt && (
+                    {isClosed && editingTimeField !== 'closedAt' && (
                       <button
                         type="button"
                         onClick={() => {
-                          setEditClosedAt(toLocalDateTimeInput(incident.closedAt || new Date().toISOString()));
-                          setIsEditingClosedAt(true);
+                          setEditTimeValue(toLocalDateTimeInput(incident.closedAt || new Date().toISOString()));
+                          setEditingTimeField('closedAt');
                         }}
                         className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
                         title="แก้ไขวันเวลาปิดเคส"
@@ -740,33 +805,12 @@ export default function IncidentDetailMcpHub({
                     )}
                   </div>
                   {isClosed ? (
-                    isEditingClosedAt ? (
-                      <div className="space-y-1.5 pt-0.5">
-                        <input
-                          type="datetime-local"
-                          value={editClosedAt}
-                          min={toLocalDateTimeInput(incident.createdAt)}
-                          onChange={(e) => setEditClosedAt(e.target.value)}
-                          className="w-full px-2 py-1 rounded-lg border border-emerald-300 bg-white text-[11px] font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setIsEditingClosedAt(false)}
-                            className="px-2 py-0.5 rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-[10px] text-slate-600 cursor-pointer"
-                          >
-                            ยกเลิก
-                          </button>
-                          <button
-                            type="button"
-                            disabled={savingClosedAt || !editClosedAt}
-                            onClick={handleSaveClosedAt}
-                            className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold cursor-pointer disabled:opacity-50"
-                          >
-                            {savingClosedAt ? 'กำลังบันทึก...' : 'บันทึก'}
-                          </button>
-                        </div>
-                      </div>
+                    editingTimeField === 'closedAt' ? (
+                      renderTimeEditor(
+                        { min: toLocalDateTimeInput(incident.createdAt) },
+                        'border-emerald-300 focus:ring-emerald-500',
+                        'bg-emerald-600 hover:bg-emerald-700'
+                      )
                     ) : (
                       <>
                         <div className="font-semibold text-emerald-800 font-mono">

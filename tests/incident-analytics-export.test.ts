@@ -224,6 +224,33 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const invalidRes = await incidentPatchHandler(invalidReq, { params: Promise.resolve({ id: ticketNo }) });
     assert.equal(invalidRes.status, 400);
 
+    // Allow Admin to edit createdAt (start date) earlier than closedAt, reject later than closedAt
+    const customCreatedAt = new Date(existing.createdAt.getTime() - 30 * 60 * 1000).toISOString();
+    const validCreatedReq = new NextRequest(`http://localhost:3000/api/incidents/${ticketNo}`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
+      },
+      body: JSON.stringify({ createdAt: customCreatedAt }),
+    });
+    const validCreatedRes = await incidentPatchHandler(validCreatedReq, { params: Promise.resolve({ id: ticketNo }) });
+    assert.equal(validCreatedRes.status, 200);
+    const updatedCreated = await validCreatedRes.json();
+    assert.equal(new Date(updatedCreated.createdAt).toISOString(), customCreatedAt);
+
+    const afterClosedIso = new Date(new Date(customClosedAt).getTime() + 60 * 1000).toISOString();
+    const invalidCreatedReq = new NextRequest(`http://localhost:3000/api/incidents/${ticketNo}`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
+      },
+      body: JSON.stringify({ createdAt: afterClosedIso }),
+    });
+    const invalidCreatedRes = await incidentPatchHandler(invalidCreatedReq, { params: Promise.resolve({ id: ticketNo }) });
+    assert.equal(invalidCreatedRes.status, 400);
+
     // Preserves custom closedAt when transitioning RESOLVED -> CLOSED, clears on OPEN
     const closedStatus = await IncidentService.updateIncident(ticketNo, { status: 'CLOSED' });
     assert.equal(closedStatus.closedAt?.toISOString(), customClosedAt);
@@ -302,5 +329,70 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       activeOnly.incidents.map((i) => i.ticketNo),
       [openHigh, openLow, inProg]
     );
+  });
+
+  it('computes MTTR breakdown, backlog aging buckets, and global urgency/category/department filters', async () => {
+    const adminToken = await createAdminSessionToken();
+    const req = new NextRequest('http://localhost:3000/api/incidents/analytics?urgency=HIGH', {
+      headers: { cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
+    });
+    const res = await analyticsGetHandler(req);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+
+    assert.equal(data.byUrgency.find((u: { urgency: string }) => u.urgency === 'MEDIUM')?.count, 0);
+    assert.equal(data.byUrgency.find((u: { urgency: string }) => u.urgency === 'LOW')?.count, 0);
+    assert.equal(data.mttrByUrgency.length, 3);
+    assert.ok(Array.isArray(data.mttrByCategory));
+    assert.equal(data.backlogAging.length, 4);
+
+    const agingSum = data.backlogAging.reduce((acc: number, b: { count: number }) => acc + b.count, 0);
+    assert.equal(agingSum, data.summary.openCount + data.summary.inProgressCount);
+    assert.ok(Array.isArray(data.filterOptions?.categories));
+    assert.ok(Array.isArray(data.filterOptions?.departments));
+  });
+
+  it('normalizes and groups mixed-case department names consistently', async () => {
+    assert.equal(IncidentService.normalizeDepartment('  it '), 'IT');
+    assert.equal(IncidentService.normalizeDepartment('qa'), 'QA');
+    assert.equal(IncidentService.normalizeDepartment('accounting'), 'Accounting');
+    assert.equal(IncidentService.normalizeDepartment('QA Engineering'), 'QA Engineering');
+
+    const deptTag = `DeptMix${Date.now()}`;
+    const mkRaw = async (rawDept: string) => {
+      const created = await IncidentService.createIncident({
+        reporterName: 'Dept Tester',
+        contactInfo: 'dept@test.local',
+        department: rawDept,
+        title: `Dept test ${rawDept}`,
+        description: 'Testing mixed case department grouping',
+      });
+      testIncidentIds.push(created.id);
+      return created;
+    };
+
+    const a = await mkRaw(`${deptTag}`);
+    // Simulate legacy DB row stored with lowercase variant before normalization
+    const b = await prisma.incident.create({
+      data: {
+        ticketNo: `INC-999999-${String(Math.floor(Math.random() * 900) + 100)}`,
+        reporterName: 'Dept Tester',
+        contactInfo: 'dept@test.local',
+        department: deptTag.toLowerCase(),
+        title: 'Legacy lowercase dept',
+        description: 'Testing legacy casing merge',
+      },
+    });
+    testIncidentIds.push(b.id);
+
+    const analytics = await IncidentService.getAnalyticsData({ department: deptTag });
+    assert.equal(analytics.summary.total, 2, 'Department filter must match mixed-case rows');
+    assert.equal(analytics.byDepartment.length, 1, 'Mixed-case departments must merge into 1 entry');
+    assert.equal(analytics.byDepartment[0].count, 2);
+    assert.equal(
+      analytics.filterOptions.departments.filter((d) => d.toLowerCase() === deptTag.toLowerCase()).length,
+      1
+    );
+    assert.ok(a.department);
   });
 });

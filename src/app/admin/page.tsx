@@ -44,7 +44,6 @@ export default function AdminDashboardPage() {
   const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [kpis, setKpis] = useState<DashboardKpis>({
     totalRecords: 0,
     activeCount: 0,
@@ -93,7 +92,6 @@ export default function AdminDashboardPage() {
   }, []);
 
   const fetchIncidents = async () => {
-    setIsRefreshing(true);
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
@@ -118,7 +116,6 @@ export default function AdminDashboardPage() {
       console.error('Fetch error:', e);
     } finally {
       setLoading(false);
-      setTimeout(() => setIsRefreshing(false), 500);
     }
   };
 
@@ -294,19 +291,6 @@ export default function AdminDashboardPage() {
             >
               <span className="material-symbols-outlined text-[17px] text-sky-600">category</span>
               <span>Manage Categories ({categories.length})</span>
-            </button>
-
-            <button
-              onClick={fetchIncidents}
-              className="px-4 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700 text-xs font-semibold flex items-center gap-2 shadow-sm shadow-sky-600/30 transition-all duration-200"
-            >
-              <span
-                className={`material-symbols-outlined text-[17px] ${isRefreshing ? 'animate-spin' : ''}`}
-                style={{ animationDuration: '1s' }}
-              >
-                sync
-              </span>
-              <span>Sync SQLite Stream</span>
             </button>
           </div>
         </div>

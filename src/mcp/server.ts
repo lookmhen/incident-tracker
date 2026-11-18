@@ -104,6 +104,7 @@ server.tool(
       attachments: incident.attachments.map((att: any) => ({
         fileName: att.fileName,
         fileType: att.fileType,
+        kind: att.kind || 'REPORT',
         fileSizeFormatted: `${(att.fileSize / 1024).toFixed(0)} KB`,
       })),
       webConsoleUrl: `/admin/incidents/${incident.ticketNo}`,

@@ -502,7 +502,7 @@ export default function AdminDashboardPage() {
                   <th className="py-3.5 px-4 font-semibold">Ticket ID</th>
                   <th className="py-3.5 px-3 font-semibold">Age</th>
                   <th className="py-3.5 px-3 font-semibold whitespace-nowrap">Urgency</th>
-                  <th className="py-3.5 px-3 font-semibold">Category</th>
+                  <th className="py-3.5 px-3 font-semibold whitespace-nowrap">Category</th>
                   <th className="py-3.5 px-4 font-semibold min-w-[320px]">Incident Summary &amp; Reporter</th>
                   <th className="py-3.5 px-3 font-semibold">Status</th>
                   <th className="py-3.5 px-4 font-semibold">Assigned Responder</th>
@@ -557,13 +557,19 @@ export default function AdminDashboardPage() {
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 px-3">
+                        <td className="py-3.5 px-3 whitespace-nowrap">
                           <div className="flex flex-col items-start gap-1">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-100 font-medium">
+                            <span
+                              title={inc.category || 'General'}
+                              className="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-100 font-medium whitespace-nowrap max-w-[240px] truncate"
+                            >
                               {inc.category || 'General'}
                             </span>
                             {inc.rootCause && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium">
+                              <span
+                                title={`RCA: ${inc.rootCause}`}
+                                className="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium whitespace-nowrap max-w-[240px] truncate"
+                              >
                                 RCA: {inc.rootCause}
                               </span>
                             )}

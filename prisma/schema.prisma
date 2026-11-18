@@ -49,6 +49,7 @@ model Attachment {
   fileType   String
   fileName   String?
   fileSize   Int?
+  kind       String   @default("REPORT") // "REPORT" | "RESOLUTION"
   createdAt  DateTime @default(now())
 }
 

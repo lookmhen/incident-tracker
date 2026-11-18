@@ -562,6 +562,59 @@ export class IncidentService {
   }
 
   /**
+   * Attaches an evidence ("REPORT") or resolution ("RESOLUTION") file to an existing incident
+   */
+  public static async addAttachment(
+    idOrTicketNo: string,
+    file: { buffer: Buffer; fileName: string; fileType: string; fileSize: number },
+    kind: 'REPORT' | 'RESOLUTION' = 'REPORT'
+  ) {
+    const target = await this.getIncidentById(idOrTicketNo);
+    if (!target) {
+      throw new Error(`Incident not found: ${idOrTicketNo}`);
+    }
+
+    const saved = await this.saveUploadedFile(file);
+    return prisma.attachment.create({
+      data: {
+        incidentId: target.id,
+        fileUrl: saved.fileUrl,
+        fileName: saved.fileName,
+        fileType: saved.fileType,
+        fileSize: saved.fileSize,
+        kind,
+      },
+    });
+  }
+
+  /**
+   * Deletes an attachment belonging to the specified incident and cleans up local upload file
+   */
+  public static async deleteAttachment(idOrTicketNo: string, attachmentId: string) {
+    const target = await this.getIncidentById(idOrTicketNo);
+    if (!target) {
+      throw new Error(`Incident not found: ${idOrTicketNo}`);
+    }
+
+    const att = await prisma.attachment.findFirst({
+      where: { id: attachmentId, incidentId: target.id },
+    });
+    if (!att) {
+      throw new Error(`Attachment not found: ${attachmentId}`);
+    }
+
+    await prisma.attachment.delete({ where: { id: att.id } });
+
+    if (att.fileUrl.startsWith('/uploads/')) {
+      const uploadDir = path.resolve(process.cwd(), 'public', 'uploads');
+      const filePath = path.resolve(uploadDir, path.basename(att.fileUrl));
+      if (filePath.startsWith(uploadDir + path.sep)) {
+        await fs.promises.unlink(filePath).catch(() => {});
+      }
+    }
+  }
+
+  /**
    * Builds filter where clause for Export and Analytics
    */
   public static buildFilterWhere(query: {

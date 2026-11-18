@@ -1,6 +1,8 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { NextRequest } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 import prisma from '../src/lib/prisma';
 import { CategoryService } from '../src/lib/services/category.service';
 import { IncidentService } from '../src/lib/services/incident.service';
@@ -8,7 +10,8 @@ import { IntegrationService } from '../src/lib/services/integration.service';
 import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
 import { GET as exportCsvHandler } from '../src/app/api/incidents/export/route';
 import { GET as inboundGetHandler, POST as inboundPostHandler } from '../src/app/api/incidents/inbound/route';
-import { PATCH as incidentPatchHandler } from '../src/app/api/incidents/[id]/route';
+import { GET as incidentGetHandler, PATCH as incidentPatchHandler } from '../src/app/api/incidents/[id]/route';
+import { POST as attachmentsPostHandler, DELETE as attachmentsDeleteHandler } from '../src/app/api/incidents/[id]/attachments/route';
 import { GET as analyticsGetHandler } from '../src/app/api/incidents/analytics/route';
 import { GET as rootCausesGet, POST as rootCausesPost, DELETE as rootCausesDelete } from '../src/app/api/root-causes/route';
 
@@ -556,5 +559,107 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       })
     );
     assert.equal(delRes.status, 200);
+  });
+
+  it('allows admin to upload and delete REPORT vs RESOLUTION attachments separately', async () => {
+    const adminToken = await createAdminSessionToken();
+    const cookieHeader = `${ADMIN_COOKIE_NAME}=${adminToken}`;
+
+    const inc = await IncidentService.createIncident({
+      reporterName: 'Photo Tester',
+      contactInfo: 'photo@test.local',
+      title: 'Delayed attachment & closure photo test',
+      description: 'Reporter forgot image initially',
+    });
+    const otherInc = await IncidentService.createIncident({
+      reporterName: 'Other Tester',
+      contactInfo: 'other@test.local',
+      title: 'Another incident',
+      description: 'Isolation test',
+    });
+    testIncidentIds.push(inc.id, otherInc.id);
+
+    // 1. Unauthenticated upload rejected
+    const fdUnauth = new FormData();
+    fdUnauth.append('file', new File([Buffer.from('fake-png')], 'a.png', { type: 'image/png' }));
+    const unauthRes = await attachmentsPostHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}/attachments`, {
+        method: 'POST',
+        body: fdUnauth,
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(unauthRes.status, 401);
+
+    // 2. Non-image upload rejected
+    const fdBad = new FormData();
+    fdBad.append('file', new File([Buffer.from('hello')], 'notes.txt', { type: 'text/plain' }));
+    const badRes = await attachmentsPostHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}/attachments`, {
+        method: 'POST',
+        headers: { cookie: cookieHeader },
+        body: fdBad,
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(badRes.status, 400);
+
+    // 3. Upload REPORT and RESOLUTION images
+    const upload = async (name: string, kind: 'REPORT' | 'RESOLUTION') => {
+      const fd = new FormData();
+      fd.append('file', new File([Buffer.from('PNGDATA')], name, { type: 'image/png' }));
+      fd.append('kind', kind);
+      const res = await attachmentsPostHandler(
+        new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}/attachments`, {
+          method: 'POST',
+          headers: { cookie: cookieHeader },
+          body: fd,
+        }),
+        { params: Promise.resolve({ id: inc.ticketNo }) }
+      );
+      assert.equal(res.status, 201);
+      return res.json();
+    };
+
+    const reportAtt = await upload('reporter-late.png', 'REPORT');
+    const resolutionAtt = await upload('fixed-proof.png', 'RESOLUTION');
+    assert.equal(reportAtt.kind, 'REPORT');
+    assert.equal(resolutionAtt.kind, 'RESOLUTION');
+
+    const detailRes = await incidentGetHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
+        headers: { cookie: cookieHeader },
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(detailRes.status, 200);
+    const detail = await detailRes.json();
+    assert.equal(detail.attachments.filter((a: any) => a.kind === 'REPORT').length, 1);
+    assert.equal(detail.attachments.filter((a: any) => a.kind === 'RESOLUTION').length, 1);
+
+    // 4. Cannot delete attachment via another incident ID
+    const crossDelRes = await attachmentsDeleteHandler(
+      new NextRequest(
+        `http://localhost:3000/api/incidents/${otherInc.ticketNo}/attachments?attachmentId=${reportAtt.id}`,
+        { method: 'DELETE', headers: { cookie: cookieHeader } }
+      ),
+      { params: Promise.resolve({ id: otherInc.ticketNo }) }
+    );
+    assert.equal(crossDelRes.status, 404);
+
+    // 5. Cleanup both uploaded files via DELETE endpoint
+    for (const att of [reportAtt, resolutionAtt]) {
+      const storedPath = path.join(process.cwd(), 'public', 'uploads', path.basename(att.fileUrl));
+      assert.ok(fs.existsSync(storedPath), 'Uploaded file should exist on disk before delete');
+      const delAttRes = await attachmentsDeleteHandler(
+        new NextRequest(
+          `http://localhost:3000/api/incidents/${inc.ticketNo}/attachments?attachmentId=${att.id}`,
+          { method: 'DELETE', headers: { cookie: cookieHeader } }
+        ),
+        { params: Promise.resolve({ id: inc.ticketNo }) }
+      );
+      assert.equal(delAttRes.status, 200);
+      assert.equal(fs.existsSync(storedPath), false, 'Uploaded file should be unlinked on delete');
+    }
   });
 });

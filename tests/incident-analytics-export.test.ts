@@ -262,4 +262,45 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.equal(openAfter, openBefore - 1);
     assert.equal(resolvedAfter, resolvedBefore + 1);
   });
+
+  it('sorts OPEN -> IN_PROGRESS -> RESOLVED/CLOSED with urgency priority across pagination and supports ACTIVE filter', async () => {
+    const tag = `QP-${Date.now()}`;
+    const mk = async (title: string, urgency: 'LOW' | 'MEDIUM' | 'HIGH', status?: string) => {
+      const inc = await IncidentService.createIncident({
+        reporterName: 'Queue Tester',
+        contactInfo: 'qp@test.local',
+        title: `${tag} ${title}`,
+        description: 'Queue sorting test',
+        urgency,
+      });
+      testIncidentIds.push(inc.id);
+      if (status) {
+        await IncidentService.updateIncident(inc.ticketNo, { status });
+      }
+      return inc.ticketNo;
+    };
+
+    const openLow = await mk('open-low', 'LOW');
+    const openHigh = await mk('open-high', 'HIGH');
+    const inProg = await mk('in-progress', 'MEDIUM', 'IN_PROGRESS');
+    const resolvedNewest = await mk('resolved-newest', 'HIGH', 'RESOLVED');
+
+    const page1 = await IncidentService.getIncidents({ search: tag, page: 1, limit: 2 });
+    const page2 = await IncidentService.getIncidents({ search: tag, page: 2, limit: 2 });
+
+    assert.deepEqual(
+      page1.incidents.map((i) => i.ticketNo),
+      [openHigh, openLow]
+    );
+    assert.deepEqual(
+      page2.incidents.map((i) => i.ticketNo),
+      [inProg, resolvedNewest]
+    );
+
+    const activeOnly = await IncidentService.getIncidents({ search: tag, status: 'ACTIVE', limit: 10 });
+    assert.deepEqual(
+      activeOnly.incidents.map((i) => i.ticketNo),
+      [openHigh, openLow, inProg]
+    );
+  });
 });

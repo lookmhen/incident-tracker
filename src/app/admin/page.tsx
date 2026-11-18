@@ -430,6 +430,7 @@ export default function AdminDashboardPage() {
                 className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Status: All</option>
+                <option value="ACTIVE">Active (Open + In Progress)</option>
                 <option value="OPEN">Open</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="RESOLVED">Resolved</option>

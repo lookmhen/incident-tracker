@@ -176,44 +176,13 @@ export class IncidentService {
     const limit = Math.min(100, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-
-    if (query.status && query.status !== 'ALL') {
-      where.status = query.status.toUpperCase();
-    }
-
-    if (query.urgency && query.urgency !== 'ALL') {
-      where.urgency = query.urgency.toUpperCase();
-    }
-
-    if (query.category && query.category !== 'ALL') {
-      where.category = {
-        contains: query.category,
-      };
-    }
-
-    if (query.department && query.department !== 'ALL') {
-      where.department = {
-        contains: query.department,
-      };
-    }
-
-    if (query.search && query.search.trim()) {
-      const term = query.search.trim();
-      where.OR = [
-        { ticketNo: { contains: term } },
-        { title: { contains: term } },
-        { reporterName: { contains: term } },
-        { description: { contains: term } },
-      ];
-    }
+    const where = this.buildFilterWhere(query);
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
     const [
-      total,
-      incidents,
+      matchingMeta,
       totalAll,
       activeCount,
       p1Count,
@@ -222,16 +191,10 @@ export class IncidentService {
       teamsSent,
       teamsFailed,
     ] = await Promise.all([
-      prisma.incident.count({ where }),
       prisma.incident.findMany({
         where,
+        select: { id: true, status: true, urgency: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-        include: {
-          attachments: true,
-          categoryRel: true,
-        },
       }),
       prisma.incident.count(),
       prisma.incident.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
@@ -241,6 +204,45 @@ export class IncidentService {
       prisma.notificationLog.count({ where: { channel: 'TEAMS' } }),
       prisma.notificationLog.count({ where: { channel: 'TEAMS', status: 'FAILED' } }),
     ]);
+
+    const statusRank = (s: string) => {
+      const up = (s || '').trim().toUpperCase();
+      if (up === 'OPEN') return 0;
+      if (up === 'IN_PROGRESS') return 1;
+      return 2;
+    };
+    const urgencyRank = (u: string) => {
+      const up = (u || '').trim().toUpperCase();
+      if (up === 'HIGH') return 0;
+      if (up === 'MEDIUM') return 1;
+      return 2;
+    };
+
+    matchingMeta.sort((a, b) => {
+      const sa = statusRank(a.status);
+      const sb = statusRank(b.status);
+      if (sa !== sb) return sa - sb;
+      if (sa < 2) {
+        const ua = urgencyRank(a.urgency);
+        const ub = urgencyRank(b.urgency);
+        if (ua !== ub) return ua - ub;
+      }
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+
+    const total = matchingMeta.length;
+    const pageIds = matchingMeta.slice(skip, skip + limit).map((m) => m.id);
+    const unsortedIncidents = pageIds.length
+      ? await prisma.incident.findMany({
+          where: { id: { in: pageIds } },
+          include: {
+            attachments: true,
+            categoryRel: true,
+          },
+        })
+      : [];
+    const byId = new Map(unsortedIncidents.map((inc) => [inc.id, inc]));
+    const incidents = pageIds.map((id) => byId.get(id)!).filter(Boolean);
 
     // Average resolution time (MTTR) calculation from closed records
     const resolvedSamples = await prisma.incident.findMany({
@@ -411,7 +413,10 @@ export class IncidentService {
     endDate?: string;
   }) {
     const where: any = {};
-    if (query.status && query.status !== 'ALL') where.status = query.status.toUpperCase();
+    if (query.status && query.status !== 'ALL') {
+      const st = query.status.toUpperCase();
+      where.status = st === 'ACTIVE' ? { in: ['OPEN', 'IN_PROGRESS'] } : st;
+    }
     if (query.urgency && query.urgency !== 'ALL') where.urgency = query.urgency.toUpperCase();
     if (query.category && query.category !== 'ALL') {
       where.category = { contains: query.category };

@@ -44,7 +44,7 @@ Add IncidentHub to your AI agent configuration (e.g. `agent.config.json` or MCP 
     "incidenthub": {
       "command": "npx",
       "args": ["tsx", "src/mcp/server.ts"],
-      "cwd": "D:/Develop/nextjs/Incident",
+      "cwd": "<path-to-incident-tracker>",
       "env": {
         "DATABASE_URL": "file:./data/incident.db"
       }
@@ -94,15 +94,11 @@ curl -H "x-api-key: ihub_live_samplekey" http://localhost:3000/api/mcp/v1/km
 ```json
 {
   "schema": "incidenthub.km.v1",
-  "generatedAt": "2026-11-03T15:45:00.000Z",
-  "total": 142,
+  "total_articles": 142,
   "articles": [
     {
       "ticketNo": "INC-202610-001",
-      "category": "Network",
-      "urgency": "HIGH",
-      "closedAt": "2026-10-26T12:00:00.000Z",
-      "markdown": "---\ntitle: \"Core Switch VLAN Mismatch\"\nticket_id: \"INC-202610-001\"\ncategory: \"Network\"\nurgency: \"HIGH\"\ntags: [\"NETWORK_CONNECTIVITY\", \"CONFIG_ERROR\"]\nresolved_at: \"2026-10-26T12:00:00.000Z\"\n---\n\n# Incident Knowledge Article: INC-202610-001\n..."
+      "markdown": "---\nticket_id: \"INC-202610-001\"\ncategory: \"Network\"\nroot_cause: \"System\"\nurgency: \"HIGH\"\ndepartment: \"Infrastructure\"\nresolved_at: \"2026-10-26T12:00:00.000Z\"\n---\n\n# Problem: [INC-202610-001] Core Switch VLAN Mismatch\n..."
     }
   ]
 }
@@ -130,8 +126,6 @@ for item in data.get("articles", []):
         documents=[item["markdown"]],
         metadatas=[{
             "ticketNo": item["ticketNo"],
-            "category": item["category"],
-            "urgency": item["urgency"],
         }]
     )
 

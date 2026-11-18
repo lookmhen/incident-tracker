@@ -1,7 +1,7 @@
 # 📚 Data Dictionary & Schema Specification
 ## Project: IT Incident Management System (MCP & AI Ready)
-**Version:** 1.0  
-**Updated:** October 2026  
+**Version:** 1.2  
+**Updated:** November 2026  
 **Storage Engine:** SQLite 3 (WAL Mode) via Prisma ORM  
 **Location:** `./data/incident.db` (Mapped to `/app/data/incident.db` in Docker)
 
@@ -36,7 +36,8 @@ erDiagram
         string urgency "LOW | MEDIUM | HIGH"
         string categoryId FK "References Category(id)"
         string category "Denormalized category name"
-        string status "OPEN | IN_PROGRESS | RESOLVED | CLOSED"
+        string rootCause "Root cause e.g. Human | System | Data"
+        string status "OPEN | IN_PROGRESS | ON_HOLD | RESOLVED | CLOSED"
         string assignedTo "Responder name / SME"
         string resolution "Clean-text fix & root cause notes"
         datetime createdAt "Created timestamp"
@@ -56,7 +57,7 @@ erDiagram
 
     INTEGRATION_CONFIG {
         string id PK "cuid()"
-        string key UK "teams | smtp | mcp_security"
+        string key UK "teams | smtp | mcp_security | mttr_excluded_tickets | root_cause_options"
         string value "JSON string (AES-256-GCM encrypted secrets)"
         boolean isEnabled "Master toggle flag"
         datetime updatedAt "Last updated timestamp"
@@ -112,7 +113,8 @@ erDiagram
 | `urgency` | String | NO | `MEDIUM` | Indexed | ระดับความเร่งด่วนของเคส มี 3 ค่า:<br>• `HIGH`: งานหยุดชะงัก / ระบบหลักล่ม (SLA: 15-30 นาที)<br>• `MEDIUM`: งานติดขัดแต่พอมีทางเลี่ยง (Default)<br>• `LOW`: งานซ่อมทั่วไป / คำถาม / ขอสิทธิ์ |
 | `categoryId` | String | YES | `NULL` | Foreign Key | อ้างอิงถึง `Category(id)` สำหรับการ Triage เชิงโครงสร้าง |
 | `category` | String | YES | `NULL` | Indexed | Denormalized Category Name เก็บเป็นข้อความไว้เพื่อความรวดเร็วในการ Query และ Filter |
-| `status` | String | NO | `OPEN` | Indexed | สถานะการดำเนินงานของ Ticket มี 4 ค่า:<br>• `OPEN`: เคสใหม่ ยังไม่มีผู้รับผิดชอบ<br>• `IN_PROGRESS`: กำลังอยู่ระหว่างการตรวจสอบ/ดำเนินการแก้ไข<br>• `RESOLVED`: ปัญหาได้รับการแก้ไขแล้ว มี Resolution Notes<br>• `CLOSED`: เคสถูกปิดสมบูรณ์ |
+| `rootCause` | String | YES | `NULL` | - | สาเหตุต้นตอของปัญหา (Root Cause Category) เช่น `Human`, `System`, `Data` หรือค่าที่ Admin เพิ่มเอง (**บังคับระบุคู่กับ `category` ก่อนปิดเคส**) |
+| `status` | String | NO | `OPEN` | Indexed | สถานะการดำเนินงานของ Ticket มี 5 ค่า:<br>• `OPEN`: เคสใหม่ ยังไม่มีผู้รับผิดชอบ<br>• `IN_PROGRESS`: กำลังอยู่ระหว่างการตรวจสอบ/ดำเนินการแก้ไข<br>• `ON_HOLD`: พักรอ Solution (ยกเว้นจากคิวค้าง Backlog Aging และไม่นำมาคำนวณ MTTR)<br>• `RESOLVED`: ปัญหาได้รับการแก้ไขแล้ว มี Resolution Notes<br>• `CLOSED`: เคสถูกปิดสมบูรณ์ |
 | `assignedTo` | String | YES | `NULL` | - | ชื่อเจ้าหน้าที่ IT หรือระบบอัตโนมัติที่รับผิดชอบเคส เช่น `K. Anan`, `MCP Bot (Auto)` |
 | `resolution` | String | YES | `NULL` | - | **บันทึกขั้นตอนและวิธีการแก้ไขปัญหา (Root Cause & Fix)**<br>⚠️ สำคัญมากสำหรับ MCP AI ต้องเป็น **Clean Text** (ห้ามใส่สัญลักษณ์ Markdown ซับซ้อน หรือ HTML tags) |
 | `createdAt` | DateTime| NO | `now()` | Indexed | วันที่และเวลาที่เปิดเคส (ใช้คำนวณ Ticket Age และ MTTA) |
@@ -142,7 +144,7 @@ erDiagram
 | Field Name | Type | Nullable | Default | Constraints | Description |
 | :--- | :--- | :---: | :---: | :--- | :--- |
 | `id` | String | NO | `cuid()` | Primary Key | รหัสเฉพาะของรายการตั้งค่า |
-| `key` | String | NO | - | Unique | ชื่อหมวดการตั้งค่า: `teams`, `smtp`, `mcp_security` |
+| `key` | String | NO | - | Unique | ชื่อหมวดการตั้งค่า/ออบเจกต์ระบบ: `teams`, `smtp`, `mcp_security`, `mttr_excluded_tickets`, `root_cause_options` |
 | `value` | String | NO | - | JSON String | ข้อมูลคอนฟิกแบบ JSON ที่เข้ารหัสฟิลด์ความลับด้วย AES-256-GCM |
 | `isEnabled` | Boolean| NO | `true` | - | สวิตช์เปิด/ปิดการทำงานของโมดูลนั้นๆ |
 | `updatedAt` | DateTime| NO | - | Auto-update | วันเวลาที่แก้ไขล่าสุด |
@@ -177,16 +179,11 @@ erDiagram
   "mcp_resource_uri": "mcp://incidenthub/incidents/INC-202610-001",
   "ticketNo": "INC-202610-001",
   "app_domain": "SAP Basis",
+  "root_cause": "System",
   "severity": "P1_CRITICAL",
   "status": "OPEN",
   "vectors_ready": true,
   "clean_text_corpus": "Title: SAP S/4HANA GUI error 'RFC_COMMUNICATION_FAILURE' during Month-End closing Description: Executing batch reconciliation transaction F.05 against company code 1020. Program hung for ~4 minutes before terminating with dump 'RFC_COMMUNICATION_FAILURE'. Network connection verified stable. Affected 4 users in Finance AP. Resolution: Killed hanging job in SM50, restarted RFC connection in SM59, verified connectivity test. Actionable Prevention: Configured RFC buffer limits in SAP profile parameter rfc/max_conn.",
-  "ai_remediation_tags": [
-    "RFC_TIMEOUT",
-    "SM50_WORKPROCESS",
-    "SM59_DESTINATION",
-    "SAP_BASIS"
-  ],
   "reporter_context": {
     "department": "Finance & Accounting",
     "reported_at": "2026-10-26T14:14:22.000Z",
@@ -210,12 +207,14 @@ erDiagram
 | **GET** | `/api/incidents` | `search`, `status`, `urgency`, `category`, `department`, `page`, `limit` | รายการเคสแบบ Paginated พร้อมสถิติ KPI รวม |
 | **POST** | `/api/incidents` | `multipart/form-data` หรือ JSON: `reporterName`, `department`, `contactInfo`, `title`, `description`, `urgency`, `attachment` | Incident Object ที่ถูกสร้างใหม่พร้อม Ticket ID |
 | **GET** | `/api/incidents/[id]` | `id` หรือ `ticketNo` | รายละเอียดเคสพร้อม Attachments และ Category Relation |
-| **PATCH** | `/api/incidents/[id]` | JSON: `{ status?, category?, urgency?, assignedTo?, resolution? }` (รองรับ `x-api-key`) | Incident Object ที่อัปเดตแล้ว |
-| **GET** | `/api/incidents/export` | `search`, `status`, `urgency`, `category`, `department`, `startDate`, `endDate` | ไฟล์ `.csv` เข้ารหัส UTF-8 with BOM สำหรับเปิดใน Excel |
-| **GET** | `/api/incidents/analytics` | `startDate`, `endDate` | ข้อมูลสรุปกราฟ 4 มิติ (Trend, Category, Department, SLA) |
+| **PATCH** | `/api/incidents/[id]` | JSON: `{ status?, category?, rootCause?, urgency?, assignedTo?, resolution?, createdAt?, closedAt?, mttrExcluded? }` (รองรับ `x-api-key`) | Incident Object ที่อัปเดตแล้ว (บังคับ `category` + `rootCause` ก่อนปิดเคส) |
+| **GET** | `/api/incidents/export` | `search`, `status`, `urgency`, `category`, `rootCause`, `department`, `startDate`, `endDate` | ไฟล์ `.csv` เข้ารหัส UTF-8 with BOM สำหรับเปิดใน Excel |
+| **GET** | `/api/incidents/analytics` | `startDate`, `endDate`, `groupBy`, `urgency`, `category`, `rootCause`, `department` | ข้อมูลสรุป Analytics (Created vs Resolved, Category, Root Cause, Department, Status/SLA, MTTR Breakdown, Backlog Aging) |
 | **GET** | `/api/categories` | - | รายชื่อ Categories ทั้งหมด เรียงตามชื่อ |
 | **POST** | `/api/categories` | JSON: `{ name, description?, color?, slug? }` | Category Object ที่สร้างใหม่ |
 | **DELETE**| `/api/categories/[id]` | `id` | `{ success: true }` |
+| **GET/POST/DELETE** | `/api/root-causes` | JSON `{ name }` (POST) หรือ `?name=` (DELETE) | จัดการตัวเลือก Root Cause (`Human`, `System`, `Data` และรายการที่เพิ่มเอง) |
+| **GET** | `/api/uploads/[filename]` | `filename` (rewrite จาก `/uploads/:filename`) | อ่านไฟล์แนบจาก `public/uploads` ในโหมด standalone พร้อมตรวจ path traversal |
 | **GET** | `/api/mcp/v1/context` | `?ticketNo=INC-XXX` (รองรับ Header `x-api-key`) | Clean MCP Schema JSON สำหรับ External MCP Client |
 | **GET** | `/api/mcp/v1/insights` | รองรับ Header `x-api-key` | ข้อมูลสรุปภาพรวม KPI, MTTA, MTTR และ Category Load |
 | **GET** | `/api/mcp/v1/recurring`| รองรับ Header `x-api-key` | การจัดกลุ่มเคสที่เกิดซ้ำซ้อน (Clustering by Patterns) |

@@ -1,7 +1,7 @@
 # 📑 System Requirement Specification (SRS)
 ## Project: IT Incident Management System (MCP & AI Ready)
-**Version:** 1.1  
-**Status:** Approved for Development  
+**Version:** 1.2  
+**Status:** Production Implemented  
 
 ---
 
@@ -50,7 +50,7 @@
 ### 4.1 ฝั่ง User (Public Incident Form)
 * **Zero Barrier Access:** เข้าใช้งานผ่าน Link / QR Code โดยไม่ต้องทำการ Login (จำชื่อ/เบอร์/แผนก ผ่าน LocalStorage)
 * **Form Inputs:**
-  * **Reporter Info:** ชื่อ-นามสกุล, แผนก, ช่องทางติดต่อ
+  * **Reporter Info:** ชื่อ ผู้แจ้ง, แผนก (Normalize ตัวพิมพ์เล็ก-ใหญ่), ช่องทางติดต่อ
   * **Title:** หัวข้อปัญหาแบบย่อ
   * **Description:** รายละเอียดปัญหา
   * **Attachment:** อัปโหลดรูปภาพ หรือกด Ctrl+V วางรูปจาก Clipboard ได้เลย (รองรับ PNG, JPG, GIF ขนาดไม่เกิน 5MB)
@@ -60,17 +60,18 @@
     * 🟢 Low: ขอสิทธิ์ / สอบถาม / งานซ่อมทั่วไป
 * **Output:** แสดง Ticket ID หลังบันทึกสำเร็จ (เช่น INC-202610-001) พร้อมสถานะส่ง Teams และ SLA Tracker
 
-### 4.2 ฝั่ง Teams Integration & Admin Workflow
-* **Teams Notification:** ยิง Adaptive Card เข้าห้อง Microsoft Teams ของทีม IT ทันทีที่มีเคสใหม่ พร้อมรายละเอียดและรูปภาพ
+### 4.2 ฝั่ง Teams / Email Integration & Admin Workflow
+* **Teams & Email Notification:** ยิง Adaptive Card / Power Automate JSON เข้า Microsoft Teams และส่งอีเมลผ่าน SMTP Relay (`nodemailer`) ทันทีที่มีเคสใหม่ พร้อมลิงก์ดูรูปแนบและปุ่มเปิดเคสตาม URL จริงของเซิร์ฟเวอร์ (`APP_URL` หรือ request host)
 * **Admin Dashboard (Web UI):**
-  * แสดงตาราง Incident ทั้งหมด (สามารถ Filter ตาม Status, Category, Urgency, Department ได้)
-  * ค้นหาแบบ Precision Search (กด `/` เพื่อ Focus)
-* **Dynamic Category Management & Triage:**
-  * แอดมินสามารถเพิ่ม/แก้ไขหมวดหมู่ปัญหาได้ตลอดเวลาผ่านระบบ (Dynamic Categories เช่น Helpdesk, Network, Interface, SAP Basis หรือเพิ่มใหม่ได้)
-  * แอดมินสามารถเลือกเปลี่ยนหมวดหมู่ (Triage) ของแต่ละเคสได้
+  * จัดลำดับคิวอัตโนมัติ: `OPEN` ➔ `IN_PROGRESS` ➔ `ON_HOLD` ➔ `RESOLVED`/`CLOSED` (เรียงตาม Urgency และเวลาล่าสุด)
+  * แสดงตาราง Incident พร้อม Filter (Status รวมถึง `ACTIVE` และ `ON_HOLD`, Category, Urgency, Department) และ Precision Search (`/` เพื่อ Focus)
+* **Dynamic Category, Root Cause & Triage:**
+  * แอดมินสามารถเพิ่ม/แก้ไขหมวดหมู่ปัญหา (`Category`) และตัวเลือกต้นตอปัญหา (`Root Cause` ค่าเริ่มต้น `Human`, `System`, `Data` และเพิ่มเองได้)
+  * สถานะ `ON_HOLD` ใช้พักเคสที่ยังไม่มี Solution โดยแยกออกจากคิวค้าง (`Backlog Aging`) และยกเว้นจากการคำนวณ `MTTR` อัตโนมัติ (สลับคืนได้)
+  * รองรับการแก้ไขเวลาเปิดเคส (`createdAt`) และปิดเคส (`closedAt`) พร้อมตรวจขอบเขตเวลา
 * **Resolution & Close (Clean Text for MCP):**
-  * เมื่อปิดเคส แอดมินต้องกรอก Resolution Notes (วิธีกระบวนการแก้ไขปัญหา)
-  * ข้อความจะถูก Sanitize เป็น Clean Text ปราศจาก Tag ซับซ้อน เพื่อส่งเข้า MCP Context
+  * **บังคับเลือกทั้ง Category และ Root Cause ก่อนปิดเคส (`RESOLVED` / `CLOSED`)**
+  * ข้อความ Resolution ถูก Sanitize เป็น Clean Text ปราศจาก HTML/Markdown เพื่อส่งเข้า MCP Context และ AI KM
 
 ---
 
@@ -112,7 +113,8 @@ model Incident {
   categoryId   String?
   categoryRel  Category?     @relation(fields: [categoryId], references: [id])
   category     String?       // เก็บชื่อหมวดหมู่สำหรับ query ไว (e.g. HELPDESK, NETWORK, INTERFACE, SAP)
-  status       String        @default("OPEN")   // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  rootCause    String?       // สาเหตุต้นตอของปัญหา (e.g. Human, System, Data)
+  status       String        @default("OPEN")   // OPEN, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED
   assignedTo   String?
   resolution   String?       // บันทึกวิธีแก้ปัญหา (Clean Text สำคัญสำหรับ AI Context)
   attachments  Attachment[]

@@ -14,28 +14,30 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 * **Multi-Channel Dispatch:** Emits Microsoft Teams Adaptive Cards v1.4 and SMTP Email notifications immediately upon submission.
 
 ### 2. 📊 IT Operations Triage Matrix (`/admin`)
-* **Real-time Telemetry:** 5 Glacier metric KPI cards (Active Incidents, Critical P1 Blockers, MTTA, Teams Webhook Rate, MCP Vector Corpus).
-* **Precision Search & Filtering:** Instant filter with `/` keyboard focus shortcut; filter by status, urgency, category, and department.
-* **Dynamic Category Management:** Admins can create and manage ticket categories on the fly.
+* **Real-time Telemetry:** 3 core Glacier KPI cards (Active Incidents, Critical P1 Blockers, Avg Resolution Time / MTTR).
+* **Queue Priority Sorting:** Automatically prioritizes unresolved cases (`OPEN` ➔ `IN_PROGRESS` ➔ `ON_HOLD` ➔ `RESOLVED` / `CLOSED`) sorted by urgency (`HIGH` ➔ `MEDIUM` ➔ `LOW`) and newest first.
+* **Precision Search & Filtering:** Instant filter with `/` keyboard focus shortcut; filter by status (`ALL`, `ACTIVE`, `OPEN`, `IN_PROGRESS`, `ON_HOLD`, `RESOLVED`, `CLOSED`), urgency, category, and department.
+* **Dynamic Category & RCA Badges:** Admins can create/manage ticket categories on the fly and view `RCA` root cause tags directly in the queue.
 * **Quick Single-Click Claim:** Instant ticket claiming and status transition to `IN_PROGRESS` with responder attribution.
-* **Excel (.CSV UTF-8 BOM) Export:** Filtered incident export with Thai language compatibility in Microsoft Excel.
+* **Excel (.CSV UTF-8 BOM) Export:** Filtered incident export (including `Root Cause`) with Thai language compatibility in Microsoft Excel.
 
 ### 3. 🧠 Incident Detail & Triage Hub (`/admin/incidents/[id]`)
-* **Diagnostics Inspector:** Preview and zoom full-stack error snapshots.
-* **Inline Details Editing:** Admins can edit or clarify incident title and description directly with audit feedback.
-* **Clean-Text Resolution Indexer:** RCA documentation editor and sanitizer to guarantee 100% clean plain-text corpus for vector embedding.
-* **Status Lifecycle Management:** Single-click transitions (`OPEN` ➔ `IN_PROGRESS` ➔ `RESOLVED` / `CLOSED`) with automatic `closedAt` timestamping for MTTR calculation.
+* **Diagnostics Inspector:** Preview and open uploaded snapshots via `/api/uploads/[filename]` (compatible with Next.js standalone mode).
+* **Inline Details & Lifecycle Editing:** Admins can edit incident title/description as well as `createdAt` and `closedAt` timestamps (with validation bounds) and track live elapsed duration.
+* **Mandatory Triage & Customizable Root Cause (`Human`, `System`, `Data`, + custom):** Admins must select both **Category** and **Root Cause** before closing (`RESOLVED` / `CLOSED`) and can add new Root Cause options inline.
+* **`ON_HOLD` & MTTR Exclusion:** Mark blocked cases as `ON_HOLD` to pause queue aging and automatically exclude hold duration from MTTR (with manual toggle override).
+* **Clean-Text Resolution Indexer:** RCA documentation editor and sanitizer to guarantee clean plain-text corpus for vector embedding.
 * **MCP Knowledge Pipeline Hub:** Live JSON schema preview conforming to `mcp://incidenthub/incidents/[ticketNo]`.
 
 ### 4. 🔌 Integration Hub (`/admin/integrations`)
 * **Inbound Incident API (`POST /api/incidents/inbound`):** Secure endpoint for external systems (monitoring, Nagios, Prometheus, third-party apps) with Smart Mapping and API Key authentication.
-* **Microsoft Teams / Power Automate Webhook:** Live channel connectivity with interactive payload testing.
-* **SMTP Email Notification Service:** Enterprise mail dispatch with encrypted credential storage in SQLite.
-* **Notification Audit Logs:** Filterable dispatch history by channel (`TEAMS`, `EMAIL`, `CUSTOM_API`) and delivery status.
+* **Microsoft Teams / Power Automate Webhook:** Live channel connectivity with interactive payload testing and clear error/success feedback.
+* **SMTP Email Notification Service:** Production-ready Nodemailer dispatch supporting `STARTTLS (587)`, `SSL (465)`, `NONE (25)` (`ignoreTLS`), separate Auth Username & Sender (`From`), AES-256-GCM encrypted credentials, HTML escaping, and automatic portal URL resolution (`APP_URL` or request host).
+* **Notification Audit Logs:** Filterable dispatch history by channel (`TEAMS`, `EMAIL`, `CUSTOM_API`) and delivery status with single-click Resend.
 
 ### 5. 📈 Analytics & Operational Intelligence (`/admin/analytics`)
-* 4-dimension incident distribution graphs: Status breakdown, Urgency matrix, Category volume, and Department reporting frequency.
-* **Full-Year Monthly Trend:** 12-month timeline with zero-fill for empty months, preset button "ปีนี้ (12 เดือน)", and toggle between Monthly and Daily views.
+* **Global Filtering & Synced Export:** Filter all KPIs and charts by Date Range (including "ปีนี้ (12 เดือน)" preset), `Urgency`, `Category`, `Root Cause`, and `Department` (case-insensitive normalization) with matching CSV export.
+* **7 Operational Views:** Created vs. Resolved paired bars, Category Share, Top Departments, Resolution & SLA Status (`OPEN`, `IN_PROGRESS`, `ON_HOLD`, `RESOLVED`, `CLOSED`), MTTR Breakdown by Urgency & Category, Backlog Aging (`<24h`, `1–3d`, `4–7d`, `>7d` excluding `ON_HOLD`), and Root Cause Breakdown (`Human`, `System`, `Data`, etc.).
 
 ---
 
@@ -92,7 +94,7 @@ Run these scripts from the repository root:
 | **Development Server** | `npm run dev` | Start Next.js development server on port 3000 |
 | **Production Build** | `npm run build` | Compile Next.js production build with type checking |
 | **Start Production** | `npm start` | Run compiled Next.js production server |
-| **Unit & Integration Tests** | `npm test` | Run all 34 automated tests across 10 test suites |
+| **Unit & Integration Tests** | `npm test` | Run all 46 automated tests across 11 test suites |
 | **MCP Server (Stdio)** | `npm run mcp` | Launch standalone Model Context Protocol server for Claude, Cursor, and AI Agents |
 | **Historical CSV Import** | `npm run import:csv [file]` | Import legacy incident CSV files into SQLite database with Thai Buddhist era parsing |
 | **Reset Database** | `npm run db:reset` | Force reset SQLite database and re-seed default master categories |
@@ -151,7 +153,7 @@ Provides tools: `search_incidents`, `get_incident_detail`, `get_knowledge_insigh
 ### HTTP Endpoints
 * `GET /api/mcp/v1/km`: Primary Knowledge Management endpoint. Supports `?format=markdown` for Vector DB RAG ingestion and `?format=json` for API clients.
 * `GET /api/mcp/v1/context`: Backward-compatible JSON forwarder to `/api/mcp/v1/km?format=json`.
-* `GET /api/mcp/v1/insights`: Aggregated KPIs, MTTA, resolution rate, and category distribution.
+* `GET /api/mcp/v1/insights`: Aggregated KPIs, resolution rate, `onHoldIncidents`, and category distribution.
 * **Agent & Local RAG Setup Guide:** [`docs/AGENT_KM_SETUP.md`](docs/AGENT_KM_SETUP.md)
 
 ---

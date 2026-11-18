@@ -73,6 +73,7 @@ export default function IntegrationsSecurityHubPage() {
 
   // Logs State
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [unresolvedFailedCount, setUnresolvedFailedCount] = useState(0);
   const [channelFilter, setChannelFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [inspectLog, setInspectLog] = useState<LogEntry | null>(null);
@@ -138,6 +139,8 @@ export default function IntegrationsSecurityHubPage() {
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);
+        setUnresolvedFailedCount(Number(data.unresolvedFailedCount) || 0);
+        window.dispatchEvent(new Event('integrations-logs-updated'));
       }
     } catch (e) {
       console.error(e);
@@ -286,11 +289,28 @@ export default function IntegrationsSecurityHubPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ logId }),
       });
-      const data = await res.json();
-      showToast(data.message || 'ส่งซ้ำเรียบร้อยแล้ว');
-      fetchLogs();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        showToast(`❌ ส่งซ้ำไม่สำเร็จ: ${data.message || data.error || `HTTP ${res.status}`}`);
+      } else {
+        showToast(`✅ ${data.message || 'ส่งซ้ำเรียบร้อยแล้ว'}`);
+      }
+      await fetchLogs();
     } finally {
       setResendingId(null);
+    }
+  };
+
+  const handleAcknowledgeFailed = async () => {
+    try {
+      const res = await fetch('/api/integrations/logs', { method: 'PATCH' });
+      if (res.ok) {
+        setUnresolvedFailedCount(0);
+        window.dispatchEvent(new Event('integrations-logs-updated'));
+        showToast('✅ ล้างตัวเลขแจ้งเตือน Error เรียบร้อยแล้ว');
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -399,6 +419,11 @@ export default function IntegrationsSecurityHubPage() {
           >
             <span className="material-symbols-outlined text-[17px]">receipt_long</span>
             <span>3. Delivery Logs ({logs.length})</span>
+            {unresolvedFailedCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-600 text-white leading-none">
+                {unresolvedFailedCount}
+              </span>
+            )}
           </button>
         </div>
 
@@ -895,14 +920,27 @@ export default function IntegrationsSecurityHubPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={fetchLogs}
-                className="px-3 py-1.5 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-              >
-                <span className="material-symbols-outlined text-[15px] text-sky-600">refresh</span>
-                <span>Refresh Logs</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {unresolvedFailedCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleAcknowledgeFailed}
+                    className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-semibold text-rose-700 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">notifications_off</span>
+                    <span>ล้างแจ้งเตือน ({unresolvedFailedCount})</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={fetchLogs}
+                  className="px-3 py-1.5 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[15px] text-sky-600">refresh</span>
+                  <span>Refresh Logs</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">

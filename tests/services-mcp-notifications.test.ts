@@ -1,11 +1,15 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { NextRequest } from 'next/server';
 import prisma from '../src/lib/prisma';
 import { SECRET_MASK } from '../src/lib/crypto';
+import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
 import { McpService } from '../src/lib/services/mcp.service';
 import { TeamsService } from '../src/lib/services/teams.service';
 import { EmailService } from '../src/lib/services/email.service';
 import { IntegrationService } from '../src/lib/services/integration.service';
+import { GET as authAdminGet } from '../src/app/api/auth/admin/route';
+import { GET as logsGet, PATCH as logsPatch } from '../src/app/api/integrations/logs/route';
 
 describe('4. MCP Text Sanitization, Telemetry & Context Schema (src/lib/services/mcp.service.ts)', () => {
   it('strips HTML tags, Markdown links, and formatting symbols cleanly', () => {
@@ -131,14 +135,28 @@ describe('5. Webhook & Email Payload Builders (TeamsService & EmailService)', ()
 
 describe('6. IntegrationService Encryption at Rest, Masking & Audit Logs', () => {
   let backupSmtp: any;
+  let backupAckRow: { value: string } | null = null;
   const createdLogIds: string[] = [];
 
   before(async () => {
     backupSmtp = (await IntegrationService.getRawConfig()).smtp;
+    backupAckRow = await prisma.integrationConfig.findUnique({
+      where: { key: 'logs_acknowledged_at' },
+      select: { value: true },
+    });
   });
 
   after(async () => {
     await IntegrationService.saveSmtpConfig(backupSmtp);
+    if (backupAckRow) {
+      await prisma.integrationConfig.upsert({
+        where: { key: 'logs_acknowledged_at' },
+        update: { value: backupAckRow.value },
+        create: { key: 'logs_acknowledged_at', value: backupAckRow.value },
+      });
+    } else {
+      await prisma.integrationConfig.deleteMany({ where: { key: 'logs_acknowledged_at' } });
+    }
     if (createdLogIds.length > 0) {
       await prisma.notificationLog.deleteMany({
         where: { id: { in: createdLogIds } },
@@ -191,5 +209,87 @@ describe('6. IntegrationService Encryption at Rest, Masking & Audit Logs', () =>
 
     const logs = await IntegrationService.getLogs({ channel: 'TEAMS', status: 'SUCCESS', limit: 10 });
     assert.ok(logs.some((l) => l.id === log.id));
+  });
+
+  it('tracks unresolved TEAMS/EMAIL failures, auto-clears on retry success, and resets to 0 on acknowledge', async () => {
+    const adminCookie = `${ADMIN_COOKIE_NAME}=${await createAdminSessionToken()}`;
+    const authedReq = (url: string, method = 'GET') =>
+      new NextRequest(url, { method, headers: { cookie: adminCookie } });
+
+    const ackRes = await logsPatch(authedReq('http://localhost/api/integrations/logs', 'PATCH'));
+    assert.equal(ackRes.status, 200);
+    assert.equal(await IntegrationService.getUnresolvedFailedCount(), 0);
+
+    await new Promise((r) => setTimeout(r, 20));
+    const failTeams = await IntegrationService.logNotification({
+      channel: 'TEAMS',
+      ticketNo: 'INC-TEST-FAIL-1',
+      destination: 'https://example.com/hook',
+      status: 'FAILED',
+      statusCode: 500,
+      payload: '{}',
+      response: 'Webhook timeout',
+    });
+    const failEmail = await IntegrationService.logNotification({
+      channel: 'EMAIL',
+      ticketNo: 'INC-TEST-FAIL-2',
+      destination: 'ops@example.com',
+      status: 'FAILED',
+      payload: '{}',
+      response: 'SMTP rejected',
+    });
+    const failCustom = await IntegrationService.logNotification({
+      channel: 'CUSTOM_API',
+      ticketNo: 'INC-TEST-FAIL-3',
+      destination: 'https://example.com/api',
+      status: 'FAILED',
+      statusCode: 502,
+      payload: '{}',
+      response: 'Bad gateway',
+    });
+    assert.ok(failTeams && failEmail && failCustom);
+    createdLogIds.push(failTeams.id, failEmail.id, failCustom.id);
+
+    assert.equal(await IntegrationService.getUnresolvedFailedCount(), 2);
+
+    const adminAuthData = await (await authAdminGet(authedReq('http://localhost/api/auth/admin'))).json();
+    assert.equal(adminAuthData.authenticated, true);
+    assert.equal(adminAuthData.failedNotifications, 2);
+
+    await new Promise((r) => setTimeout(r, 20));
+    const retrySuccess = await IntegrationService.logNotification({
+      channel: 'TEAMS',
+      ticketNo: 'INC-TEST-FAIL-1',
+      destination: 'https://example.com/hook',
+      status: 'SUCCESS',
+      statusCode: 200,
+      payload: '{}',
+      response: 'OK',
+    });
+    assert.ok(retrySuccess);
+    createdLogIds.push(retrySuccess.id);
+
+    const logsRes = await (await logsGet(authedReq('http://localhost/api/integrations/logs?limit=5'))).json();
+    assert.equal(logsRes.unresolvedFailedCount, 1);
+
+    await new Promise((r) => setTimeout(r, 20));
+    const clearRes = await (await logsPatch(authedReq('http://localhost/api/integrations/logs', 'PATCH'))).json();
+    assert.equal(clearRes.unresolvedFailedCount, 0);
+
+    const clearedAuthData = await (await authAdminGet(authedReq('http://localhost/api/auth/admin'))).json();
+    assert.equal(clearedAuthData.failedNotifications, 0);
+
+    await new Promise((r) => setTimeout(r, 20));
+    const postAckFail = await IntegrationService.logNotification({
+      channel: 'EMAIL',
+      ticketNo: 'INC-TEST-FAIL-4',
+      destination: 'ops@example.com',
+      status: 'FAILED',
+      payload: '{}',
+      response: 'SMTP error',
+    });
+    assert.ok(postAckFail);
+    createdLogIds.push(postAckFail.id);
+    assert.equal(await IntegrationService.getUnresolvedFailedCount(), 1);
   });
 });

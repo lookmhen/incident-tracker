@@ -8,13 +8,29 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [failedCount, setFailedCount] = useState(0);
+
+  const refreshAuthAndAlerts = () => {
+    fetch('/api/auth/admin', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        setIsAdmin(Boolean(d.authenticated));
+        setFailedCount(Number(d.failedNotifications) || 0);
+      })
+      .catch(() => {
+        setIsAdmin(false);
+        setFailedCount(0);
+      });
+  };
 
   useEffect(() => {
-    fetch('/api/auth/admin')
-      .then((r) => r.json())
-      .then((d) => setIsAdmin(Boolean(d.authenticated)))
-      .catch(() => setIsAdmin(false));
+    refreshAuthAndAlerts();
   }, [pathname]);
+
+  useEffect(() => {
+    window.addEventListener('integrations-logs-updated', refreshAuthAndAlerts);
+    return () => window.removeEventListener('integrations-logs-updated', refreshAuthAndAlerts);
+  }, []);
 
   const navItems = [
     { label: 'Report Incident', href: '/', icon: 'add_circle' },
@@ -69,6 +85,14 @@ export default function Navbar() {
                   >
                     <span className="material-symbols-outlined text-[15px]">{item.icon}</span>
                     <span>{item.label}</span>
+                    {item.href === '/admin/integrations' && failedCount > 0 && (
+                      <span
+                        className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-600 text-white leading-none shadow-2xs"
+                        title={`${failedCount} failed webhook/email notification(s)`}
+                      >
+                        {failedCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

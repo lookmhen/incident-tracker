@@ -5,10 +5,20 @@ import {
   getAdminPasscode,
   isAdminAuthenticated,
 } from '@/lib/auth';
+import { IntegrationService } from '@/lib/services/integration.service';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   const authenticated = await isAdminAuthenticated(req);
-  return NextResponse.json({ authenticated });
+  const failedNotifications = authenticated
+    ? await IntegrationService.getUnresolvedFailedCount()
+    : 0;
+  return NextResponse.json(
+    { authenticated, failedNotifications },
+    { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+  );
 }
 
 export async function POST(req: NextRequest) {

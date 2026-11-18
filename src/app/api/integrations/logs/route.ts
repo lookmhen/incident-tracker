@@ -17,8 +17,23 @@ export async function GET(req: NextRequest) {
   const channel = searchParams.get('channel') || 'ALL';
   const status = searchParams.get('status') || 'ALL';
 
-  const logs = await IntegrationService.getLogs({ channel, status, limit: 100 });
-  return NextResponse.json({ logs });
+  const [logs, unresolvedFailedCount] = await Promise.all([
+    IntegrationService.getLogs({ channel, status, limit: 100 }),
+    IntegrationService.getUnresolvedFailedCount(),
+  ]);
+  return NextResponse.json(
+    { logs, unresolvedFailedCount },
+    { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+  );
+}
+
+export async function PATCH(req: NextRequest) {
+  if (!(await isAdminAuthenticated(req))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  await IntegrationService.acknowledgeFailedLogs();
+  return NextResponse.json({ success: true, unresolvedFailedCount: 0 });
 }
 
 export async function POST(req: NextRequest) {

@@ -342,4 +342,45 @@ export class IntegrationService {
 
     return logs;
   }
+
+  private static readonly LOGS_ACK_KEY = 'logs_acknowledged_at';
+
+  /**
+   * Counts unresolved FAILED TEAMS/EMAIL deliveries (cleared by subsequent SUCCESS for same ticket+channel or manual acknowledge)
+   */
+  public static async getUnresolvedFailedCount(): Promise<number> {
+    const ackRow = await prisma.integrationConfig.findUnique({
+      where: { key: this.LOGS_ACK_KEY },
+    });
+    const ackDate = ackRow?.value ? new Date(ackRow.value) : null;
+    const validAck = ackDate && !Number.isNaN(ackDate.getTime()) ? ackDate : null;
+
+    const logs = await prisma.notificationLog.findMany({
+      where: {
+        channel: { in: ['TEAMS', 'EMAIL'] },
+        ...(validAck ? { createdAt: { gt: validAck } } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, ticketNo: true, channel: true, status: true },
+    });
+
+    const unresolved = new Set<string>();
+    for (const log of logs) {
+      const key = log.ticketNo ? `${log.channel}:${log.ticketNo}` : `id:${log.id}`;
+      if (log.status === 'FAILED') unresolved.add(key);
+      else if (log.status === 'SUCCESS') unresolved.delete(key);
+    }
+    return unresolved.size;
+  }
+
+  /**
+   * Marks all current failed notification alerts as acknowledged so badge resets to 0
+   */
+  public static async acknowledgeFailedLogs(): Promise<void> {
+    await prisma.integrationConfig.upsert({
+      where: { key: this.LOGS_ACK_KEY },
+      update: { value: new Date().toISOString(), isEnabled: true },
+      create: { key: this.LOGS_ACK_KEY, value: new Date().toISOString(), isEnabled: true },
+    });
+  }
 }

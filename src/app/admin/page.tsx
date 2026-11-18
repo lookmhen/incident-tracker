@@ -247,7 +247,7 @@ export default function AdminDashboardPage() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-1">
             <h1 className="text-2xl lg:text-3xl font-headline font-bold text-slate-900 tracking-tight">
-              IT Operations Triage &amp; Incident Matrix
+              IT Operations &amp; Incident Dashboard
             </h1>
           </div>
 
@@ -638,9 +638,9 @@ export default function AdminDashboardPage() {
                             <Link
                               href={`/admin/incidents/${inc.ticketNo}`}
                               className="px-2.5 py-1 rounded bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-700 border border-sky-200 transition-colors text-[11px] font-medium flex items-center gap-1"
-                              title="View details and triage incident"
+                              title="ดูรายละเอียดและจัดการเคส"
                             >
-                              <span className="material-symbols-outlined text-[13px]">tune</span> Triage
+                              <span className="material-symbols-outlined text-[13px]">visibility</span> Detail
                             </Link>
 
                             {inc.status === 'OPEN' && (
@@ -711,7 +711,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-sky-600">category</span>
-                <h3 className="font-headline font-bold text-base text-slate-900">Manage Triage Categories</h3>
+                <h3 className="font-headline font-bold text-base text-slate-900">Manage Categories</h3>
               </div>
               <button
                 onClick={() => setShowCatModal(false)}

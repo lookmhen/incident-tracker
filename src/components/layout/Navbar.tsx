@@ -18,7 +18,7 @@ export default function Navbar() {
 
   const navItems = [
     { label: 'Report Incident', href: '/', icon: 'add_circle' },
-    { label: 'Operations Triage', href: '/admin', icon: 'dashboard' },
+    { label: 'Incident Console', href: '/admin', icon: 'dashboard' },
     { label: 'Analytics & Graphs', href: '/admin/analytics', icon: 'bar_chart' },
     { label: 'Integrations & Security', href: '/admin/integrations', icon: 'hub' },
   ];

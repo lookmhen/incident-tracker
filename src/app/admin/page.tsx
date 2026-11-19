@@ -16,6 +16,8 @@ interface IncidentRecord {
   rootCause?: string | null;
   status: string;
   assignedTo: string | null;
+  resolutionType?: string | null;
+  workaroundNote?: string | null;
   createdAt: string;
 }
 
@@ -77,6 +79,7 @@ export default function AdminDashboardPage() {
 
   // Teams ping feedback
   const [teamsPingStatus, setTeamsPingStatus] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>('Admin');
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,6 +137,14 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchCategories();
+    fetch('/api/auth/admin', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.authenticated && d.user?.name) {
+          setCurrentUserName(d.user.name);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -186,7 +197,7 @@ export default function AdminDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: 'IN_PROGRESS',
-          assignedTo: 'Admin (Me)',
+          assignedTo: currentUserName || 'Admin',
         }),
       });
       if (res.ok) {
@@ -415,10 +426,11 @@ export default function AdminDashboardPage() {
                 className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Status: All</option>
-                <option value="ACTIVE">Active (Open + In Progress)</option>
+                <option value="ACTIVE">Active (Open + In Progress + Pending Confirm)</option>
                 <option value="OPEN">Open</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="ON_HOLD">On Hold (รอ Solution)</option>
+                <option value="PENDING_CONFIRM">Pending Confirm (รออนุมัติปิด)</option>
                 <option value="RESOLVED">Resolved</option>
                 <option value="CLOSED">Closed</option>
               </select>
@@ -596,30 +608,45 @@ export default function AdminDashboardPage() {
                           </div>
                         </td>
                         <td className="py-3.5 px-3">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                              inc.status === 'OPEN'
-                                ? 'bg-sky-50 text-sky-700 border border-sky-200'
-                                : inc.status === 'IN_PROGRESS'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : inc.status === 'ON_HOLD'
-                                ? 'bg-violet-50 text-violet-700 border border-violet-200'
-                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            }`}
-                          >
+                          <div className="flex flex-col items-start gap-1">
                             <span
-                              className={`w-1.5 h-1.5 rounded-full ${
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${
                                 inc.status === 'OPEN'
-                                  ? 'bg-sky-500'
+                                  ? 'bg-sky-50 text-sky-700 border border-sky-200'
                                   : inc.status === 'IN_PROGRESS'
-                                  ? 'bg-amber-500'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                   : inc.status === 'ON_HOLD'
-                                  ? 'bg-violet-500'
-                                  : 'bg-emerald-500'
+                                  ? 'bg-violet-50 text-violet-700 border border-violet-200'
+                                  : inc.status === 'PENDING_CONFIRM'
+                                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               }`}
-                            ></span>
-                            {inc.status}
-                          </span>
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  inc.status === 'OPEN'
+                                    ? 'bg-sky-500'
+                                    : inc.status === 'IN_PROGRESS'
+                                    ? 'bg-amber-500'
+                                    : inc.status === 'ON_HOLD'
+                                    ? 'bg-violet-500'
+                                    : inc.status === 'PENDING_CONFIRM'
+                                    ? 'bg-indigo-500'
+                                    : 'bg-emerald-500'
+                                }`}
+                              ></span>
+                              {inc.status === 'PENDING_CONFIRM' ? 'PENDING CONFIRM' : inc.status}
+                            </span>
+                            {inc.resolutionType === 'WORKAROUND' && (
+                              <span
+                                title={inc.workaroundNote || 'ปิดแบบมีเงื่อนไข (Workaround)'}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap"
+                              >
+                                <span className="material-symbols-outlined text-[12px]">build_circle</span>
+                                Workaround
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3.5 px-4">
                           {inc.assignedTo ? (

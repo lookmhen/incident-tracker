@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminAuthenticated } from '@/lib/auth';
+import { getActiveSession } from '@/lib/session';
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Allow public invite acceptance page
+  if (pathname === '/admin/invite') {
+    return NextResponse.next();
+  }
 
   // Allow public login page and static assets
   if (pathname === '/admin/login') {
-    const authed = await isAdminAuthenticated(req);
+    const authed = Boolean(await getActiveSession(req));
     if (authed) {
       return NextResponse.redirect(new URL('/admin', req.url));
     }
@@ -15,7 +20,7 @@ export async function middleware(req: NextRequest) {
 
   // Protect /admin/*
   if (pathname.startsWith('/admin')) {
-    const authed = await isAdminAuthenticated(req);
+    const authed = Boolean(await getActiveSession(req));
     if (!authed) {
       const loginUrl = new URL('/admin/login', req.url);
       loginUrl.searchParams.set('from', pathname);

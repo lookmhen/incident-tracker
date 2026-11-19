@@ -19,6 +19,9 @@ interface IncidentDetail {
   status: string;
   assignedTo: string | null;
   resolution: string | null;
+  resolutionType?: string | null;
+  workaroundNote?: string | null;
+  resolvedBy?: string | null;
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
@@ -55,8 +58,17 @@ export default function IncidentDetailMcpHub({
   const [addingRootCause, setAddingRootCause] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Current authenticated admin user
+  const [currentUser, setCurrentUser] = useState<{
+    username: string;
+    name: string;
+    role: 'STAFF' | 'MANAGER';
+  } | null>(null);
+
   // Resolution editor state
   const [resolutionText, setResolutionText] = useState('');
+  const [resolutionType, setResolutionType] = useState<'PERMANENT' | 'WORKAROUND'>('PERMANENT');
+  const [workaroundNote, setWorkaroundNote] = useState('');
 
   // Edit Incident Details state
   const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -88,6 +100,18 @@ export default function IncidentDetailMcpHub({
     return () => clearInterval(interval);
   }, [incident?.status]);
 
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch('/api/auth/admin', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data?.user ?? null);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const fetchIncident = async () => {
     try {
       const res = await fetch(`/api/incidents/${encodeURIComponent(id)}`, { cache: 'no-store' });
@@ -97,6 +121,8 @@ export default function IncidentDetailMcpHub({
         if (data.resolution) {
           setResolutionText(data.resolution);
         }
+        setResolutionType(data.resolutionType === 'WORKAROUND' ? 'WORKAROUND' : 'PERMANENT');
+        setWorkaroundNote(data.workaroundNote || '');
       }
     } catch (e) {
       console.error(e);
@@ -126,6 +152,7 @@ export default function IncidentDetailMcpHub({
   };
 
   useEffect(() => {
+    fetchCurrentUser();
     fetchIncident();
     fetchCategories();
     fetchRootCauses();
@@ -217,7 +244,7 @@ export default function IncidentDetailMcpHub({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          assignedTo: 'Admin (Me)',
+          assignedTo: currentUser?.name || 'Admin',
           status: 'IN_PROGRESS',
         }),
       });
@@ -235,7 +262,13 @@ export default function IncidentDetailMcpHub({
   // Update Status
   const handleUpdateStatus = async (newStatus: string) => {
     if (!incident) return;
-    if (['RESOLVED', 'CLOSED'].includes(newStatus) && !validateReadyToClose(incident)) return;
+    if (['RESOLVED', 'CLOSED'].includes(newStatus)) {
+      if (currentUser?.role !== 'MANAGER') {
+        showToast('เฉพาะ Manager เท่านั้น');
+        return;
+      }
+      if (!validateReadyToClose(incident)) return;
+    }
     try {
       const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
         method: 'PATCH',
@@ -246,6 +279,9 @@ export default function IncidentDetailMcpHub({
         const updated = await res.json();
         setIncident(updated);
         setEditingTimeField(null);
+        if (['RESOLVED', 'CLOSED'].includes(newStatus)) {
+          setIsEditingDetails(false);
+        }
         showToast(`Status updated to ${newStatus}`);
       } else {
         const err = await res.json().catch(() => ({}));
@@ -305,29 +341,47 @@ export default function IncidentDetailMcpHub({
     }
   };
 
-  // Close Incident & Save Resolution (Clean text available via MCP)
-  const handleCloseAndIndex = async () => {
+  // Save resolution draft, submit for Manager confirm, or mark RESOLVED
+  const submitResolutionUpdate = async (targetStatus?: 'PENDING_CONFIRM' | 'RESOLVED') => {
     if (!incident) return;
-    if (!validateReadyToClose(incident)) return;
+    if (targetStatus) {
+      if (!validateReadyToClose(incident)) return;
+      if (resolutionType === 'WORKAROUND' && !workaroundNote.trim()) {
+        showToast('⚠️ กรุณาระบุเงื่อนไข Workaround ก่อนปิดเคส');
+        return;
+      }
+    }
+    const payload: Record<string, unknown> = {
+      resolution: resolutionText,
+      resolutionType,
+      workaroundNote: resolutionType === 'WORKAROUND' ? workaroundNote.trim() : '',
+    };
+    if (targetStatus) payload.status = targetStatus;
+
     try {
       const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'RESOLVED',
-          resolution: resolutionText,
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const updated = await res.json();
         setIncident(updated);
-        showToast(`Incident ${incident.ticketNo} marked as RESOLVED (Clean text saved)`);
+        if (targetStatus === 'RESOLVED') {
+          setIsEditingDetails(false);
+          showToast(`Incident ${incident.ticketNo} marked as RESOLVED (Clean text saved)`);
+        } else if (targetStatus === 'PENDING_CONFIRM') {
+          showToast(`ส่งเคส ${incident.ticketNo} ให้ Manager ยืนยันปิดเคสแล้ว`);
+        } else {
+          showToast('บันทึกร่างการแก้ไขเรียบร้อยแล้ว');
+        }
       } else {
         const err = await res.json().catch(() => ({}));
-        showToast(err.error || 'ไม่สามารถปิดเคสได้');
+        showToast(err.error || 'ไม่สามารถบันทึกข้อมูลได้');
       }
     } catch (e) {
       console.error(e);
+      showToast('เกิดข้อผิดพลาดในการบันทึก');
     }
   };
 
@@ -650,7 +704,9 @@ export default function IncidentDetailMcpHub({
 
   const isHigh = incident.urgency === 'HIGH';
   const isOnHold = incident.status === 'ON_HOLD';
+  const isPendingConfirm = incident.status === 'PENDING_CONFIRM';
   const isClosed = incident.status === 'RESOLVED' || incident.status === 'CLOSED';
+  const isManager = currentUser?.role === 'MANAGER';
   const charCount = resolutionText.length;
   const wordCount = resolutionText.trim() ? resolutionText.trim().split(/\s+/).length : 0;
   const reportAttachments = incident.attachments.filter((a) => (a.kind || 'REPORT') !== 'RESOLUTION');
@@ -680,10 +736,28 @@ export default function IncidentDetailMcpHub({
                   </span>
                 )}
 
-                <span className="px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-medium flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">sync</span>
-                  {incident.status}
+                <span
+                  className={`px-2.5 py-1 rounded-full border font-medium flex items-center gap-1 ${
+                    isPendingConfirm
+                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
+                      : 'bg-sky-50 text-sky-700 border-sky-200'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[14px]">
+                    {isPendingConfirm ? 'pending_actions' : 'sync'}
+                  </span>
+                  {isPendingConfirm ? 'รอ Manager ยืนยันปิดเคส' : incident.status}
                 </span>
+
+                {incident.resolutionType === 'WORKAROUND' && (
+                  <span
+                    title={incident.workaroundNote || undefined}
+                    className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-300 font-semibold flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">build_circle</span>
+                    Workaround / มีเงื่อนไข
+                  </span>
+                )}
 
                 <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
                   {incident.category || 'Uncategorized'}
@@ -739,7 +813,26 @@ export default function IncidentDetailMcpHub({
                   <span className="material-symbols-outlined text-[16px]">api</span>
                   <span>MCP Context Endpoint Ready</span>
                 </div>
+                {incident.resolvedBy && (
+                  <>
+                    <span className="hidden sm:inline text-slate-300">•</span>
+                    <div className="flex items-center gap-1 text-emerald-700 font-medium">
+                      <span className="material-symbols-outlined text-[15px]">verified</span>
+                      <span>Resolved by: {incident.resolvedBy}</span>
+                    </div>
+                  </>
+                )}
               </div>
+
+              {incident.resolutionType === 'WORKAROUND' && incident.workaroundNote && (
+                <div className="px-3 py-2 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-amber-600 shrink-0 mt-0.5">warning</span>
+                  <div>
+                    <span className="font-semibold">Workaround Note: </span>
+                    <span>{incident.workaroundNote}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Action Toolbar */}
@@ -756,8 +849,9 @@ export default function IncidentDetailMcpHub({
               ) : (
                 <button
                   onClick={handleAssignToMe}
-                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-xs"
-                  title="คลิกเพื่อ Re-assign เคสนี้ให้ตนเอง"
+                  disabled={!isManager && isClosed}
+                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-xs"
+                  title={!isManager && isClosed ? 'ปิดเคสแล้ว (เฉพาะ Manager)' : 'คลิกเพื่อ Re-assign เคสนี้ให้ตนเอง'}
                 >
                   <span className="material-symbols-outlined text-[16px] text-sky-600">assignment_ind</span>
                   <span>{incident.assignedTo ? `Assigned: ${incident.assignedTo}` : 'Assign to Me'}</span>
@@ -772,19 +866,26 @@ export default function IncidentDetailMcpHub({
                 </button>
                 <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-30 min-w-[150px]">
                   <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 flex flex-col gap-1">
-                    {['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'].map((st) => (
-                      <button
-                        key={st}
-                        onClick={() => handleUpdateStatus(st)}
-                        className={`px-2.5 py-1.5 text-xs text-left rounded-lg font-medium transition-colors ${
-                          incident.status === st
-                            ? 'bg-sky-50 text-sky-700 font-semibold'
-                            : 'hover:bg-slate-50 text-slate-700'
-                        }`}
-                      >
-                        {st}
-                      </button>
-                    ))}
+                    {['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'PENDING_CONFIRM', 'RESOLVED', 'CLOSED'].map((st) => {
+                      const requiresManager = !isManager && (['RESOLVED', 'CLOSED'].includes(st) || isClosed);
+                      return (
+                        <button
+                          key={st}
+                          disabled={requiresManager}
+                          title={requiresManager ? 'เฉพาะ Manager เท่านั้น' : undefined}
+                          onClick={() => handleUpdateStatus(st)}
+                          className={`px-2.5 py-1.5 text-xs text-left rounded-lg font-medium transition-colors ${
+                            requiresManager
+                              ? 'opacity-45 cursor-not-allowed text-slate-400'
+                              : incident.status === st
+                              ? 'bg-sky-50 text-sky-700 font-semibold cursor-pointer'
+                              : 'hover:bg-slate-50 text-slate-700 cursor-pointer'
+                          }`}
+                        >
+                          {st}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -819,33 +920,39 @@ export default function IncidentDetailMcpHub({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!isEditingDetails) {
-                        setEditTitle(incident.title);
-                        setEditDescription(incident.description);
-                      }
-                      setIsEditingDetails(!isEditingDetails);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      isEditingDetails
-                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
-                        : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[15px]">
-                      {isEditingDetails ? 'close' : 'edit_note'}
+                  {isClosed ? (
+                    <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+                      🔒 Locked หลังปิดเคส
                     </span>
-                    <span>{isEditingDetails ? 'Cancel' : 'Edit Details / แก้ไขข้อความ'}</span>
-                  </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isEditingDetails) {
+                          setEditTitle(incident.title);
+                          setEditDescription(incident.description);
+                        }
+                        setIsEditingDetails(!isEditingDetails);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        isEditingDetails
+                          ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                          : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[15px]">
+                        {isEditingDetails ? 'close' : 'edit_note'}
+                      </span>
+                      <span>{isEditingDetails ? 'Cancel' : 'Edit Details / แก้ไขข้อความ'}</span>
+                    </button>
+                  )}
                   <span className="px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-[11px] font-mono font-medium text-slate-600">
                     RAW-{incident.ticketNo}
                   </span>
                 </div>
               </div>
 
-              {isEditingDetails ? (
+              {isEditingDetails && !isClosed ? (
                 /* Edit Mode */
                 <div className="space-y-3.5 bg-sky-50/40 p-4 rounded-xl border border-sky-200">
                   <div className="space-y-1">
@@ -913,6 +1020,12 @@ export default function IncidentDetailMcpHub({
               className="relative bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.08)] border-2 border-sky-200 space-y-4 overflow-hidden"
             >
               <div className="absolute -top-12 -right-12 w-48 h-48 bg-sky-100/50 rounded-full blur-2xl pointer-events-none"></div>
+              {isPendingConfirm && (
+                <div className="p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-semibold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px] text-indigo-600">pending_actions</span>
+                  <span>เคสนี้รอ Manager ตรวจสอบและยืนยันปิดงาน</span>
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 border border-sky-200 flex items-center justify-center">
@@ -1000,19 +1113,107 @@ export default function IncidentDetailMcpHub({
                 )}
               </div>
 
-              {/* Bottom Actions */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                <div className="text-[11px] text-slate-600 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-sky-600">database</span>
-                  <span>Sanitized plain text stored for Model Context Protocol access</span>
+              {/* Closure Type Selector */}
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-headline font-bold text-slate-800">ประเภทการปิดเคส (Closure Type)</span>
+                  <span className="text-[11px] text-slate-500">ระบุว่าแก้ไขถาวรหรือปิดแบบมีเงื่อนไข</span>
                 </div>
-                <button
-                  onClick={handleCloseAndIndex}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(2,132,199,0.35)] hover:shadow-[0_6px_22px_rgba(2,132,199,0.45)] transition-all cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                  <span>Save Resolution &amp; Mark Resolved</span>
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setResolutionType('PERMANENT')}
+                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      resolutionType === 'PERMANENT'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">task_alt</span>
+                    <span>แก้ไขถาวร (Permanent)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResolutionType('WORKAROUND')}
+                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      resolutionType === 'WORKAROUND'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                        : 'bg-white hover:bg-amber-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">build_circle</span>
+                    <span>ปิดแบบมีเงื่อนไข / Workaround</span>
+                  </button>
+                </div>
+                {resolutionType === 'WORKAROUND' && (
+                  <div className="pt-1">
+                    <textarea
+                      rows={2}
+                      value={workaroundNote}
+                      onChange={(e) => setWorkaroundNote(e.target.value)}
+                      placeholder="เงื่อนไข / งานที่ต้องติดตามต่อ..."
+                      className="w-full bg-white text-slate-900 border border-amber-300 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="space-y-2.5 pt-2">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-[11px] text-slate-600 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px] text-sky-600">database</span>
+                    <span>Sanitized plain text stored for Model Context Protocol access</span>
+                  </div>
+                  {isManager ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
+                      {isPendingConfirm && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateStatus('IN_PROGRESS')}
+                          className="px-4 py-2.5 rounded-xl bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">undo</span>
+                          <span>ตีกลับแก้ไข (In Progress)</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => submitResolutionUpdate('RESOLVED')}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(2,132,199,0.35)] hover:shadow-[0_6px_22px_rgba(2,132,199,0.45)] transition-all cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                        <span>Confirm &amp; Mark Resolved (ยืนยันปิดเคส)</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        disabled={isClosed}
+                        onClick={() => submitResolutionUpdate()}
+                        className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">save</span>
+                        <span>Save Draft</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isClosed}
+                        onClick={() => submitResolutionUpdate('PENDING_CONFIRM')}
+                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">send</span>
+                        <span>ส่งให้ Manager ยืนยันปิดเคส</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {!isManager && (
+                  <p className="text-[11px] text-slate-500 text-right">
+                    หมายเหตุ: เฉพาะผู้ใช้สิทธิ์ MANAGER เท่านั้นที่สามารถยืนยันปิดเคส (RESOLVED / CLOSED) ได้
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1039,10 +1240,12 @@ export default function IncidentDetailMcpHub({
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       : isOnHold
                       ? 'bg-violet-50 text-violet-700 border border-violet-200'
+                      : isPendingConfirm
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                       : 'bg-amber-50 text-amber-700 border border-amber-200'
                   }`}
                 >
-                  {isClosed ? 'RESOLVED' : isOnHold ? 'ON HOLD' : 'ACTIVE'}
+                  {isClosed ? 'RESOLVED' : isOnHold ? 'ON HOLD' : isPendingConfirm ? 'PENDING CONFIRM' : 'ACTIVE'}
                 </span>
               </div>
 

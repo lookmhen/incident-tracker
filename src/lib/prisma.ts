@@ -23,8 +23,19 @@ function ensureSchemaColumns(): Promise<void> {
         const incCols = await basePrisma.$queryRawUnsafe<Array<{ name: string }>>(
           'PRAGMA table_info("Incident")'
         );
-        if (incCols.length > 0 && !incCols.some((c) => c.name === 'rootCause')) {
-          await basePrisma.$executeRawUnsafe('ALTER TABLE "Incident" ADD COLUMN "rootCause" TEXT');
+        if (incCols.length > 0) {
+          const existing = new Set(incCols.map((c) => c.name));
+          const missingIncCols: Array<[string, string]> = [
+            ['rootCause', 'TEXT'],
+            ['resolutionType', 'TEXT'],
+            ['workaroundNote', 'TEXT'],
+            ['resolvedBy', 'TEXT'],
+          ];
+          for (const [col, def] of missingIncCols) {
+            if (!existing.has(col)) {
+              await basePrisma.$executeRawUnsafe(`ALTER TABLE "Incident" ADD COLUMN "${col}" ${def}`);
+            }
+          }
         }
 
         const attCols = await basePrisma.$queryRawUnsafe<Array<{ name: string }>>(
@@ -35,6 +46,23 @@ function ensureSchemaColumns(): Promise<void> {
             'ALTER TABLE "Attachment" ADD COLUMN "kind" TEXT NOT NULL DEFAULT \'REPORT\''
           );
         }
+
+        await basePrisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "AdminUser" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "username" TEXT NOT NULL,
+            "name" TEXT NOT NULL,
+            "email" TEXT,
+            "role" TEXT NOT NULL DEFAULT 'STAFF',
+            "passwordHash" TEXT NOT NULL,
+            "isActive" INTEGER NOT NULL DEFAULT 1,
+            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        await basePrisma.$executeRawUnsafe(
+          'CREATE UNIQUE INDEX IF NOT EXISTS "AdminUser_username_key" ON "AdminUser"("username")'
+        );
       } catch (err) {
         globalForPrisma.schemaEnsured = undefined;
         console.error('SQLite schema column check failed:', err);

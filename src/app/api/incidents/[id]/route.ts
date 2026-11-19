@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IncidentService } from '@/lib/services/incident.service';
+import { EmailService } from '@/lib/services/email.service';
 import { checkApiAccess } from '@/lib/api-guard';
+import { getActiveSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,6 +32,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = await req.json();
+    const session = await getActiveSession(req);
+    const nextStatus = (typeof body.status === 'string' ? body.status : '').trim().toUpperCase();
+    const isClosing = ['RESOLVED', 'CLOSED'].includes(nextStatus);
+
+    if (session && session.role !== 'MANAGER') {
+      if (isClosing) {
+        return NextResponse.json(
+          { error: 'Only a Manager can resolve or close an incident' },
+          { status: 403 }
+        );
+      }
+      const existing = await IncidentService.getIncidentById(id);
+      if (existing && ['RESOLVED', 'CLOSED'].includes((existing.status || '').trim().toUpperCase())) {
+        return NextResponse.json(
+          { error: 'Only a Manager can modify or reopen a closed incident' },
+          { status: 403 }
+        );
+      }
+    }
 
     const updated = await IncidentService.updateIncident(id, {
       title: body.title,
@@ -41,6 +62,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       status: body.status,
       assignedTo: body.assignedTo,
       resolution: body.resolution,
+      resolutionType: body.resolutionType,
+      workaroundNote: body.workaroundNote,
+      resolvedBy:
+        (typeof body.resolvedBy === 'string' ? body.resolvedBy.trim() : body.resolvedBy) ||
+        (isClosing && session ? session.name : body.resolvedBy),
+      portalBaseUrl: EmailService.resolvePortalUrl(req),
       createdAt: body.createdAt,
       closedAt: body.closedAt,
       mttrExcluded: body.mttrExcluded,
@@ -52,7 +79,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (msg.startsWith('Incident not found:')) {
       return NextResponse.json({ error: msg }, { status: 404 });
     }
-    if (msg.includes('closedAt') || msg.includes('createdAt') || msg.includes('required before closing')) {
+    if (
+      msg.includes('closedAt') ||
+      msg.includes('createdAt') ||
+      msg.includes('required before') ||
+      msg.includes('Cannot edit incident details')
+    ) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
     console.error('Error updating incident:', error);

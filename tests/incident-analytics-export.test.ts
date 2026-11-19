@@ -126,7 +126,8 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.ok(Array.isArray(analytics.trend));
     assert.ok(Array.isArray(analytics.byCategory));
     assert.ok(Array.isArray(analytics.byDepartment));
-    assert.equal(analytics.byStatus.length, 5);
+    assert.equal(analytics.byStatus.length, 6);
+    assert.ok(analytics.byStatus.some((s) => s.status === 'PENDING_CONFIRM'));
     assert.ok(analytics.byStatus.some((s) => s.status === 'ON_HOLD'));
     assert.equal(analytics.byUrgency.length, 3);
   });
@@ -661,5 +662,21 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       assert.equal(delAttRes.status, 200);
       assert.equal(fs.existsSync(storedPath), false, 'Uploaded file should be unlinked on delete');
     }
+  });
+
+  it('handles concurrent incident creation without ticketNo P2002 collision', async () => {
+    const batch = await Promise.all(
+      [1, 2, 3, 4].map((idx) =>
+        IncidentService.createIncident({
+          reporterName: `Concurrent ${idx}`,
+          contactInfo: 'conc@test.local',
+          title: `Concurrent test #${idx}`,
+          description: 'Verifies P2002 ticketNo retry handler',
+        })
+      )
+    );
+    batch.forEach((inc) => testIncidentIds.push(inc.id));
+    const uniqueTickets = new Set(batch.map((b) => b.ticketNo));
+    assert.equal(uniqueTickets.size, 4);
   });
 });

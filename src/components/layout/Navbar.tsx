@@ -4,21 +4,27 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
+import type { AdminSession } from '@/lib/auth';
+
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<AdminSession | null>(null);
   const [failedCount, setFailedCount] = useState(0);
 
   const refreshAuthAndAlerts = () => {
     fetch('/api/auth/admin', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
-        setIsAdmin(Boolean(d.authenticated));
+        const authed = Boolean(d.authenticated);
+        setIsAdmin(authed);
+        setUser(authed ? d.user || null : null);
         setFailedCount(Number(d.failedNotifications) || 0);
       })
       .catch(() => {
         setIsAdmin(false);
+        setUser(null);
         setFailedCount(0);
       });
   };
@@ -37,6 +43,9 @@ export default function Navbar() {
     { label: 'Incident Console', href: '/admin', icon: 'dashboard' },
     { label: 'Analytics & Graphs', href: '/admin/analytics', icon: 'bar_chart' },
     { label: 'Integrations & Security', href: '/admin/integrations', icon: 'hub' },
+    ...(user?.role === 'MANAGER'
+      ? [{ label: 'Users & Roles', href: '/admin/users', icon: 'manage_accounts' }]
+      : []),
   ];
 
   const isActive = (href: string) => {
@@ -48,6 +57,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     await fetch('/api/auth/admin', { method: 'DELETE' });
     setIsAdmin(false);
+    setUser(null);
     router.push('/');
     router.refresh();
   };
@@ -107,7 +117,7 @@ export default function Navbar() {
               <div className="hidden md:flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-700 font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>Admin Session Active</span>
+                  <span>{`${user?.name || 'Admin'} (${user?.role || 'MANAGER'})`}</span>
                 </div>
               </div>
               <button

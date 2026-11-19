@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminAuthenticated } from '@/lib/auth';
+import { getActiveSession } from '@/lib/session';
 import { IntegrationService } from '@/lib/services/integration.service';
 import { TeamsService } from '@/lib/services/teams.service';
 import { EmailService } from '@/lib/services/email.service';
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await getActiveSession(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const config = await IntegrationService.getMaskedConfig();
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await getActiveSession(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -46,7 +46,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await getActiveSession(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

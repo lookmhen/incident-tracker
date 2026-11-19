@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminAuthenticated } from '@/lib/auth';
+import { getActiveSession } from '@/lib/session';
 import { IncidentService } from '@/lib/services/incident.service';
 import prisma from '@/lib/prisma';
 
@@ -13,7 +13,7 @@ function escapeCsvCell(value: any): string {
 }
 
 export async function GET(req: NextRequest) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await getActiveSession(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
       category: searchParams.get('category') || undefined,
       rootCause: searchParams.get('rootCause') || undefined,
       department: searchParams.get('department') || undefined,
+      resolutionType: searchParams.get('resolutionType') || undefined,
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
     });
@@ -48,7 +49,10 @@ export async function GET(req: NextRequest) {
       'Department',
       'Contact Info',
       'Assigned To',
+      'Resolution Type',
       'Resolution Notes',
+      'Workaround Note',
+      'Resolved By',
       'Closed At',
     ];
 
@@ -65,7 +69,10 @@ export async function GET(req: NextRequest) {
       inc.department || '-',
       inc.contactInfo,
       inc.assignedTo || 'Unassigned',
+      inc.resolutionType || '',
       inc.resolution || '',
+      inc.workaroundNote || '',
+      inc.resolvedBy || '',
       inc.closedAt ? new Date(inc.closedAt).toLocaleString('th-TH') : '',
     ]);
 

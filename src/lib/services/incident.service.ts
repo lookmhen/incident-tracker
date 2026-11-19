@@ -29,6 +29,7 @@ export interface IncidentFilterQuery {
   urgency?: string;
   category?: string;
   department?: string;
+  resolutionType?: string;
   page?: number;
   limit?: number;
 }
@@ -151,32 +152,28 @@ export class IncidentService {
     const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
     const prefix = `INC-${yearMonth}-`;
 
-    const lastIncident = await prisma.incident.findFirst({
+    // Parse numerically instead of string DESC sort so sequences >= 1000 don't collide with '999'
+    const existing = await prisma.incident.findMany({
       where: {
         ticketNo: {
           startsWith: prefix,
         },
-      },
-      orderBy: {
-        ticketNo: 'desc',
       },
       select: {
         ticketNo: true,
       },
     });
 
-    let nextSeq = 1;
-    if (lastIncident && lastIncident.ticketNo) {
-      const parts = lastIncident.ticketNo.split('-');
-      if (parts.length === 3) {
-        const lastNum = parseInt(parts[2], 10);
-        if (!isNaN(lastNum)) {
-          nextSeq = lastNum + 1;
-        }
+    let maxSeq = 0;
+    for (const row of existing) {
+      const suffix = row.ticketNo.slice(prefix.length);
+      const num = /^\d+$/.test(suffix) ? parseInt(suffix, 10) : NaN;
+      if (!isNaN(num) && num > maxSeq) {
+        maxSeq = num;
       }
     }
 
-    return `${prefix}${String(nextSeq).padStart(3, '0')}`;
+    return `${prefix}${String(maxSeq + 1).padStart(3, '0')}`;
   }
 
   /**
@@ -211,7 +208,6 @@ export class IncidentService {
    * Creates a new incident, persists attachment, and fires Teams Webhook
    */
   public static async createIncident(data: CreateIncidentDTO) {
-    const ticketNo = await this.generateTicketNo();
     const cleanDesc = McpService.cleanText(data.description);
     const cleanTitle = McpService.cleanText(data.title);
 
@@ -220,34 +216,47 @@ export class IncidentService {
       savedAttachment = await this.saveUploadedFile(data.file);
     }
 
-    const created = await prisma.incident.create({
-      data: {
-        ticketNo,
-        reporterName: data.reporterName.trim(),
-        department: this.normalizeDepartment(data.department),
-        contactInfo: data.contactInfo.trim(),
-        title: cleanTitle,
-        description: cleanDesc,
-        urgency: data.urgency || 'MEDIUM',
-        category: data.category?.trim() || null,
-        categoryId: data.categoryId || null,
-        status: 'OPEN',
-        attachments: savedAttachment
-          ? {
-              create: {
-                fileUrl: savedAttachment.fileUrl,
-                fileName: savedAttachment.fileName,
-                fileType: savedAttachment.fileType,
-                fileSize: savedAttachment.fileSize,
-              },
-            }
-          : undefined,
-      },
-      include: {
-        attachments: true,
-        categoryRel: true,
-      },
-    });
+    let created: any = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const ticketNo = await this.generateTicketNo();
+      try {
+        created = await prisma.incident.create({
+          data: {
+            ticketNo,
+            reporterName: data.reporterName.trim(),
+            department: this.normalizeDepartment(data.department),
+            contactInfo: data.contactInfo.trim(),
+            title: cleanTitle,
+            description: cleanDesc,
+            urgency: data.urgency || 'MEDIUM',
+            category: data.category?.trim() || null,
+            categoryId: data.categoryId || null,
+            status: 'OPEN',
+            attachments: savedAttachment
+              ? {
+                  create: {
+                    fileUrl: savedAttachment.fileUrl,
+                    fileName: savedAttachment.fileName,
+                    fileType: savedAttachment.fileType,
+                    fileSize: savedAttachment.fileSize,
+                  },
+                }
+              : undefined,
+          },
+          include: {
+            attachments: true,
+            categoryRel: true,
+          },
+        });
+        break;
+      } catch (err: any) {
+        // Retry on ticketNo unique collision (P2002) under concurrent inserts
+        if (err?.code === 'P2002' && attempt < 9) {
+          continue;
+        }
+        throw err;
+      }
+    }
 
     // Asynchronously dispatch to Microsoft Teams & Admin Email in parallel (non-blocking)
     const firstAttachmentUrl = created.attachments?.[0]?.fileUrl || null;
@@ -308,8 +317,8 @@ export class IncidentService {
         orderBy: { createdAt: 'desc' },
       }),
       prisma.incident.count(),
-      prisma.incident.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
-      prisma.incident.count({ where: { urgency: 'HIGH', status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
+      prisma.incident.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS', 'PENDING_CONFIRM'] } } }),
+      prisma.incident.count({ where: { urgency: 'HIGH', status: { in: ['OPEN', 'IN_PROGRESS', 'PENDING_CONFIRM'] } } }),
       prisma.incident.count({ where: { createdAt: { gte: todayStart } } }),
       prisma.incident.count({ where: { status: { in: ['RESOLVED', 'CLOSED'] } } }),
       prisma.notificationLog.count({ where: { channel: 'TEAMS' } }),
@@ -320,8 +329,9 @@ export class IncidentService {
       const up = (s || '').trim().toUpperCase();
       if (up === 'OPEN') return 0;
       if (up === 'IN_PROGRESS') return 1;
-      if (up === 'ON_HOLD') return 2;
-      return 3;
+      if (up === 'PENDING_CONFIRM') return 2;
+      if (up === 'ON_HOLD') return 3;
+      return 4;
     };
     const urgencyRank = (u: string) => {
       const up = (u || '').trim().toUpperCase();
@@ -334,7 +344,7 @@ export class IncidentService {
       const sa = statusRank(a.status);
       const sb = statusRank(b.status);
       if (sa !== sb) return sa - sb;
-      if (sa < 3) {
+      if (sa < 4) {
         const ua = urgencyRank(a.urgency);
         const ub = urgencyRank(b.urgency);
         if (ua !== ub) return ua - ub;
@@ -462,6 +472,10 @@ export class IncidentService {
       status?: string;
       assignedTo?: string;
       resolution?: string;
+      resolutionType?: string | null;
+      workaroundNote?: string | null;
+      resolvedBy?: string | null;
+      portalBaseUrl?: string;
       createdAt?: string | Date;
       closedAt?: string | Date | null;
       mttrExcluded?: boolean;
@@ -470,6 +484,15 @@ export class IncidentService {
     const target = await this.getIncidentById(idOrTicketNo);
     if (!target) {
       throw new Error(`Incident not found: ${idOrTicketNo}`);
+    }
+
+    const currentStatus = (target.status || '').trim().toUpperCase();
+    if (
+      ['RESOLVED', 'CLOSED'].includes(currentStatus) &&
+      ((data.title !== undefined && String(data.title ?? '').trim() !== target.title) ||
+        (data.description !== undefined && String(data.description ?? '').trim() !== target.description))
+    ) {
+      throw new Error('Cannot edit incident details after the incident is resolved or closed');
     }
 
     const updatePayload: any = {};
@@ -484,6 +507,34 @@ export class IncidentService {
     if (data.urgency !== undefined) updatePayload.urgency = data.urgency;
     if (data.assignedTo !== undefined) updatePayload.assignedTo = data.assignedTo;
 
+    const rawResType =
+      typeof data.resolutionType === 'string' ? data.resolutionType.trim().toUpperCase() : data.resolutionType;
+
+    if (data.resolutionType !== undefined) {
+      if (rawResType === 'WORKAROUND') {
+        updatePayload.resolutionType = 'WORKAROUND';
+      } else if (rawResType === 'PERMANENT') {
+        updatePayload.resolutionType = 'PERMANENT';
+        updatePayload.workaroundNote = null;
+      } else if (rawResType === null || rawResType === '') {
+        updatePayload.resolutionType = null;
+        updatePayload.workaroundNote = null;
+      }
+    }
+
+    if (
+      data.workaroundNote !== undefined &&
+      updatePayload.resolutionType !== 'PERMANENT' &&
+      updatePayload.resolutionType !== null
+    ) {
+      const cleanedNote = data.workaroundNote ? McpService.cleanText(data.workaroundNote) : '';
+      updatePayload.workaroundNote = cleanedNote || null;
+    }
+
+    if (data.resolvedBy !== undefined) {
+      updatePayload.resolvedBy = data.resolvedBy ? data.resolvedBy.trim() || null : null;
+    }
+
     if (data.createdAt !== undefined) {
       const parsedCreated = data.createdAt instanceof Date ? data.createdAt : new Date(data.createdAt);
       if (!data.createdAt || Number.isNaN(parsedCreated.getTime())) {
@@ -493,15 +544,32 @@ export class IncidentService {
     }
 
     if (data.status !== undefined) {
-      updatePayload.status = data.status.toUpperCase();
-      if (['RESOLVED', 'CLOSED'].includes(updatePayload.status)) {
+      updatePayload.status = data.status.trim().toUpperCase();
+      if (['RESOLVED', 'CLOSED', 'PENDING_CONFIRM'].includes(updatePayload.status)) {
         const effCategory = (updatePayload.category !== undefined ? updatePayload.category : target.category)?.trim();
         const effRootCause = (updatePayload.rootCause !== undefined ? updatePayload.rootCause : target.rootCause)?.trim();
         if (!effCategory || !effRootCause) {
-          throw new Error('Category and Root Cause are required before closing an incident');
+          throw new Error(
+            updatePayload.status === 'PENDING_CONFIRM'
+              ? 'Category and Root Cause are required before requesting confirmation'
+              : 'Category and Root Cause are required before closing an incident'
+          );
         }
+      }
+
+      if (['RESOLVED', 'CLOSED'].includes(updatePayload.status)) {
         if (data.closedAt === undefined) {
           updatePayload.closedAt = target.closedAt ?? new Date();
+        }
+        const closedResType =
+          rawResType === 'WORKAROUND'
+            ? 'WORKAROUND'
+            : rawResType === 'PERMANENT'
+              ? 'PERMANENT'
+              : target.resolutionType || 'PERMANENT';
+        updatePayload.resolutionType = closedResType;
+        if (closedResType === 'PERMANENT') {
+          updatePayload.workaroundNote = null;
         }
       } else {
         updatePayload.closedAt = null;
@@ -546,6 +614,21 @@ export class IncidentService {
         categoryRel: true,
       },
     });
+
+    if (updatePayload.status === 'PENDING_CONFIRM' && currentStatus !== 'PENDING_CONFIRM') {
+      void EmailService.sendManagerConfirmRequest({
+        ticketNo: updated.ticketNo,
+        title: updated.title,
+        description: updated.description,
+        assignedTo: updated.assignedTo,
+        resolution: updated.resolution,
+        resolutionType: updated.resolutionType,
+        workaroundNote: updated.workaroundNote,
+        category: updated.category,
+        rootCause: updated.rootCause,
+        portalBaseUrl: data.portalBaseUrl,
+      }).catch((err) => console.error('Manager confirm email dispatch error:', err));
+    }
 
     let mttrExcluded = target.mttrExcluded;
     if (data.mttrExcluded !== undefined) {
@@ -624,13 +707,14 @@ export class IncidentService {
     category?: string;
     rootCause?: string;
     department?: string;
+    resolutionType?: string;
     startDate?: string;
     endDate?: string;
   }) {
     const where: any = {};
     if (query.status && query.status !== 'ALL') {
       const st = query.status.toUpperCase();
-      where.status = st === 'ACTIVE' ? { in: ['OPEN', 'IN_PROGRESS'] } : st;
+      where.status = st === 'ACTIVE' ? { in: ['OPEN', 'IN_PROGRESS', 'PENDING_CONFIRM'] } : st;
     }
     if (query.urgency && query.urgency !== 'ALL') where.urgency = query.urgency.toUpperCase();
     if (query.category && query.category !== 'ALL') {
@@ -642,6 +726,9 @@ export class IncidentService {
     }
     if (query.department && query.department !== 'ALL') {
       where.department = { contains: query.department };
+    }
+    if (query.resolutionType && query.resolutionType.trim() && query.resolutionType.trim().toUpperCase() !== 'ALL') {
+      where.resolutionType = query.resolutionType.trim().toUpperCase();
     }
     if (query.search && query.search.trim()) {
       const s = query.search.trim();
@@ -675,6 +762,7 @@ export class IncidentService {
     category?: string;
     rootCause?: string;
     department?: string;
+    resolutionType?: string;
   }) {
     const where = this.buildFilterWhere(query);
     const [records, distinctFilterRows, excludedIds, configuredRootCauses] = await Promise.all([
@@ -697,6 +785,7 @@ export class IncidentService {
     const resolvedCount = resolvedRecords.length;
     const openCount = records.filter((r) => normStatus(r.status) === 'OPEN').length;
     const inProgressCount = records.filter((r) => normStatus(r.status) === 'IN_PROGRESS').length;
+    const pendingConfirmCount = records.filter((r) => normStatus(r.status) === 'PENDING_CONFIRM').length;
     const onHoldCount = records.filter((r) => normStatus(r.status) === 'ON_HOLD').length;
     const criticalCount = records.filter((r) => normUrgency(r.urgency) === 'HIGH').length;
     const resolutionRate = total > 0 ? Math.round((resolvedCount / total) * 100) : 0;
@@ -753,11 +842,11 @@ export class IncidentService {
       }))
       .sort((a, b) => b.avgMins - a.avgMins);
 
-    // Backlog Aging (for active OPEN / IN_PROGRESS records; excludes ON_HOLD, RESOLVED, CLOSED)
+    // Backlog Aging (for active OPEN / IN_PROGRESS / PENDING_CONFIRM records; excludes ON_HOLD, RESOLVED, CLOSED)
     const nowMs = Date.now();
     const agingCounts = { under_24h: 0, d1_3: 0, d4_7: 0, over_7d: 0 };
     for (const r of records) {
-      if (!['OPEN', 'IN_PROGRESS'].includes(normStatus(r.status))) continue;
+      if (!['OPEN', 'IN_PROGRESS', 'PENDING_CONFIRM'].includes(normStatus(r.status))) continue;
       const ageHours = Math.max(0, (nowMs - new Date(r.createdAt).getTime()) / 3600000);
       if (ageHours < 24) agingCounts.under_24h++;
       else if (ageHours < 72) agingCounts.d1_3++;
@@ -911,6 +1000,7 @@ export class IncidentService {
     const byStatus = [
       { status: 'OPEN', count: openCount },
       { status: 'IN_PROGRESS', count: inProgressCount },
+      { status: 'PENDING_CONFIRM', count: pendingConfirmCount },
       { status: 'ON_HOLD', count: onHoldCount },
       { status: 'RESOLVED', count: records.filter((r) => normStatus(r.status) === 'RESOLVED').length },
       { status: 'CLOSED', count: records.filter((r) => normStatus(r.status) === 'CLOSED').length },
@@ -928,6 +1018,7 @@ export class IncidentService {
         resolvedCount,
         openCount,
         inProgressCount,
+        pendingConfirmCount,
         onHoldCount,
         criticalCount,
         resolutionRate,

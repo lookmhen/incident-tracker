@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminAuthenticated, extractRequestApiKey } from '@/lib/auth';
+import { extractRequestApiKey } from '@/lib/auth';
+import { getActiveSession } from '@/lib/session';
 import { IntegrationService } from '@/lib/services/integration.service';
 
 /**
@@ -14,7 +15,7 @@ export async function checkApiAccess(
 ): Promise<NextResponse | null> {
   // Admin session needs no integration config; skipping it avoids the DB write
   // getRawConfig() may do (API key auto-init), which fails on read-only volumes.
-  if (!options?.checkMcpEnabled && (await isAdminAuthenticated(req))) {
+  if (!options?.checkMcpEnabled && (await getActiveSession(req))) {
     return null;
   }
 
@@ -28,7 +29,7 @@ export async function checkApiAccess(
   }
 
   // 1. If Admin is logged in via browser cookie, allow access
-  if (await isAdminAuthenticated(req)) {
+  if (await getActiveSession(req)) {
     return null;
   }
 

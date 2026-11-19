@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminAuthenticated } from '@/lib/auth';
+import { getActiveSession } from '@/lib/session';
 import { IncidentService } from '@/lib/services/incident.service';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
-  if (!(await isAdminAuthenticated(req))) {
+  if (!(await getActiveSession(req))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

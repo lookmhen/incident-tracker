@@ -68,11 +68,12 @@ export class McpService {
     const total = await prisma.incident.count();
     const open = await prisma.incident.count({ where: { status: 'OPEN' } });
     const inProgress = await prisma.incident.count({ where: { status: 'IN_PROGRESS' } });
+    const pendingConfirm = await prisma.incident.count({ where: { status: 'PENDING_CONFIRM' } });
     const onHold = await prisma.incident.count({ where: { status: 'ON_HOLD' } });
     const resolved = await prisma.incident.count({ where: { status: 'RESOLVED' } });
     const closed = await prisma.incident.count({ where: { status: 'CLOSED' } });
     const critical = await prisma.incident.count({
-      where: { urgency: 'HIGH', status: { in: ['OPEN', 'IN_PROGRESS'] } },
+      where: { urgency: 'HIGH', status: { in: ['OPEN', 'IN_PROGRESS', 'PENDING_CONFIRM'] } },
     });
 
     const categoryBreakdown = await prisma.incident.groupBy({
@@ -83,7 +84,7 @@ export class McpService {
     return {
       overview: {
         totalIncidents: total,
-        activeIncidents: open + inProgress,
+        activeIncidents: open + inProgress + pendingConfirm,
         onHoldIncidents: onHold,
         criticalP1Blockers: critical,
         resolvedCount: resolved + closed,
@@ -92,6 +93,7 @@ export class McpService {
       statusDistribution: {
         open,
         inProgress,
+        pendingConfirm,
         resolved,
         closed,
       },

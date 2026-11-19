@@ -66,15 +66,21 @@ export class UserService {
   }
 
   public static async createUser(input: {
-    username: string;
+    username?: string;
     name: string;
     email?: string | null;
     role?: string | UserRole;
     password: string;
   }): Promise<PublicUser> {
-    const username = (input.username ?? '').trim();
+    const cleanEmail = input.email?.trim().toLowerCase() || null;
+    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw new UserServiceError('Invalid email format', 400);
+    }
+
+    const rawUsername = (input.username ?? '').trim();
+    const username = rawUsername || cleanEmail || '';
     if (username.length < 2 || /\s/.test(username)) {
-      throw new UserServiceError('Username must be at least 2 characters and contain no spaces', 400);
+      throw new UserServiceError('Email or username is required (no spaces)', 400);
     }
 
     const name = (input.name ?? '').trim();
@@ -86,19 +92,25 @@ export class UserService {
       throw new UserServiceError('Password must be at least 4 characters', 400);
     }
 
-    const existing = await prisma.adminUser.findUnique({
-      where: { username },
+    const existing = await prisma.adminUser.findFirst({
+      where: {
+        OR: [
+          { username },
+          { username: username.toLowerCase() },
+          ...(cleanEmail ? [{ email: cleanEmail }, { username: cleanEmail }] : []),
+        ],
+      },
       select: { id: true },
     });
     if (existing) {
-      throw new UserServiceError('Username already exists', 409);
+      throw new UserServiceError('Email or username already exists', 409);
     }
 
     return prisma.adminUser.create({
       data: {
-        username,
+        username: cleanEmail && !rawUsername ? cleanEmail : username,
         name,
-        email: input.email?.trim() || null,
+        email: cleanEmail,
         role: normalizeRole(input.role),
         passwordHash: hashPassword(input.password),
       },
@@ -119,7 +131,7 @@ export class UserService {
   ): Promise<PublicUser> {
     const existing = await prisma.adminUser.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, username: true, email: true },
     });
     if (!existing) {
       throw new UserServiceError('User not found', 404);
@@ -134,6 +146,7 @@ export class UserService {
     }
 
     const updateData: {
+      username?: string;
       name?: string;
       email?: string | null;
       role?: UserRole;
@@ -150,7 +163,27 @@ export class UserService {
     }
 
     if (data.email !== undefined) {
-      updateData.email = data.email?.trim() || null;
+      const nextEmail = data.email?.trim().toLowerCase() || null;
+      if (nextEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+        throw new UserServiceError('Invalid email format', 400);
+      }
+      if (nextEmail) {
+        const conflict = await prisma.adminUser.findFirst({
+          where: {
+            id: { not: id },
+            OR: [{ email: nextEmail }, { username: nextEmail }],
+          },
+          select: { id: true },
+        });
+        if (conflict) {
+          throw new UserServiceError('Email already exists', 409);
+        }
+        // Keep email-based accounts' login username synced when their email changes
+        if (existing.email && existing.username.toLowerCase() === existing.email.toLowerCase()) {
+          updateData.username = nextEmail;
+        }
+      }
+      updateData.email = nextEmail;
     }
 
     if (data.role !== undefined) {
@@ -191,12 +224,15 @@ export class UserService {
     await prisma.adminUser.delete({ where: { id } });
   }
 
-  public static async authenticate(username: string, password: string): Promise<PublicUser | null> {
-    const cleanUsername = (username ?? '').trim();
-    if (!cleanUsername || !password) return null;
+  public static async authenticate(identifier: string, password: string): Promise<PublicUser | null> {
+    const clean = (identifier ?? '').trim();
+    if (!clean || !password) return null;
+    const lower = clean.toLowerCase();
 
-    const record = await prisma.adminUser.findUnique({
-      where: { username: cleanUsername },
+    const record = await prisma.adminUser.findFirst({
+      where: {
+        OR: [{ email: lower }, { username: clean }, { username: lower }],
+      },
       select: {
         ...PUBLIC_USER_SELECT,
         passwordHash: true,

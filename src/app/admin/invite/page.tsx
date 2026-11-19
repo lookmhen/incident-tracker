@@ -13,7 +13,6 @@ function AcceptInviteForm() {
   const [inviteInfo, setInviteInfo] = useState<{ email: string; name: string; role: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -54,7 +53,7 @@ function AcceptInviteForm() {
       const res = await fetch('/api/users/invite', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, username, name, password }),
+        body: JSON.stringify({ token, name, password }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -87,8 +86,8 @@ function AcceptInviteForm() {
           <div className="w-12 h-12 rounded-xl bg-sky-600 text-white flex items-center justify-center mx-auto shadow-md shadow-sky-600/20">
             <span className="material-symbols-outlined text-[26px]">mail_lock</span>
           </div>
-          <h1 className="text-xl font-headline font-bold text-slate-900">ตั้งค่าบัญชีผู้ดูแลระบบ</h1>
-          <p className="text-xs text-slate-500">กำหนด Username และ Password เพื่อเข้าร่วมทีม IncidentHub</p>
+          <h1 className="text-xl font-headline font-bold text-slate-900">ตั้งรหัสผ่านบัญชีผู้ดูแลระบบ</h1>
+          <p className="text-xs text-slate-500">ใช้ Email ที่ได้รับเชิญและตั้งรหัสผ่านเพื่อเข้าร่วมทีม IncidentHub</p>
         </div>
 
         {!inviteInfo ? (
@@ -138,19 +137,6 @@ function AcceptInviteForm() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-700">Username * (ไม่มีช่องว่าง)</label>
-              <input
-                type="text"
-                required
-                minLength={2}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="somchai.it"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
               />
             </div>
 

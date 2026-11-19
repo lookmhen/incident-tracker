@@ -61,6 +61,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'กรุณาระบุชื่อผู้รับเชิญ' }, { status: 400 });
     }
 
+    const existingUser = await prisma.adminUser.findFirst({
+      where: { OR: [{ email }, { username: email }] },
+      select: { id: true },
+    });
+    if (existingUser) {
+      return NextResponse.json({ error: 'Email นี้มีบัญชีผู้ใช้งานในระบบอยู่แล้ว' }, { status: 409 });
+    }
+
     const token = await createInviteToken({ email, name, role, expiresHours: 48 });
     const baseUrl = EmailService.resolvePortalUrl(req) || 'http://localhost:3000';
     const inviteUrl = `${baseUrl}/admin/invite?token=${encodeURIComponent(token)}`;
@@ -136,7 +144,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const user = await UserService.createUser({
-      username: String(body.username || ''),
+      username: String(body.username || invite.email).trim() || invite.email,
       name: String(body.name || invite.name || '').trim() || invite.name,
       email: invite.email,
       role: invite.role,

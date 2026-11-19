@@ -207,14 +207,13 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     assert.equal(checkRes.status, 200);
     assert.equal((await checkRes.json()).role, 'MANAGER');
 
-    // Public PUT accepts invite and creates user + session cookie
+    // Public PUT accepts invite using only password (email becomes login username)
     const acceptRes = await invitePut(
       new NextRequest('http://localhost/api/users/invite', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           token,
-          username: `invited_${suffix}`,
           password: 'secret123',
         }),
       })
@@ -223,7 +222,35 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     const created = (await acceptRes.json()).user;
     createdUserIds.push(created.id);
     assert.equal(created.role, 'MANAGER');
+    assert.equal(created.username, `mgr_inv_${suffix}@test.local`);
     assert.ok((acceptRes.headers.get('set-cookie') || '').includes(ADMIN_COOKIE_NAME));
+
+    // Login using Email (case-insensitive) succeeds
+    const emailLoginRes = await authPost(
+      new NextRequest('http://localhost/api/auth/admin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          email: `MGR_INV_${suffix}@TEST.LOCAL`,
+          password: 'secret123',
+        }),
+      })
+    );
+    assert.equal(emailLoginRes.status, 200);
+
+    // Inviting an already-registered email is rejected with 409
+    const dupInviteRes = await invitePost(
+      new NextRequest('http://localhost/api/users/invite', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie: masterCookie },
+        body: JSON.stringify({
+          email: `mgr_inv_${suffix}@test.local`,
+          name: 'Duplicate',
+          role: 'STAFF',
+        }),
+      })
+    );
+    assert.equal(dupInviteRes.status, 409);
 
     // Reuse of same invite token is rejected (400)
     const reuseRes = await inviteGet(

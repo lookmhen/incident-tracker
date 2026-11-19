@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const user = await UserService.createUser({
-      username: body.username,
+      username: body.username || body.email,
       name: body.name,
       email: body.email,
       role: body.role,

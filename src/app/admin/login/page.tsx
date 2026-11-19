@@ -9,7 +9,7 @@ function AdminLoginForm() {
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get('from') || '/admin';
 
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,11 +20,13 @@ function AdminLoginForm() {
     setLoading(true);
 
     try {
+      const cleanId = email.trim() || undefined;
       const res = await fetch('/api/auth/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: username.trim() || undefined,
+          email: cleanId,
+          username: cleanId,
           password: passcode,
           passcode,
         }),
@@ -67,18 +69,18 @@ function AdminLoginForm() {
           )}
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">Username (ไม่บังคับ)</label>
+            <label className="block text-xs font-semibold text-slate-700">Email (ไม่บังคับหากใช้ Master Passcode)</label>
             <div className="relative">
               <input
                 type="text"
                 autoFocus
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="เว้นว่างไว้หากใช้รหัสผ่านกลาง (Master Passcode)"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@company.com (เว้นว่างเพื่อใช้ Master Passcode)"
                 className="w-full px-4 py-2.5 pr-10 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
               />
               <span className="material-symbols-outlined text-[18px] text-slate-400 absolute right-3.5 top-2.5">
-                person
+                mail
               </span>
             </div>
           </div>

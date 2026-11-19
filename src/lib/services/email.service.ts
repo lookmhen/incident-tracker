@@ -465,10 +465,10 @@ export class EmailService {
             ${escapeHtml(payload.invitedBy || 'ผู้ดูแลระบบ')} ได้เชิญคุณเข้าร่วมทีมจัดการ Incident ในสิทธิ์
             <strong>${escapeHtml(payload.role)}</strong>
           </p>
-          <p>กรุณากดปุ่มด้านล่างเพื่อตั้งค่า Username และ Password ของคุณเอง (ลิงก์มีอายุ 48 ชั่วโมง และใช้ได้ 1 ครั้ง):</p>
+          <p>กรุณากดปุ่มด้านล่างเพื่อตั้งรหัสผ่านและเข้าใช้งานด้วย Email ของคุณ (ลิงก์มีอายุ 48 ชั่วโมง และใช้ได้ 1 ครั้ง):</p>
           <div style="margin: 24px 0;">
             <a href="${escapeHtml(payload.inviteUrl)}" style="display: inline-block; background-color: #0284c7; color: #ffffff; text-decoration: none; padding: 12px 22px; border-radius: 8px; font-weight: 600; font-size: 13px;">
-              สร้างบัญชีและตั้งรหัสผ่าน &rarr;
+              ตั้งรหัสผ่านและเข้าใช้งาน &rarr;
             </a>
           </div>
           <p style="font-size: 12px; color: #64748b; word-break: break-all;">
@@ -478,7 +478,7 @@ export class EmailService {
         </div>
       </div>
     `;
-    const textBody = `สวัสดีคุณ ${payload.name},\nคุณได้รับเชิญเข้าใช้งาน IncidentHub (${payload.role}) โดย ${payload.invitedBy || 'Admin'}\nตั้ง Username และ Password ได้ที่ (อายุ 48 ชม.):\n${payload.inviteUrl}`;
+    const textBody = `สวัสดีคุณ ${payload.name},\nคุณได้รับเชิญเข้าใช้งาน IncidentHub (${payload.role}) โดย ${payload.invitedBy || 'Admin'}\nตั้งรหัสผ่านเพื่อเข้าใช้งานด้วย Email ${payload.email} ได้ที่ (อายุ 48 ชม.):\n${payload.inviteUrl}`;
 
     try {
       const transporter = this.createTransporter(smtp);

@@ -28,17 +28,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const username = typeof body.username === 'string' ? body.username.trim() : '';
+    const identifier = String(body.email || body.username || '').trim();
 
     let sessionUser: AdminSession;
     let token: string;
 
-    if (username) {
+    if (identifier) {
       const password = String(body.password || body.passcode || '');
-      const authUser = await UserService.authenticate(username, password);
+      const authUser = await UserService.authenticate(identifier, password);
       if (!authUser) {
         return NextResponse.json(
-          { error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง หรือบัญชีถูกระงับ' },
+          { error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือบัญชีถูกระงับ' },
           { status: 401 }
         );
       }

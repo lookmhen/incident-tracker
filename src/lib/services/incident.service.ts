@@ -71,6 +71,82 @@ export class IncidentService {
   private static readonly MTTR_EXCLUDED_KEY = 'mttr_excluded_tickets';
   private static readonly ROOT_CAUSE_OPTIONS_KEY = 'root_cause_options';
   private static readonly DEFAULT_ROOT_CAUSES = ['Human', 'System', 'Data'];
+  private static readonly RELATED_SUMMARY_SELECT = {
+    id: true,
+    ticketNo: true,
+    title: true,
+    status: true,
+    category: true,
+    rootCause: true,
+    resolution: true,
+    resolutionType: true,
+    workaroundNote: true,
+    createdAt: true,
+    closedAt: true,
+  } as const;
+
+  public static parseRelatedTickets(raw?: string | null): string[] {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const item of parsed) {
+        if (typeof item !== 'string') continue;
+        const trimmed = item.trim();
+        if (!trimmed || seen.has(trimmed)) continue;
+        seen.add(trimmed);
+        out.push(trimmed);
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  }
+
+  private static async enrichRelatedInfo(incident: {
+    id: string;
+    ticketNo: string;
+    relatedTickets?: string | null;
+  }) {
+    const relatedTicketNos = this.parseRelatedTickets(incident.relatedTickets);
+
+    const [relatedRows, referencingRows] = await Promise.all([
+      relatedTicketNos.length > 0
+        ? prisma.incident.findMany({
+            where: { ticketNo: { in: relatedTicketNos } },
+            select: this.RELATED_SUMMARY_SELECT,
+          })
+        : Promise.resolve([]),
+      prisma.incident.findMany({
+        where: {
+          id: { not: incident.id },
+          relatedTickets: { contains: incident.ticketNo },
+        },
+        select: {
+          ...this.RELATED_SUMMARY_SELECT,
+          relatedTickets: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const relatedByTicket = new Map(relatedRows.map((row) => [row.ticketNo, row]));
+    const relatedIncidents = relatedTicketNos
+      .map((ticketNo) => relatedByTicket.get(ticketNo))
+      .filter((row): row is (typeof relatedRows)[number] => Boolean(row));
+
+    const referencedBy = referencingRows
+      .filter((row) => this.parseRelatedTickets(row.relatedTickets).includes(incident.ticketNo))
+      .map(({ relatedTickets: _raw, ...summary }) => summary);
+
+    return {
+      relatedTicketNos,
+      relatedIncidents,
+      referencedBy,
+    };
+  }
 
   public static async getRootCauseOptions(): Promise<string[]> {
     const row = await prisma.integrationConfig.findUnique({
@@ -450,10 +526,14 @@ export class IncidentService {
     }
 
     if (!found) return null;
-    const excludedIds = await this.getMttrExcludedIds();
+    const [excludedIds, relatedInfo] = await Promise.all([
+      this.getMttrExcludedIds(),
+      this.enrichRelatedInfo(found),
+    ]);
     return {
       ...found,
       mttrExcluded: excludedIds.has(found.id),
+      ...relatedInfo,
     };
   }
 
@@ -479,6 +559,7 @@ export class IncidentService {
       createdAt?: string | Date;
       closedAt?: string | Date | null;
       mttrExcluded?: boolean;
+      relatedTickets?: string[] | null;
     }
   ) {
     const target = await this.getIncidentById(idOrTicketNo);
@@ -606,6 +687,45 @@ export class IncidentService {
       updatePayload.resolution = McpService.cleanText(data.resolution);
     }
 
+    if (data.relatedTickets !== undefined) {
+      if (data.relatedTickets === null) {
+        updatePayload.relatedTickets = null;
+      } else {
+        if (!Array.isArray(data.relatedTickets) || !data.relatedTickets.every((t) => typeof t === 'string')) {
+          throw new Error('Invalid relatedTickets: expected an array of strings');
+        }
+        const seen = new Set<string>();
+        const normalized: string[] = [];
+        for (const raw of data.relatedTickets) {
+          const trimmed = raw.trim();
+          const key = trimmed.toUpperCase();
+          if (!trimmed || seen.has(key)) continue;
+          seen.add(key);
+          normalized.push(trimmed);
+        }
+
+        if (normalized.length === 0) {
+          updatePayload.relatedTickets = null;
+        } else {
+          if (normalized.some((t) => t.toUpperCase() === target.ticketNo.toUpperCase())) {
+            throw new Error('Cannot reference the same incident');
+          }
+          const lookupValues = Array.from(new Set([...normalized, ...normalized.map((t) => t.toUpperCase())]));
+          const existing = await prisma.incident.findMany({
+            where: { ticketNo: { in: lookupValues } },
+            select: { ticketNo: true },
+          });
+          const canonicalByUpper = new Map(existing.map((r) => [r.ticketNo.toUpperCase(), r.ticketNo]));
+          const missing = normalized.filter((t) => !canonicalByUpper.has(t.toUpperCase()));
+          if (missing.length > 0) {
+            throw new Error(`Referenced incident not found: ${missing.join(', ')}`);
+          }
+          const canonical = normalized.map((t) => canonicalByUpper.get(t.toUpperCase())!);
+          updatePayload.relatedTickets = canonical.length > 0 ? JSON.stringify(canonical) : null;
+        }
+      }
+    }
+
     const updated = await prisma.incident.update({
       where: { id: target.id },
       data: updatePayload,
@@ -638,9 +758,12 @@ export class IncidentService {
       mttrExcluded = await this.setMttrExcluded(target.id, true);
     }
 
+    const relatedInfo = await this.enrichRelatedInfo(updated);
+
     return {
       ...updated,
       mttrExcluded,
+      ...relatedInfo,
     };
   }
 

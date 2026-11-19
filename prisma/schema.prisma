@@ -38,6 +38,7 @@ model Incident {
   resolutionType String?       // "PERMANENT" | "WORKAROUND"
   workaroundNote String?       // Optional condition / follow-up note when closed as WORKAROUND
   resolvedBy     String?       // Manager name/username who confirmed closure
+  relatedTickets String?       // JSON array of referenced ticketNos e.g. ["INC-202611-001"]
   attachments    Attachment[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt

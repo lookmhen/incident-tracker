@@ -71,6 +71,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       createdAt: body.createdAt,
       closedAt: body.closedAt,
       mttrExcluded: body.mttrExcluded,
+      relatedTickets: body.relatedTickets,
     });
 
     return NextResponse.json(updated);
@@ -83,7 +84,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       msg.includes('closedAt') ||
       msg.includes('createdAt') ||
       msg.includes('required before') ||
-      msg.includes('Cannot edit incident details')
+      msg.includes('Cannot edit incident details') ||
+      msg.includes('Cannot reference') ||
+      msg.includes('Referenced incident not found') ||
+      msg.includes('Invalid relatedTickets')
     ) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }

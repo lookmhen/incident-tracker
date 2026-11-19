@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
       'Workaround Note',
       'Resolved By',
       'Closed At',
+      'Related Tickets',
     ];
 
     const rows = incidents.map((inc) => [
@@ -74,6 +75,7 @@ export async function GET(req: NextRequest) {
       inc.workaroundNote || '',
       inc.resolvedBy || '',
       inc.closedAt ? new Date(inc.closedAt).toLocaleString('th-TH') : '',
+      IncidentService.parseRelatedTickets(inc.relatedTickets).join(', '),
     ]);
 
     const csvContent =

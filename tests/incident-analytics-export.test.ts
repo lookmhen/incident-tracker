@@ -679,4 +679,104 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const uniqueTickets = new Set(batch.map((b) => b.ticketNo));
     assert.equal(uniqueTickets.size, 4);
   });
+
+  it('links multiple related incidents, resolves referencedBy, validates errors, and exports Related Tickets', async () => {
+    const adminToken = await createAdminSessionToken();
+    const cookieHeader = `${ADMIN_COOKIE_NAME}=${adminToken}`;
+
+    const oldA = await IncidentService.createIncident({
+      reporterName: 'Ref A',
+      contactInfo: 'a@test.local',
+      title: 'Old Incident A',
+      description: 'First historical case',
+    });
+    const oldB = await IncidentService.createIncident({
+      reporterName: 'Ref B',
+      contactInfo: 'b@test.local',
+      title: 'Old Incident B',
+      description: 'Second historical case',
+    });
+    const current = await IncidentService.createIncident({
+      reporterName: 'Ref Current',
+      contactInfo: 'cur@test.local',
+      title: 'Recurring Incident',
+      description: 'Links back to A and B',
+    });
+    testIncidentIds.push(oldA.id, oldB.id, current.id);
+
+    // 1. Reject self-reference (400)
+    const selfRes = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${current.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: cookieHeader },
+        body: JSON.stringify({ relatedTickets: [current.ticketNo] }),
+      }),
+      { params: Promise.resolve({ id: current.ticketNo }) }
+    );
+    assert.equal(selfRes.status, 400);
+
+    // 2. Reject non-existent referenced ticket (400)
+    const missingRes = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${current.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: cookieHeader },
+        body: JSON.stringify({ relatedTickets: ['INC-999999-999'] }),
+      }),
+      { params: Promise.resolve({ id: current.ticketNo }) }
+    );
+    assert.equal(missingRes.status, 400);
+
+    // 3. Link multiple tickets (deduplicated, order preserved)
+    const linkRes = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${current.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: cookieHeader },
+        body: JSON.stringify({ relatedTickets: [oldB.ticketNo, oldA.ticketNo, oldB.ticketNo] }),
+      }),
+      { params: Promise.resolve({ id: current.ticketNo }) }
+    );
+    assert.equal(linkRes.status, 200);
+    const linked = await linkRes.json();
+    assert.deepEqual(linked.relatedTicketNos, [oldB.ticketNo, oldA.ticketNo]);
+    assert.deepEqual(
+      linked.relatedIncidents.map((r: any) => r.ticketNo),
+      [oldB.ticketNo, oldA.ticketNo]
+    );
+
+    // 4. Reverse lookup on oldA returns current in referencedBy
+    const oldADetailRes = await incidentGetHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${oldA.ticketNo}`, {
+        headers: { cookie: cookieHeader },
+      }),
+      { params: Promise.resolve({ id: oldA.ticketNo }) }
+    );
+    assert.equal(oldADetailRes.status, 200);
+    const oldADetail = await oldADetailRes.json();
+    assert.ok(oldADetail.referencedBy.some((r: any) => r.ticketNo === current.ticketNo));
+
+    // 5. Export CSV includes Related Tickets column with linked tickets
+    const exportRes = await exportCsvHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/export?search=${encodeURIComponent(current.ticketNo)}`, {
+        headers: { cookie: cookieHeader },
+      })
+    );
+    assert.equal(exportRes.status, 200);
+    const csvText = await exportRes.text();
+    assert.ok(csvText.includes('Related Tickets'));
+    assert.ok(csvText.includes(`${oldB.ticketNo}, ${oldA.ticketNo}`));
+
+    // 6. Unlink all references clears relatedTickets to null
+    const clearRes = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${current.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: cookieHeader },
+        body: JSON.stringify({ relatedTickets: [] }),
+      }),
+      { params: Promise.resolve({ id: current.ticketNo }) }
+    );
+    assert.equal(clearRes.status, 200);
+    const cleared = await clearRes.json();
+    assert.deepEqual(cleared.relatedTicketNos, []);
+    assert.equal(cleared.relatedTickets, null);
+  });
 });

@@ -1,6 +1,6 @@
 # 📑 IncidentHub - IT Incident Management System (MCP & AI Ready)
 
-A modern, high-reliability enterprise IT Incident Management System built with **Next.js 15 (App Router, TypeScript)**, **Tailwind CSS (Glacier Core Design System)**, **Prisma ORM**, and **SQLite**. Containerized in **Pure Docker** (Node.js 26 Alpine Base) with zero external web server dependencies (no Apache). 100% offline-capable and vendor-neutral.
+A modern, high-reliability enterprise IT Incident Management System built with **Next.js 16 (App Router, TypeScript)**, **React 19**, **Tailwind CSS (Glacier Core Design System)**, **Prisma ORM**, and **SQLite**. Containerized in **Pure Docker** (Node.js 26 Alpine Base) with zero external web server dependencies (no Apache). 100% offline-capable and vendor-neutral.
 
 ---
 
@@ -15,37 +15,47 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 
 ### 2. 📊 IT Operations Triage Matrix (`/admin`)
 * **Real-time Telemetry:** 3 core Glacier KPI cards (Active Incidents, Critical P1 Blockers, Avg Resolution Time / MTTR).
-* **Queue Priority Sorting:** Automatically prioritizes unresolved cases (`OPEN` ➔ `IN_PROGRESS` ➔ `ON_HOLD` ➔ `RESOLVED` / `CLOSED`) sorted by urgency (`HIGH` ➔ `MEDIUM` ➔ `LOW`) and newest first.
-* **Precision Search & Filtering:** Instant filter with `/` keyboard focus shortcut; filter by status (`ALL`, `ACTIVE`, `OPEN`, `IN_PROGRESS`, `ON_HOLD`, `RESOLVED`, `CLOSED`), urgency, category, and department.
+* **Queue Priority Sorting:** Automatically prioritizes unresolved cases (`OPEN` ➔ `IN_PROGRESS` ➔ `PENDING_CONFIRM` ➔ `ON_HOLD` ➔ `RESOLVED` / `CLOSED`) sorted by urgency (`HIGH` ➔ `MEDIUM` ➔ `LOW`) and newest first.
+* **Precision Search & Filtering:** Instant filter with `/` keyboard focus shortcut; filter by status (`ALL`, `ACTIVE`, `OPEN`, `IN_PROGRESS`, `PENDING_CONFIRM`, `ON_HOLD`, `RESOLVED`, `CLOSED`), urgency, category, and department.
 * **Dynamic Category & RCA Badges:** Admins can create/manage ticket categories on the fly and view `RCA` root cause tags directly in the queue.
 * **Quick Single-Click Claim:** Instant ticket claiming and status transition to `IN_PROGRESS` with responder attribution.
-* **Excel (.CSV UTF-8 BOM) Export:** Filtered incident export (including `Root Cause`) with Thai language compatibility in Microsoft Excel.
+* **Excel (.CSV UTF-8 BOM) Export:** Filtered incident export (including `Root Cause` and `Related Tickets`) with Thai language compatibility in Microsoft Excel.
 
-### 3. 🧠 Incident Detail & Triage Hub (`/admin/incidents/[id]`)
-* **Diagnostics Inspector:** Preview and open uploaded snapshots via `/api/uploads/[filename]` (compatible with Next.js standalone mode).
-* **Inline Details & Lifecycle Editing:** Admins can edit incident title/description as well as `createdAt` and `closedAt` timestamps (with validation bounds) and track live elapsed duration.
-* **Mandatory Triage & Customizable Root Cause (`Human`, `System`, `Data`, + custom):** Admins must select both **Category** and **Root Cause** before closing (`RESOLVED` / `CLOSED`) and can add new Root Cause options inline.
-* **`ON_HOLD` & MTTR Exclusion:** Mark blocked cases as `ON_HOLD` to pause queue aging and automatically exclude hold duration from MTTR (with manual toggle override).
-* **Clean-Text Resolution Indexer:** RCA documentation editor and sanitizer to guarantee clean plain-text corpus for vector embedding.
-* **MCP Knowledge Pipeline Hub:** Live JSON schema preview conforming to `mcp://incidenthub/incidents/[ticketNo]`.
+### 3. 🧠 Incident Detail & Workflow-Driven Triage Hub (`/admin/incidents/[id]`)
+* **Workflow-Driven Status Transitions:** Free-form manual status switching is replaced with explicit stage actions:
+  * `OPEN` ➔ **`Claim Ticket (รับเคส)`** (`IN_PROGRESS`)
+  * `IN_PROGRESS` ⇄ **`พักเคส (On Hold)`** / **`กลับมาทำต่อ (Resume)`** (`ON_HOLD` pauses queue aging and auto-excludes hold duration from MTTR)
+  * **Staff:** Save Draft or **`ส่งให้ Manager ยืนยันปิดเคส`** (`PENDING_CONFIRM`, requires claimed ticket + Category + Root Cause; triggers Manager confirmation email and grays out to prevent duplicate sends)
+  * **Manager:** **`ตีกลับแก้ไข (In Progress)`**, **`Confirm & Mark Resolved (ยืนยันปิดเคส)`** (`PERMANENT` or `WORKAROUND` with condition note, stops MTTR and records `resolvedBy`), and **`เปิดเคสใหม่ (Reopen)`** (Manager-only with confirmation)
+  * **Status-Preserving Re-assign:** Re-assigning a claimed ticket updates `assignedTo` without resetting its current workflow status.
+  * **State Machine & Transition Reference:** Full Mermaid state diagram, role guards, and side effects documented in [`DATA_DICTIONARY.md#27-incident-status-state-machine--workflow-transitions`](DATA_DICTIONARY.md#27-incident-status-state-machine--workflow-transitions).
+* **Diagnostics & Resolution Attachments:** Separate upload/paste galleries for reporter evidence (`REPORT`) and closure proof (`RESOLUTION`) via `/api/uploads/[filename]` (standalone-compatible).
+* **Inline Details & Lifecycle Editing:** Edit incident title/description (locked once `RESOLVED`/`CLOSED`) as well as `createdAt` and `closedAt` timestamps (with validation bounds) and live elapsed duration.
+* **Multi-Incident Referencing (`Related Incidents`):** Link multiple prior incidents, view reverse `Referenced by` links, and one-click copy previous resolutions into the current ticket.
+* **Clean-Text Resolution Indexer & MCP Hub:** RCA documentation sanitizer and live JSON schema preview conforming to `mcp://incidenthub/incidents/[ticketNo]`.
 
-### 4. 🔌 Integration Hub (`/admin/integrations`)
+### 4. 🔐 Role-Based Access & User Management (`/admin/users`, `/admin/invite`)
+* **Email-First Authentication:** Sign in with email (backward-compatible with legacy usernames and `ADMIN_PASSCODE` fallback) using HTTP-only HMAC-signed session cookies with live DB role/active re-validation on every request (`src/proxy.ts` & API routes).
+* **RBAC (`STAFF` vs `MANAGER`):** Managers control user CRUD, inline role updates, incident closure (`RESOLVED`/`CLOSED`), and reopening closed tickets; Staff can claim, investigate, hold, draft resolutions, and submit for Manager confirmation.
+* **Signed Email Invite Links:** Managers can issue single-use 48-hour HMAC invite links (`/admin/invite`) via SMTP or copyable URL so teammates set their own password.
+
+### 5. 🔌 Integration Hub (`/admin/integrations`)
 * **Inbound Incident API (`POST /api/incidents/inbound`):** Secure endpoint for external systems (monitoring, Nagios, Prometheus, third-party apps) with Smart Mapping and API Key authentication.
 * **Microsoft Teams / Power Automate Webhook:** Live channel connectivity with interactive payload testing and clear error/success feedback.
 * **SMTP Email Notification Service:** Production-ready Nodemailer dispatch supporting `STARTTLS (587)`, `SSL (465)`, `NONE (25)` (`ignoreTLS`), separate Auth Username & Sender (`From`), AES-256-GCM encrypted credentials, HTML escaping, and automatic portal URL resolution (`APP_URL` or request host).
-* **Notification Audit Logs:** Filterable dispatch history by channel (`TEAMS`, `EMAIL`, `CUSTOM_API`) and delivery status with single-click Resend.
+* **Notification Audit Logs & Unresolved Failure Badges:** Filterable dispatch history by channel (`TEAMS`, `EMAIL`, `CUSTOM_API`) and delivery status with single-click Resend and unresolved failure acknowledgment.
 
-### 5. 📈 Analytics & Operational Intelligence (`/admin/analytics`)
+### 6. 📈 Analytics & Operational Intelligence (`/admin/analytics`)
 * **Global Filtering & Synced Export:** Filter all KPIs and charts by Date Range (including "ปีนี้ (12 เดือน)" preset), `Urgency`, `Category`, `Root Cause`, and `Department` (case-insensitive normalization) with matching CSV export.
-* **7 Operational Views:** Created vs. Resolved paired bars, Category Share, Top Departments, Resolution & SLA Status (`OPEN`, `IN_PROGRESS`, `ON_HOLD`, `RESOLVED`, `CLOSED`), MTTR Breakdown by Urgency & Category, Backlog Aging (`<24h`, `1–3d`, `4–7d`, `>7d` excluding `ON_HOLD`), and Root Cause Breakdown (`Human`, `System`, `Data`, etc.).
+* **7 Operational Views:** Created vs. Resolved paired bars, Category Share, Top Departments, Resolution & SLA Status (`OPEN`, `IN_PROGRESS`, `PENDING_CONFIRM`, `ON_HOLD`, `RESOLVED`, `CLOSED`), MTTR Breakdown by Urgency & Category, Backlog Aging (`<24h`, `1–3d`, `4–7d`, `>7d` excluding `ON_HOLD`), and Root Cause Breakdown (`Human`, `System`, `Data`, etc.).
 
 ---
 
 ## 🛠 Tech Stack
 
-* **Framework:** Next.js 15 (App Router, Standalone Mode, TypeScript)
+* **Framework:** Next.js 16 (App Router, Standalone Mode, TypeScript) + React 19
 * **Styling:** Tailwind CSS (Glacier Core palette: Sky 600, Ice Blue tints, JetBrains Mono, Google Material Symbols Outlined)
-* **Database & ORM:** SQLite + Prisma ORM (`./data/incident.db`)
+* **Database & ORM:** SQLite + Prisma ORM (`./data/incident.db`) with runtime additive SQLite schema guard (`src/lib/prisma.ts`)
 * **Containerization:** Pure Docker (Node.js 26 Alpine Multi-stage Build)
 * **Integrations:** Microsoft Teams Incoming Webhook (Adaptive Cards v1.4), SMTP Email (Nodemailer), Inbound REST API
 * **AI Readiness:** Model Context Protocol (MCP) Endpoints
@@ -94,7 +104,7 @@ Run these scripts from the repository root:
 | **Development Server** | `npm run dev` | Start Next.js development server on port 3000 |
 | **Production Build** | `npm run build` | Compile Next.js production build with type checking |
 | **Start Production** | `npm start` | Run compiled Next.js production server |
-| **Unit & Integration Tests** | `npm test` | Run all 46 automated tests across 11 test suites |
+| **Unit & Integration Tests** | `npm test` | Run all 54 automated tests across 12 test suites |
 | **MCP Server (Stdio)** | `npm run mcp` | Launch standalone Model Context Protocol server for Claude, Cursor, and AI Agents |
 | **Historical CSV Import** | `npm run import:csv [file]` | Import legacy incident CSV files into SQLite database with Thai Buddhist era parsing |
 | **Reset Database** | `npm run db:reset` | Force reset SQLite database and re-seed default master categories |

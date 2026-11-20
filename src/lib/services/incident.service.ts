@@ -627,6 +627,14 @@ export class IncidentService {
     if (data.status !== undefined) {
       updatePayload.status = data.status.trim().toUpperCase();
       if (['RESOLVED', 'CLOSED', 'PENDING_CONFIRM'].includes(updatePayload.status)) {
+        if (updatePayload.status === 'PENDING_CONFIRM') {
+          const effAssignedTo = (
+            updatePayload.assignedTo !== undefined ? updatePayload.assignedTo : target.assignedTo
+          )?.trim();
+          if (!effAssignedTo || (currentStatus === 'OPEN' && updatePayload.assignedTo === undefined)) {
+            throw new Error('Ticket must be claimed before requesting confirmation');
+          }
+        }
         const effCategory = (updatePayload.category !== undefined ? updatePayload.category : target.category)?.trim();
         const effRootCause = (updatePayload.rootCause !== undefined ? updatePayload.rootCause : target.rootCause)?.trim();
         if (!effCategory || !effRootCause) {

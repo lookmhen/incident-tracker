@@ -1,6 +1,6 @@
 # 📚 Data Dictionary & Schema Specification
 ## Project: IT Incident Management System (MCP & AI Ready)
-**Version:** 1.2  
+**Version:** 1.4  
 **Updated:** November 2026  
 **Storage Engine:** SQLite 3 (WAL Mode) via Prisma ORM  
 **Location:** `./data/incident.db` (Mapped to `/app/data/incident.db` in Docker)
@@ -37,12 +37,28 @@ erDiagram
         string categoryId FK "References Category(id)"
         string category "Denormalized category name"
         string rootCause "Root cause e.g. Human | System | Data"
-        string status "OPEN | IN_PROGRESS | ON_HOLD | RESOLVED | CLOSED"
+        string status "OPEN | IN_PROGRESS | ON_HOLD | PENDING_CONFIRM | RESOLVED | CLOSED"
         string assignedTo "Responder name / SME"
         string resolution "Clean-text fix & root cause notes"
+        string resolutionType "PERMANENT | WORKAROUND"
+        string workaroundNote "Condition / follow-up note for WORKAROUND"
+        string resolvedBy "Manager who confirmed closure"
+        string relatedTickets "JSON array of referenced ticketNos"
         datetime createdAt "Created timestamp"
         datetime updatedAt "Updated timestamp"
         datetime closedAt "Close/Resolution timestamp"
+    }
+
+    ADMIN_USER {
+        string id PK "cuid()"
+        string username UK "Login identifier (email-first, legacy username supported)"
+        string name "Display name"
+        string email "User email"
+        string role "STAFF | MANAGER"
+        string passwordHash "scrypt password hash"
+        boolean isActive "Active flag (enforced live per request)"
+        datetime createdAt "Created timestamp"
+        datetime updatedAt "Last updated timestamp"
     }
 
     ATTACHMENT {
@@ -52,6 +68,7 @@ erDiagram
         string fileType "MIME type e.g. image/png"
         string fileName "Original file name"
         int fileSize "Size in bytes (max 5MB)"
+        string kind "REPORT | RESOLUTION"
         datetime createdAt "Upload timestamp"
     }
 
@@ -114,17 +131,21 @@ erDiagram
 | `categoryId` | String | YES | `NULL` | Foreign Key | อ้างอิงถึง `Category(id)` สำหรับการ Triage เชิงโครงสร้าง |
 | `category` | String | YES | `NULL` | Indexed | Denormalized Category Name เก็บเป็นข้อความไว้เพื่อความรวดเร็วในการ Query และ Filter |
 | `rootCause` | String | YES | `NULL` | - | สาเหตุต้นตอของปัญหา (Root Cause Category) เช่น `Human`, `System`, `Data` หรือค่าที่ Admin เพิ่มเอง (**บังคับระบุคู่กับ `category` ก่อนปิดเคส**) |
-| `status` | String | NO | `OPEN` | Indexed | สถานะการดำเนินงานของ Ticket มี 5 ค่า:<br>• `OPEN`: เคสใหม่ ยังไม่มีผู้รับผิดชอบ<br>• `IN_PROGRESS`: กำลังอยู่ระหว่างการตรวจสอบ/ดำเนินการแก้ไข<br>• `ON_HOLD`: พักรอ Solution (ยกเว้นจากคิวค้าง Backlog Aging และไม่นำมาคำนวณ MTTR)<br>• `RESOLVED`: ปัญหาได้รับการแก้ไขแล้ว มี Resolution Notes<br>• `CLOSED`: เคสถูกปิดสมบูรณ์ |
+| `status` | String | NO | `OPEN` | Indexed | สถานะการดำเนินงานของ Ticket (Workflow-Driven ใน UI) มี 6 ค่า:<br>• `OPEN`: เคสใหม่ ยังไม่มีผู้รับผิดชอบ (กด `Claim Ticket` เพื่อเริ่มงาน)<br>• `IN_PROGRESS`: กำลังดำเนินการแก้ไข<br>• `ON_HOLD`: พักรอ Solution (ยกเว้นจากคิวค้าง Backlog Aging และ auto-exclude จาก MTTR)<br>• `PENDING_CONFIRM`: Staff ส่งให้ Manager ตรวจสอบยืนยันปิดเคส (บังคับ Claim + Category + Root Cause)<br>• `RESOLVED`: Manager ยืนยันปิดเคสแล้ว (ล็อกการแก้ไขหัวข้อ/รายละเอียด; เฉพาะ Manager กด `Reopen` ได้)<br>• `CLOSED`: สถานะปิดเคสเดิม (รองรับย้อนหลังเทียบเท่า `RESOLVED`) |
 | `assignedTo` | String | YES | `NULL` | - | ชื่อเจ้าหน้าที่ IT หรือระบบอัตโนมัติที่รับผิดชอบเคส เช่น `K. Anan`, `MCP Bot (Auto)` |
 | `resolution` | String | YES | `NULL` | - | **บันทึกขั้นตอนและวิธีการแก้ไขปัญหา (Root Cause & Fix)**<br>⚠️ สำคัญมากสำหรับ MCP AI ต้องเป็น **Clean Text** (ห้ามใส่สัญลักษณ์ Markdown ซับซ้อน หรือ HTML tags) |
+| `resolutionType` | String | YES | `NULL` | - | ประเภทการปิดเคส: `PERMANENT` (แก้ไขถาวร) หรือ `WORKAROUND` (แก้ไขชั่วคราว/มีเงื่อนไข — หยุดเวลา MTTR พร้อมแสดง Badge) |
+| `workaroundNote` | String | YES | `NULL` | - | เงื่อนไขหรือแผนติดตามผลเมื่อปิดเคสแบบ `WORKAROUND` (ล้างเป็น `NULL` เมื่อเปลี่ยนเป็น `PERMANENT`) |
+| `resolvedBy` | String | YES | `NULL` | - | ชื่อ Manager ที่ยืนยันปิดเคส |
+| `relatedTickets` | String | YES | `NULL` | - | JSON Array ของเลข Ticket เก่าที่อ้างอิง เช่น `["INC-202611-001","INC-202611-005"]` (รองรับหลายเคสและแสดงลิงก์ย้อนกลับ `referencedBy`) |
 | `createdAt` | DateTime| NO | `now()` | Indexed | วันที่และเวลาที่เปิดเคส (ใช้คำนวณ Ticket Age และ MTTA) |
 | `updatedAt` | DateTime| NO | - | Auto-update | วันที่และเวลาที่มีการปรับปรุงข้อมูล Ticket ล่าสุด |
-| `closedAt` | DateTime| YES | `NULL` | - | วันที่และเวลาที่เคสเปลี่ยนสถานะเป็น RESOLVED/CLOSED (ใช้คำนวณ MTTR) |
+| `closedAt` | DateTime| YES | `NULL` | - | วันที่และเวลาที่เคสเปลี่ยนสถานะเป็น RESOLVED/CLOSED (ใช้คำนวณ MTTR; ถูกล้างเมื่อ Manager กด Reopen) |
 
 ---
 
 ### 2.3 Table: `Attachment`
-ตารางจัดเก็บไฟล์รูปภาพ Screenshot หรือ Diagnostic Dump ที่แนบมากับ Ticket
+ตารางจัดเก็บไฟล์รูปภาพ Screenshot หรือหลักฐานปิดงานที่แนบมากับ Ticket
 
 | Field Name | Type | Nullable | Default | Constraints | Description & Storage Details |
 | :--- | :--- | :---: | :---: | :--- | :--- |
@@ -134,11 +155,29 @@ erDiagram
 | `fileType` | String | NO | - | - | MIME Type ของไฟล์ เช่น `image/png`, `image/jpeg`, `image/gif` |
 | `fileName` | String | YES | `NULL` | - | ชื่อไฟล์เดิมของผู้ใช้งาน |
 | `fileSize` | Int | YES | `NULL` | - | ขนาดของไฟล์ในหน่วย Bytes (จำกัดขนาดสูงสุดไม่เกิน 5,242,880 Bytes หรือ 5MB) |
+| `kind` | String | NO | `REPORT` | - | ประเภทไฟล์แนบ: `REPORT` (รูปอาการจากฝั่งผู้แจ้ง) หรือ `RESOLUTION` (รูปหลักฐานปิดงาน) |
 | `createdAt`| DateTime| NO | `now()` | - | วันและเวลาที่อัปโหลดไฟล์ |
 
 ---
 
-### 2.4 Table: `IntegrationConfig`
+### 2.4 Table: `AdminUser`
+ตารางบัญชีผู้ใช้ฝั่ง IT Operations สำหรับระบบสิทธิ์ RBAC (`STAFF` / `MANAGER`) และการยืนยันตัวตนแบบ Email-first (รองรับการเปิดบัญชีผ่านลิงก์ Invite ที่มีอายุ 48 ชม.)
+
+| Field Name | Type | Nullable | Default | Constraints | Description |
+| :--- | :--- | :---: | :---: | :--- | :--- |
+| `id` | String | NO | `cuid()` | Primary Key | รหัสเฉพาะของผู้ใช้ |
+| `username` | String | NO | - | Unique | รหัสเข้าสู่ระบบ (ผู้ใช้ใหม่เก็บเป็น `email` ตัวพิมพ์เล็ก; รองรับ username เดิมย้อนหลัง) |
+| `name` | String | NO | - | - | ชื่อที่แสดงในเคส (`assignedTo`, `resolvedBy`) |
+| `email` | String | YES | `NULL` | - | อีเมลสำหรับล็อกอินและรับแจ้งเตือน `PENDING_CONFIRM` (สำหรับ Manager) |
+| `role` | String | NO | `STAFF` | - | สิทธิ์การใช้งาน: `STAFF` (รับ/แก้/พัก/ส่งยืนยันเคส) หรือ `MANAGER` (ยืนยันปิดเคส, Reopen, จัดการผู้ใช้) |
+| `passwordHash` | String | NO | - | - | รหัสผ่านแบบ `scrypt` salted hash |
+| `isActive` | Boolean | NO | `true` | - | สถานะบัญชี (ตรวจสอบสดทุก Request ผ่าน `getActiveSession`) |
+| `createdAt` | DateTime | NO | `now()` | - | วันเวลาที่สร้างบัญชี |
+| `updatedAt` | DateTime | NO | - | Auto-update | วันเวลาที่แก้ไขล่าสุด |
+
+---
+
+### 2.5 Table: `IntegrationConfig`
 ตารางจัดเก็บการตั้งค่าระบบเชื่อมต่อภายนอกและรหัสความปลอดภัย (ข้อมูลลับ เช่น รหัสผ่าน SMTP, Webhook URL และ API Key ถูกเข้ารหัสด้วย **AES-256-GCM** ในรูปแบบ `enc:v1:<iv>:<authTag>:<cipher>` ก่อนบันทึกเสมอ)
 
 | Field Name | Type | Nullable | Default | Constraints | Description |
@@ -152,7 +191,7 @@ erDiagram
 
 ---
 
-### 2.5 Table: `NotificationLog`
+### 2.6 Table: `NotificationLog`
 ตารางบันทึกประวัติการส่งแจ้งเตือนขาออกทุกช่องทาง (Teams Webhook, SMTP Email, Custom Event API) พร้อมรองรับการกดส่งซ้ำ (Resend)
 
 | Field Name | Type | Nullable | Default | Constraints | Description |
@@ -167,6 +206,43 @@ erDiagram
 | `response` | String | YES | `NULL` | - | ข้อความตอบกลับจากเซิร์ฟเวอร์ปลายทาง |
 | `errorMessage`| String | YES | `NULL` | - | รายละเอียดข้อผิดพลาดกรณีส่งไม่สำเร็จ |
 | `createdAt` | DateTime| NO | `now()` | Indexed | วันและเวลาที่ส่งแจ้งเตือน |
+
+---
+
+### 2.7 Incident Status State Machine & Workflow Transitions
+หน้า Incident Detail (`/admin/incidents/[id]`) บังคับเปลี่ยนสถานะผ่านปุ่มตามขั้นตอนงาน (ไม่มี dropdown สลับสถานะอิสระ) โดย Backend (`IncidentService.updateIncident` และ `PATCH /api/incidents/[id]`) บังคับสิทธิ์และเงื่อนไขควบคู่กัน:
+
+```mermaid
+stateDiagram-v2
+    [*] --> OPEN: User Report / Inbound API
+    OPEN --> IN_PROGRESS: Claim Ticket (Staff / Manager)
+    IN_PROGRESS --> ON_HOLD: พักเคส On Hold (Staff / Manager)
+    ON_HOLD --> IN_PROGRESS: กลับมาทำต่อ Resume (Staff / Manager)
+    IN_PROGRESS --> PENDING_CONFIRM: ส่งให้ Manager ยืนยัน (Staff)
+    ON_HOLD --> PENDING_CONFIRM: ส่งให้ Manager ยืนยัน (Staff)
+    PENDING_CONFIRM --> IN_PROGRESS: ตีกลับแก้ไข (Manager)
+    PENDING_CONFIRM --> RESOLVED: Confirm & Mark Resolved (Manager)
+    IN_PROGRESS --> RESOLVED: Confirm & Mark Resolved (Manager)
+    ON_HOLD --> RESOLVED: Confirm & Mark Resolved (Manager)
+    RESOLVED --> IN_PROGRESS: เปิดเคสใหม่ Reopen (Manager)
+    CLOSED --> IN_PROGRESS: เปิดเคสใหม่ Reopen (Manager, Legacy)
+```
+
+| From → To | UI Action | Role | Guards / Validation | Side Effects |
+| :--- | :--- | :--- | :--- | :--- |
+| `[*] → OPEN` | User Portal / Inbound API | Public / API Key | Required fields | ออกเลข `ticketNo` (retry P2002), ส่ง Teams + Email |
+| `OPEN → IN_PROGRESS` | `Claim Ticket (รับเคส)` | Staff, Manager | - | ตั้ง `assignedTo = currentUser`, เริ่มทำงาน |
+| `IN_PROGRESS → ON_HOLD` | `พักเคส (On Hold)` | Staff, Manager | - | Auto-set `mttrExcluded = true`, ยกเว้นจาก Backlog Aging |
+| `ON_HOLD → IN_PROGRESS` | `กลับมาทำต่อ (Resume)` | Staff, Manager | - | กลับเข้าคิว Active (`mttrExcluded` คงค่าเดิมจนกว่าจะสลับเอง) |
+| `IN_PROGRESS / ON_HOLD → PENDING_CONFIRM` | `ส่งให้ Manager ยืนยันปิดเคส` | Staff | ต้อง Claim แล้ว (`assignedTo` ไม่ว่างและไม่ใช่ `OPEN`) + มี `category`, `rootCause` (และ `workaroundNote` ถ้าเลือก Workaround) | ส่ง Email แจ้ง Manager (เฉพาะครั้งแรกที่เข้า `PENDING_CONFIRM`), ปุ่มสีเทากันส่งซ้ำ |
+| `PENDING_CONFIRM → IN_PROGRESS` | `ตีกลับแก้ไข (In Progress)` | Manager | - | ส่งเคสกลับให้ทีมแก้ไขต่อ |
+| `IN_PROGRESS / ON_HOLD / PENDING_CONFIRM → RESOLVED` | `Confirm & Mark Resolved` | **Manager เท่านั้น** (`403` ถ้า Staff) | Claim แล้ว (UI) + `category`, `rootCause` (และ `workaroundNote` ถ้าเลือก Workaround) | ตั้ง `closedAt = now` (หยุด MTTR), บันทึก `resolvedBy`, ตั้ง `resolutionType` (`PERMANENT`/`WORKAROUND`), ล็อกการแก้ `title`/`description` |
+| `RESOLVED / CLOSED → IN_PROGRESS` | `เปิดเคสใหม่ (Reopen)` | **Manager เท่านั้น** (`403` ถ้า Staff) | `window.confirm` ใน UI | ล้าง `closedAt = null`, ปลดล็อกการแก้ `title`/`description` |
+
+> **หมายเหตุเพิ่มเติม:**
+> - **Re-assign (`Assigned: ...`)** บนเคสที่ไม่ใช่ `OPEN` จะอัปเดตเฉพาะ `assignedTo` โดย **ไม่เปลี่ยน `status` เดิม** (และ Staff ถูกบล็อก `403` บนเคสที่ปิดแล้ว)
+> - **Legacy `CLOSED`:** UI ใหม่ปิดเคสเป็น `RESOLVED` เสมอ แต่ Backend, Analytics และ Export ยังคงรองรับเคสเก่าที่เป็น `CLOSED` เทียบเท่า `RESOLVED` และ Manager สามารถกด `Reopen` ได้เช่นเดียวกัน
+> - **Spec อ้างอิง:** [`docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md`](docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md)
 
 ---
 
@@ -207,7 +283,8 @@ erDiagram
 | **GET** | `/api/incidents` | `search`, `status`, `urgency`, `category`, `department`, `page`, `limit` | รายการเคสแบบ Paginated พร้อมสถิติ KPI รวม |
 | **POST** | `/api/incidents` | `multipart/form-data` หรือ JSON: `reporterName`, `department`, `contactInfo`, `title`, `description`, `urgency`, `attachment` | Incident Object ที่ถูกสร้างใหม่พร้อม Ticket ID |
 | **GET** | `/api/incidents/[id]` | `id` หรือ `ticketNo` | รายละเอียดเคสพร้อม Attachments และ Category Relation |
-| **PATCH** | `/api/incidents/[id]` | JSON: `{ status?, category?, rootCause?, urgency?, assignedTo?, resolution?, createdAt?, closedAt?, mttrExcluded? }` (รองรับ `x-api-key`) | Incident Object ที่อัปเดตแล้ว (บังคับ `category` + `rootCause` ก่อนปิดเคส) |
+| **PATCH** | `/api/incidents/[id]` | JSON: `{ status?, category?, rootCause?, urgency?, assignedTo?, resolution?, resolutionType?, workaroundNote?, relatedTickets?, createdAt?, closedAt?, mttrExcluded? }` (รองรับ `x-api-key`) | Incident Object ที่อัปเดตแล้ว (บังคับ Claim ก่อน `PENDING_CONFIRM`, บังคับ `category`+`rootCause` ก่อนส่ง/ปิดเคส, และจำกัดสิทธิ์ปิด/Reopen เฉพาะ `MANAGER`) |
+| **POST/DELETE** | `/api/incidents/[id]/attachments` | `multipart/form-data` (`file`, `kind: REPORT\|RESOLUTION`) หรือ `?attachmentId=` | อัปโหลด/ลบรูปแนบแยกฝั่งผู้แจ้งและหลักฐานปิดงาน |
 | **GET** | `/api/incidents/export` | `search`, `status`, `urgency`, `category`, `rootCause`, `department`, `startDate`, `endDate` | ไฟล์ `.csv` เข้ารหัส UTF-8 with BOM สำหรับเปิดใน Excel |
 | **GET** | `/api/incidents/analytics` | `startDate`, `endDate`, `groupBy`, `urgency`, `category`, `rootCause`, `department` | ข้อมูลสรุป Analytics (Created vs Resolved, Category, Root Cause, Department, Status/SLA, MTTR Breakdown, Backlog Aging) |
 | **GET** | `/api/categories` | - | รายชื่อ Categories ทั้งหมด เรียงตามชื่อ |
@@ -223,7 +300,11 @@ erDiagram
 | **POST** | `/api/incidents/inbound` | JSON (Smart Mapping): `{ title/summary, description/detail, urgency/severity?, reporterName/sourceSystem?, department?, category? }` (รองรับ `x-api-key`) | รับแจ้ง Incident จากระบบภายนอก (Zabbix, Grafana, ERP) บันทึกลง SQLite ออกเลข Ticket อัตโนมัติ และยิง Teams/Email |
 | **GET/PUT/POST** | `/api/integrations` | Admin Session Cookie | ดึง/บันทึกการตั้งค่า Teams, SMTP, MCP Security และหมุนเปลี่ยน API Key |
 | **GET/POST** | `/api/integrations/logs` | Admin Session Cookie | ดึงประวัติการส่งแจ้งเตือนและสั่งส่งซ้ำ (Resend) |
-| **POST/DELETE/GET** | `/api/auth/admin` | JSON: `{ passcode }` | เข้าสู่ระบบ/ออกจากระบบ Admin Console ด้วย HTTP-Only Signed Cookie |
+| **POST/DELETE/GET** | `/api/auth/admin` | JSON: `{ identifier/email/username, password }` หรือ `{ passcode }` | เข้าสู่ระบบ/ออกจากระบบ Admin Console ด้วย HTTP-Only Signed Cookie (ตรวจสิทธิ์ `AdminUser` สดทุก Request) |
+| **GET/POST** | `/api/users` | JSON: `{ email, name, role, password }` (เฉพาะ `MANAGER`) | รายชื่อและสร้างผู้ใช้ Admin ใหม่ |
+| **PATCH/DELETE** | `/api/users/[id]` | JSON: `{ name?, email?, role?, isActive?, password? }` (เฉพาะ `MANAGER`) | แก้ไขสิทธิ์/สถานะ/รหัสผ่าน หรือลบบัญชีผู้ใช้ |
+| **POST/GET** | `/api/users/invite` | JSON: `{ email, name, role, sendEmail? }` (POST, `MANAGER`) หรือ `?token=` (GET) | สร้างและตรวจสอบลิงก์เชิญลงทะเบียน HMAC อายุ 48 ชม. (ใช้ได้ครั้งเดียว) |
+| **POST** | `/api/users/invite/accept` | JSON: `{ token, password, name? }` | ยืนยันลิงก์ Invite ตั้งรหัสผ่านและสร้างบัญชี `AdminUser` |
 | **POST** | `/api/teams/ping` | - | ส่ง Test Ping ทดสอบ Webhook |
 
 ---
@@ -241,13 +322,14 @@ erDiagram
 ## 6. 🛠 คำแนะนำสำหรับการปรับปรุงและแก้ไขในอนาคต (Maintenance Guide)
 
 ### เมื่อต้องการเพิ่มฟิลด์ใหม่ลงใน Database:
-1. แก้ไขไฟล์ [`prisma/schema.prisma`](file:///d:/Develop/nextjs/Incident/prisma/schema.prisma)
-2. รันคำสั่งอัปเดต Schema ลงฐานข้อมูล SQLite:
+1. แก้ไขไฟล์ [`prisma/schema.prisma`](prisma/schema.prisma)
+2. เพิ่มการสร้างคอลัมน์/ตารางแบบ Additive (`ALTER TABLE ... ADD COLUMN` / `CREATE TABLE IF NOT EXISTS`) ใน `ensureSchemaColumns()` ที่ [`src/lib/prisma.ts`](src/lib/prisma.ts) เพื่อให้ Docker production อัปเกรดฐานข้อมูล SQLite เดิมได้โดยไม่ต้องรัน CLI
+3. รันคำสั่งอัปเดต Schema และ Prisma Client บนเครื่องพัฒนา:
    ```bash
-   npx prisma db push
+   npx prisma db push && npx prisma generate
    ```
-3. หากมี Type Interface ใน TypeScript ให้เพิ่มฟิลด์ที่เกี่ยวข้องใน:
-   - [`src/lib/services/incident.service.ts`](file:///d:/Develop/nextjs/Incident/src/lib/services/incident.service.ts)
+4. หากมี Type Interface ใน TypeScript ให้เพิ่มฟิลด์ที่เกี่ยวข้องใน:
+   - [`src/lib/services/incident.service.ts`](src/lib/services/incident.service.ts)
    - หน้าจอ UI Component ที่เกี่ยวข้อง
 
 ### เมื่อต้องการขยายความสามารถของระบบ MCP:

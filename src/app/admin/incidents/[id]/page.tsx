@@ -118,13 +118,16 @@ export default function IncidentDetailMcpHub({
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [savingResolution, setSavingResolution] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const isMutatingStatus = updatingStatus || savingResolution;
+  const normStatus = (status?: string | null) => (status || '').trim().toUpperCase();
   const [resolutionFeedback, setResolutionFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [mcpExpanded, setMcpExpanded] = useState(false);
   const [now, setNow] = useState<number>(Date.now());
 
   useEffect(() => {
-    if (!incident || ['RESOLVED', 'CLOSED', 'ON_HOLD'].includes(incident.status)) return;
+    if (!incident || ['RESOLVED', 'CLOSED', 'ON_HOLD'].includes(normStatus(incident.status))) return;
     const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, [incident?.status]);
@@ -182,6 +185,7 @@ export default function IncidentDetailMcpHub({
     setRelatedQuery('');
     setRelatedSearchResults([]);
     setResolutionFeedback(null);
+    setUpdatingStatus(false);
     setIsEditingDetails(false);
     setEditingTimeField(null);
     fetchCurrentUser();
@@ -340,10 +344,11 @@ export default function IncidentDetailMcpHub({
 
   const validateReadyToClose = (inc: IncidentDetail) => {
     const missing: string[] = [];
+    if (!inc.assignedTo?.trim() || normStatus(inc.status) === 'OPEN') missing.push('กด Claim Ticket (รับเคส)');
     if (!inc.category?.trim()) missing.push('Category');
     if (!inc.rootCause?.trim()) missing.push('Root Cause');
     if (missing.length > 0) {
-      const msg = `กรุณาเลือก ${missing.join(' และ ')} (การ์ดด้านขวา) ก่อนปิดเคส`;
+      const msg = `กรุณา ${missing.join(' และ ')} ก่อนส่งหรือปิดเคส`;
       setResolutionFeedback({ type: 'error', text: msg });
       showToast(`⚠️ ${msg}`, 'error');
       return false;
@@ -353,37 +358,53 @@ export default function IncidentDetailMcpHub({
 
   // Assign / Claim Ticket
   const handleAssignToMe = async () => {
-    if (!incident) return;
+    if (!incident || isMutatingStatus) return;
+    const assignee = currentUser?.name || 'Admin';
+    const isClaiming = normStatus(incident.status) === 'OPEN';
+    setUpdatingStatus(true);
     try {
+      const payload: { assignedTo: string; status?: string } = isClaiming
+        ? { assignedTo: assignee, status: 'IN_PROGRESS' }
+        : { assignedTo: assignee };
       const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assignedTo: currentUser?.name || 'Admin',
-          status: 'IN_PROGRESS',
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const updated = await res.json();
         setIncident(updated);
         setEditingTimeField(null);
-        showToast('Claimed ticket • Status set to IN_PROGRESS');
+        setResolutionFeedback(null);
+        showToast(
+          isClaiming
+            ? 'Claimed ticket • Status set to IN_PROGRESS'
+            : `Re-assigned ticket to ${assignee}`
+        );
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || 'ไม่สามารถเปลี่ยนผู้รับผิดชอบได้', 'error');
       }
     } catch (e) {
       console.error(e);
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
   // Update Status
   const handleUpdateStatus = async (newStatus: string) => {
-    if (!incident) return;
+    if (!incident || isMutatingStatus) return;
     if (['RESOLVED', 'CLOSED'].includes(newStatus)) {
       if (currentUser?.role !== 'MANAGER') {
-        showToast('เฉพาะ Manager เท่านั้น');
+        showToast('เฉพาะ Manager เท่านั้น', 'error');
         return;
       }
       if (!validateReadyToClose(incident)) return;
     }
+    const prevStatus = normStatus(incident.status);
+    setUpdatingStatus(true);
     try {
       const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
         method: 'PATCH',
@@ -394,16 +415,30 @@ export default function IncidentDetailMcpHub({
         const updated = await res.json();
         setIncident(updated);
         setEditingTimeField(null);
+        setResolutionFeedback(null);
         if (['RESOLVED', 'CLOSED'].includes(newStatus)) {
           setIsEditingDetails(false);
         }
-        showToast(`Status updated to ${newStatus}`);
+        const successMsg =
+          newStatus === 'ON_HOLD'
+            ? 'พักเคสเป็น On Hold แล้ว (หยุดนับ MTTR)'
+            : newStatus === 'IN_PROGRESS' && prevStatus === 'ON_HOLD'
+              ? 'กลับมาดำเนินการต่อ (IN_PROGRESS)'
+              : newStatus === 'IN_PROGRESS' && prevStatus === 'PENDING_CONFIRM'
+                ? 'ตีกลับเคสเพื่อแก้ไขต่อ (IN_PROGRESS)'
+                : newStatus === 'IN_PROGRESS' && (prevStatus === 'RESOLVED' || prevStatus === 'CLOSED')
+                  ? 'เปิดเคสใหม่แล้ว (IN_PROGRESS)'
+                  : `Status updated to ${newStatus}`;
+        showToast(successMsg);
       } else {
         const err = await res.json().catch(() => ({}));
-        showToast(err.error || 'ไม่สามารถอัปเดตสถานะได้');
+        showToast(err.error || 'ไม่สามารถอัปเดตสถานะได้', 'error');
       }
     } catch (e) {
       console.error(e);
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
@@ -458,7 +493,7 @@ export default function IncidentDetailMcpHub({
 
   // Save resolution draft, submit for Manager confirm, or mark RESOLVED
   const submitResolutionUpdate = async (targetStatus?: 'PENDING_CONFIRM' | 'RESOLVED') => {
-    if (!incident || savingResolution) return;
+    if (!incident || isMutatingStatus) return;
     setResolutionFeedback(null);
     if (targetStatus) {
       if (!validateReadyToClose(incident)) return;
@@ -834,16 +869,19 @@ export default function IncidentDetailMcpHub({
   }
 
   const isHigh = incident.urgency === 'HIGH';
-  const isOnHold = incident.status === 'ON_HOLD';
-  const isPendingConfirm = incident.status === 'PENDING_CONFIRM';
-  const isClosed = incident.status === 'RESOLVED' || incident.status === 'CLOSED';
+  const statusKey = normStatus(incident.status);
+  const isOnHold = statusKey === 'ON_HOLD';
+  const isPendingConfirm = statusKey === 'PENDING_CONFIRM';
+  const isClosed = statusKey === 'RESOLVED' || statusKey === 'CLOSED';
   const isManager = currentUser?.role === 'MANAGER';
   const charCount = resolutionText.length;
   const wordCount = resolutionText.trim() ? resolutionText.trim().split(/\s+/).length : 0;
   const reportAttachments = incident.attachments.filter((a) => (a.kind || 'REPORT') !== 'RESOLUTION');
   const resolutionAttachments = incident.attachments.filter((a) => a.kind === 'RESOLUTION');
 
+  const isClaimed = Boolean(incident.assignedTo?.trim()) && statusKey !== 'OPEN';
   const missingToClose: string[] = [];
+  if (!isClaimed) missingToClose.push('รับเคส (Claim Ticket)');
   if (!incident.category?.trim()) missingToClose.push('Category');
   if (!incident.rootCause?.trim()) missingToClose.push('Root Cause');
   if (resolutionType === 'WORKAROUND' && !workaroundNote.trim()) missingToClose.push('เงื่อนไข Workaround');
@@ -855,14 +893,16 @@ export default function IncidentDetailMcpHub({
   const filteredRelatedResults = relatedSearchResults.filter(
     (item) => item.ticketNo !== incident.ticketNo && !currentRelatedNos.includes(item.ticketNo)
   );
-  const statusPillClass = (status: string) =>
-    status === 'RESOLVED' || status === 'CLOSED'
+  const statusPillClass = (status: string) => {
+    const s = normStatus(status);
+    return s === 'RESOLVED' || s === 'CLOSED'
       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      : status === 'ON_HOLD'
+      : s === 'ON_HOLD'
       ? 'bg-violet-50 text-violet-700 border-violet-200'
-      : status === 'PENDING_CONFIRM'
+      : s === 'PENDING_CONFIRM'
       ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
       : 'bg-sky-50 text-sky-700 border-sky-200';
+  };
 
   return (
     <div className="w-full bg-[#f0f7ff] min-h-[calc(100vh-4rem)]">
@@ -889,16 +929,12 @@ export default function IncidentDetailMcpHub({
                 )}
 
                 <span
-                  className={`px-2.5 py-1 rounded-full border font-medium flex items-center gap-1 ${
-                    isPendingConfirm
-                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
-                      : 'bg-sky-50 text-sky-700 border-sky-200'
-                  }`}
+                  className={`px-2.5 py-1 rounded-full border font-semibold flex items-center gap-1 ${statusPillClass(statusKey)}`}
                 >
                   <span className="material-symbols-outlined text-[14px]">
-                    {isPendingConfirm ? 'pending_actions' : 'sync'}
+                    {isClosed ? 'check_circle' : isOnHold ? 'pause_circle' : isPendingConfirm ? 'pending_actions' : 'sync'}
                   </span>
-                  {isPendingConfirm ? 'รอ Manager ยืนยันปิดเคส' : incident.status}
+                  {isPendingConfirm ? 'รอ Manager ยืนยันปิดเคส' : statusKey}
                 </span>
 
                 {incident.resolutionType === 'WORKAROUND' && (
@@ -965,7 +1001,7 @@ export default function IncidentDetailMcpHub({
                   <span className="material-symbols-outlined text-[16px]">api</span>
                   <span>MCP Context Endpoint Ready</span>
                 </div>
-                {incident.resolvedBy && (
+                {isClosed && incident.resolvedBy && (
                   <>
                     <span className="hidden sm:inline text-slate-300">•</span>
                     <div className="flex items-center gap-1 text-emerald-700 font-medium">
@@ -989,10 +1025,12 @@ export default function IncidentDetailMcpHub({
 
             {/* Action Toolbar */}
             <div className="flex flex-wrap lg:flex-nowrap items-center gap-2.5 shrink-0 self-start lg:self-center">
-              {incident.status === 'OPEN' ? (
+              {statusKey === 'OPEN' ? (
                 <button
+                  type="button"
                   onClick={handleAssignToMe}
-                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-sm shadow-sky-600/20"
+                  disabled={isMutatingStatus}
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-sm shadow-sky-600/20 cursor-pointer"
                   title="กดรับเคสนี้ และเปลี่ยนสถานะเป็น IN_PROGRESS ทันที"
                 >
                   <span className="material-symbols-outlined text-[16px]">pan_tool</span>
@@ -1000,9 +1038,10 @@ export default function IncidentDetailMcpHub({
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={handleAssignToMe}
-                  disabled={!isManager && isClosed}
-                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-xs"
+                  disabled={isMutatingStatus || (!isManager && isClosed)}
+                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-xs cursor-pointer"
                   title={!isManager && isClosed ? 'ปิดเคสแล้ว (เฉพาะ Manager)' : 'คลิกเพื่อ Re-assign เคสนี้ให้ตนเอง'}
                 >
                   <span className="material-symbols-outlined text-[16px] text-sky-600">assignment_ind</span>
@@ -1010,37 +1049,48 @@ export default function IncidentDetailMcpHub({
                 </button>
               )}
 
-              <div className="relative group">
-                <button className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs">
-                  <span className="material-symbols-outlined text-[16px] text-sky-600">swap_horiz</span>
-                  <span>Status: {incident.status}</span>
-                  <span className="material-symbols-outlined text-[16px] text-slate-400">expand_more</span>
+              {statusKey === 'IN_PROGRESS' && (
+                <button
+                  type="button"
+                  disabled={isMutatingStatus}
+                  onClick={() => handleUpdateStatus('ON_HOLD')}
+                  className="px-3.5 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 disabled:opacity-60 disabled:cursor-not-allowed text-violet-700 border border-violet-200 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  title="พักเคสรอ Solution และหยุดนับ MTTR"
+                >
+                  <span className="material-symbols-outlined text-[16px]">pause_circle</span>
+                  <span>พักเคส (On Hold)</span>
                 </button>
-                <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-30 min-w-[150px]">
-                  <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 flex flex-col gap-1">
-                    {['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'PENDING_CONFIRM', 'RESOLVED', 'CLOSED'].map((st) => {
-                      const requiresManager = !isManager && (['RESOLVED', 'CLOSED'].includes(st) || isClosed);
-                      return (
-                        <button
-                          key={st}
-                          disabled={requiresManager}
-                          title={requiresManager ? 'เฉพาะ Manager เท่านั้น' : undefined}
-                          onClick={() => handleUpdateStatus(st)}
-                          className={`px-2.5 py-1.5 text-xs text-left rounded-lg font-medium transition-colors ${
-                            requiresManager
-                              ? 'opacity-45 cursor-not-allowed text-slate-400'
-                              : incident.status === st
-                              ? 'bg-sky-50 text-sky-700 font-semibold cursor-pointer'
-                              : 'hover:bg-slate-50 text-slate-700 cursor-pointer'
-                          }`}
-                        >
-                          {st}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              )}
+
+              {statusKey === 'ON_HOLD' && (
+                <button
+                  type="button"
+                  disabled={isMutatingStatus}
+                  onClick={() => handleUpdateStatus('IN_PROGRESS')}
+                  className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shadow-sky-600/20 cursor-pointer"
+                  title="กลับมาดำเนินการต่อ (IN_PROGRESS)"
+                >
+                  <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                  <span>กลับมาทำต่อ (Resume)</span>
+                </button>
+              )}
+
+              {isClosed && isManager && (
+                <button
+                  type="button"
+                  disabled={isMutatingStatus}
+                  onClick={() => {
+                    if (window.confirm('ต้องการเปิดเคสนี้กลับเป็น IN_PROGRESS เพื่อแก้ไขเพิ่มเติมใช่ไหม?')) {
+                      handleUpdateStatus('IN_PROGRESS');
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed text-amber-800 border border-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  title="เปิดเคสกลับเป็น IN_PROGRESS เพื่อแก้ไขเพิ่มเติม (เฉพาะ Manager)"
+                >
+                  <span className="material-symbols-outlined text-[16px]">lock_open</span>
+                  <span>เปิดเคสใหม่ (Reopen)</span>
+                </button>
+              )}
 
               <a
                 href={`/api/mcp/v1/context?ticketNo=${incident.ticketNo}`}
@@ -1353,9 +1403,9 @@ export default function IncidentDetailMcpHub({
                       {isPendingConfirm && (
                         <button
                           type="button"
-                          disabled={savingResolution}
+                          disabled={isMutatingStatus}
                           onClick={() => handleUpdateStatus('IN_PROGRESS')}
-                          className="px-4 py-2.5 rounded-xl bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                          className="px-4 py-2.5 rounded-xl bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <span className="material-symbols-outlined text-[16px]">undo</span>
                           <span>ตีกลับแก้ไข (In Progress)</span>
@@ -1368,7 +1418,7 @@ export default function IncidentDetailMcpHub({
                       )}
                       <button
                         type="button"
-                        disabled={isClosed || savingResolution}
+                        disabled={isClosed || isMutatingStatus}
                         onClick={() => submitResolutionUpdate('RESOLVED')}
                         className={
                           isClosed
@@ -1383,7 +1433,7 @@ export default function IncidentDetailMcpHub({
                           {savingResolution
                             ? 'กำลังบันทึก...'
                             : isClosed
-                              ? `ปิดเคสเรียบร้อยแล้ว (${incident.status})`
+                              ? `ปิดเคสเรียบร้อยแล้ว (${statusKey})`
                               : 'Confirm & Mark Resolved (ยืนยันปิดเคส)'}
                         </span>
                       </button>
@@ -1397,7 +1447,7 @@ export default function IncidentDetailMcpHub({
                       )}
                       <button
                         type="button"
-                        disabled={isClosed || savingResolution}
+                        disabled={isClosed || isMutatingStatus}
                         onClick={() => submitResolutionUpdate()}
                         className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -1406,21 +1456,52 @@ export default function IncidentDetailMcpHub({
                       </button>
                       <button
                         type="button"
-                        disabled={isClosed || savingResolution}
+                        disabled={!isClaimed || isPendingConfirm || isClosed || isMutatingStatus}
                         onClick={() => submitResolutionUpdate('PENDING_CONFIRM')}
-                        className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={
+                          isClosed
+                            ? 'ปิดเคสเรียบร้อยแล้ว'
+                            : isPendingConfirm
+                              ? 'ส่งเคสให้ Manager ยืนยันเรียบร้อยแล้ว'
+                              : !isClaimed
+                                ? 'กรุณากดปุ่ม Claim Ticket (รับเคส) ด้านบนก่อนส่ง'
+                                : undefined
+                        }
+                        className={
+                          !isClaimed || isPendingConfirm || isClosed
+                            ? 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-200 text-slate-500 cursor-not-allowed text-xs font-bold flex items-center justify-center gap-2'
+                            : 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                        }
                       >
                         <span className={`material-symbols-outlined text-[18px] ${savingResolution ? 'animate-spin' : ''}`}>
-                          {savingResolution ? 'sync' : 'send'}
+                          {savingResolution
+                            ? 'sync'
+                            : isClosed
+                              ? 'check_circle'
+                              : isPendingConfirm
+                                ? 'hourglass_top'
+                                : !isClaimed
+                                  ? 'pan_tool'
+                                  : 'send'}
                         </span>
-                        <span>{savingResolution ? 'กำลังส่ง...' : 'ส่งให้ Manager ยืนยันปิดเคส'}</span>
+                        <span>
+                          {savingResolution
+                            ? 'กำลังส่ง...'
+                            : isClosed
+                              ? `ปิดเคสแล้ว (${statusKey})`
+                              : isPendingConfirm
+                                ? 'รอ Manager ยืนยันแล้ว (Pending Confirm)'
+                                : !isClaimed
+                                  ? 'กรุณากด Claim รับเคสก่อนส่ง'
+                                  : 'ส่งให้ Manager ยืนยันปิดเคส'}
+                        </span>
                       </button>
                     </div>
                   )}
                 </div>
                 {isClosed && (
                   <p className="text-[11px] text-slate-500 text-right">
-                    หาก Manager ต้องการแก้ไขเพิ่มเติม ให้เปลี่ยนสถานะกลับจากปุ่ม Status ด้านบน
+                    หาก Manager ต้องการแก้ไขเพิ่มเติม ให้กดปุ่ม &quot;เปิดเคสใหม่ (Reopen)&quot; ด้านบน
                   </p>
                 )}
                 {!isManager && (

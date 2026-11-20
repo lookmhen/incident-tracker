@@ -84,6 +84,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       msg.includes('closedAt') ||
       msg.includes('createdAt') ||
       msg.includes('required before') ||
+      msg.includes('must be claimed') ||
       msg.includes('Cannot edit incident details') ||
       msg.includes('Cannot reference') ||
       msg.includes('Referenced incident not found') ||

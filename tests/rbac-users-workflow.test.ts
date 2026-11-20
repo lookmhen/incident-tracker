@@ -332,7 +332,36 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     );
     assert.equal(staffResolveRes.status, 403);
 
-    // 3. STAFF submits PENDING_CONFIRM
+    // 2b. STAFF cannot submit PENDING_CONFIRM before claiming the ticket (400)
+    const unclaimedPendingRes = await incidentPatch(
+      new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: staffCookie },
+        body: JSON.stringify({
+          status: 'PENDING_CONFIRM',
+          resolution: 'Forgot to claim first',
+        }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(unclaimedPendingRes.status, 400);
+    const unclaimedErr = await unclaimedPendingRes.json();
+    assert.match(unclaimedErr.error || '', /must be claimed/i);
+
+    // 3. STAFF claims ticket, then submits PENDING_CONFIRM
+    const claimRes = await incidentPatch(
+      new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: staffCookie },
+        body: JSON.stringify({
+          assignedTo: staffUser.name,
+          status: 'IN_PROGRESS',
+        }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(claimRes.status, 200);
+
     const pendingRes = await incidentPatch(
       new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
@@ -398,5 +427,124 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
       { params: Promise.resolve({ id: inc.ticketNo }) }
     );
     assert.equal(lockedEditRes.status, 400);
+  });
+
+  it('supports On Hold/Resume, status-preserving re-assign, and Manager-only Reopen', async () => {
+    const suffix = Date.now();
+    const localUserIds: string[] = [];
+    let localIncidentId: string | null = null;
+
+    try {
+      const staffUser = await UserService.createUser({
+        username: `wf_op_${suffix}`,
+        name: 'Workflow Staff',
+        role: 'STAFF',
+        password: 'password1',
+      });
+      localUserIds.push(staffUser.id);
+      const managerUser = await UserService.createUser({
+        username: `wf_mgr_${suffix}`,
+        name: 'Workflow Manager',
+        role: 'MANAGER',
+        password: 'password1',
+      });
+      localUserIds.push(managerUser.id);
+
+      const staffCookie = `${ADMIN_COOKIE_NAME}=${await createAdminSessionToken({
+        userId: staffUser.id,
+        username: staffUser.username,
+        name: staffUser.name,
+        role: 'STAFF',
+      })}`;
+      const mgrCookie = `${ADMIN_COOKIE_NAME}=${await createAdminSessionToken({
+        userId: managerUser.id,
+        username: managerUser.username,
+        name: managerUser.name,
+        role: 'MANAGER',
+      })}`;
+
+      const inc = await IncidentService.createIncident({
+        reporterName: 'Transition Tester',
+        contactInfo: 'trans@test.local',
+        title: 'Transition Workflow Ticket',
+        description: 'Verify workflow status transitions',
+        category: 'SAP Basis',
+      });
+      localIncidentId = inc.id;
+
+      const patch = (cookie: string, body: Record<string, unknown>) =>
+        incidentPatch(
+          new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json', cookie },
+            body: JSON.stringify(body),
+          }),
+          { params: Promise.resolve({ id: inc.ticketNo }) }
+        );
+
+      // Claim ticket -> IN_PROGRESS
+      const claimRes = await patch(staffCookie, {
+        assignedTo: staffUser.name,
+        status: 'IN_PROGRESS',
+        rootCause: 'System',
+      });
+      assert.equal(claimRes.status, 200);
+      assert.equal((await claimRes.json()).status, 'IN_PROGRESS');
+
+      // 1. On Hold sets ON_HOLD + auto-excludes MTTR
+      const holdRes = await patch(staffCookie, { status: 'ON_HOLD' });
+      assert.equal(holdRes.status, 200);
+      const held = await holdRes.json();
+      assert.equal(held.status, 'ON_HOLD');
+      assert.equal(held.mttrExcluded, true);
+
+      // 2. Re-assign without status preserves ON_HOLD (does not reset to IN_PROGRESS)
+      const reassignHoldRes = await patch(staffCookie, { assignedTo: 'Another Staff' });
+      assert.equal(reassignHoldRes.status, 200);
+      const reassignedHold = await reassignHoldRes.json();
+      assert.equal(reassignedHold.assignedTo, 'Another Staff');
+      assert.equal(reassignedHold.status, 'ON_HOLD');
+
+      // Resume -> IN_PROGRESS
+      const resumeRes = await patch(staffCookie, { status: 'IN_PROGRESS' });
+      assert.equal(resumeRes.status, 200);
+      assert.equal((await resumeRes.json()).status, 'IN_PROGRESS');
+
+      // Re-assign without status also preserves PENDING_CONFIRM
+      const pendingRes = await patch(staffCookie, {
+        status: 'PENDING_CONFIRM',
+        resolution: 'Applied fix',
+      });
+      assert.equal(pendingRes.status, 200);
+      const reassignPendingRes = await patch(staffCookie, { assignedTo: staffUser.name });
+      assert.equal(reassignPendingRes.status, 200);
+      const reassignedPending = await reassignPendingRes.json();
+      assert.equal(reassignedPending.assignedTo, staffUser.name);
+      assert.equal(reassignedPending.status, 'PENDING_CONFIRM');
+
+      // 3. Manager resolves -> Staff blocked from reopening (403), Manager Reopen clears closedAt
+      const resolveRes = await patch(mgrCookie, { status: 'RESOLVED' });
+      assert.equal(resolveRes.status, 200);
+      const resolved = await resolveRes.json();
+      assert.equal(resolved.status, 'RESOLVED');
+      assert.notEqual(resolved.closedAt, null);
+
+      const staffReopenRes = await patch(staffCookie, { status: 'IN_PROGRESS' });
+      assert.equal(staffReopenRes.status, 403);
+
+      const mgrReopenRes = await patch(mgrCookie, { status: 'IN_PROGRESS' });
+      assert.equal(mgrReopenRes.status, 200);
+      const reopened = await mgrReopenRes.json();
+      assert.equal(reopened.status, 'IN_PROGRESS');
+      assert.equal(reopened.closedAt, null);
+    } finally {
+      if (localIncidentId) {
+        await IncidentService.setMttrExcluded(localIncidentId, false);
+        await prisma.incident.deleteMany({ where: { id: localIncidentId } });
+      }
+      if (localUserIds.length > 0) {
+        await prisma.adminUser.deleteMany({ where: { id: { in: localUserIds } } });
+      }
+    }
   });
 });

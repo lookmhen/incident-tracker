@@ -3,10 +3,21 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import DepartmentInput from '@/components/DepartmentInput';
+import {
+  ALLOWED_ATTACHMENT_LABEL,
+  ATTACHMENT_ACCEPT,
+  fallbackAttachmentFileName,
+  getAttachmentIcon,
+  isAllowedAttachment,
+  isImageAttachment,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_MB,
+} from '@/lib/attachments';
 
 interface AttachedFile {
   file: File;
-  previewUrl: string;
+  previewUrl: string | null;
+  icon: string;
   name: string;
   sizeFormatted: string;
 }
@@ -61,26 +72,43 @@ export default function SimplePublicReportPortal() {
     } catch (e) {}
   };
 
-  // Helper to process an image file (Upload or Clipboard)
+  // Helper to process an uploaded or pasted file
   const handleProcessFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('รองรับเฉพาะไฟล์รูปภาพ (PNG, JPG, GIF, WebP)');
+    if (!isAllowedAttachment(file.name, file.type)) {
+      alert(`ไม่รองรับไฟล์ "${file.name}" (รองรับ: ${ALLOWED_ATTACHMENT_LABEL})`);
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      alert('ขนาดไฟล์เกินกำหนด (ไม่เกิน 5MB)');
+    if (file.size === 0) {
+      alert('ไม่สามารถแนบไฟล์ว่าง (0 bytes) ได้');
+      return;
+    }
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      alert(`ขนาดไฟล์เกินกำหนด (ไม่เกิน ${MAX_ATTACHMENT_MB}MB)`);
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
-    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    const fileName = file.name || fallbackAttachmentFileName(file.type);
+    const isImg = isImageAttachment(fileName, file.type);
+    const previewUrl = isImg ? URL.createObjectURL(file) : null;
+    const sizeFormatted =
+      file.size >= 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.max(1, Math.round(file.size / 1024))} KB`;
     setAttachment({
       file,
       previewUrl,
-      name: file.name || `screenshot_${Date.now()}.png`,
-      sizeFormatted: `${sizeMb} MB`,
+      icon: getAttachmentIcon(fileName, file.type),
+      name: fileName,
+      sizeFormatted,
     });
   };
+
+  useEffect(() => {
+    const previewUrl = attachment?.previewUrl;
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [attachment?.previewUrl]);
 
   // Global Ctrl+V Clipboard Listener
   useEffect(() => {
@@ -90,12 +118,12 @@ export default function SimplePublicReportPortal() {
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (item.kind === 'file' && item.type.startsWith('image/')) {
+        if (item.kind === 'file') {
           const file = item.getAsFile();
-          if (file) {
+          if (file && isAllowedAttachment(file.name, file.type)) {
             handleProcessFile(file);
+            break;
           }
-          break;
         }
       }
     };
@@ -527,11 +555,13 @@ export default function SimplePublicReportPortal() {
                 />
               </div>
 
-              {/* Screenshot Dropzone */}
+              {/* File Attachment Dropzone */}
               <div className="space-y-2">
-                <label className="text-xs font-label font-medium text-slate-700 flex items-center justify-between">
-                  <span>แนบรูปภาพหน้าจอ (Screenshot)</span>
-                  <span className="text-[11px] text-sky-700 font-mono">PNG, JPG ไม่เกิน 5MB</span>
+                <label className="text-xs font-label font-medium text-slate-700 flex items-center justify-between gap-2">
+                  <span>แนบไฟล์ / รูปภาพ (Attachment)</span>
+                  <span className="text-[11px] text-sky-700 font-mono">
+                    รูปภาพ, PDF, Excel, Word, ZIP ไม่เกิน {MAX_ATTACHMENT_MB}MB
+                  </span>
                 </label>
 
                 <input
@@ -539,8 +569,9 @@ export default function SimplePublicReportPortal() {
                   ref={fileInputRef}
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) handleProcessFile(e.target.files[0]);
+                    e.target.value = '';
                   }}
-                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  accept={ATTACHMENT_ACCEPT}
                   className="hidden"
                 />
 
@@ -548,12 +579,18 @@ export default function SimplePublicReportPortal() {
                   /* Attached Preview Card */
                   <div className="flex items-center justify-between p-3 rounded-xl bg-sky-50/70 border border-sky-200 shadow-2xs">
                     <div className="flex items-center gap-3 min-w-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={attachment.previewUrl}
-                        alt="Preview"
-                        className="w-12 h-12 object-cover rounded-lg border border-sky-200 shrink-0"
-                      />
+                      {attachment.previewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={attachment.previewUrl}
+                          alt="Preview"
+                          className="w-12 h-12 object-cover rounded-lg border border-sky-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-white border border-sky-200 flex items-center justify-center text-sky-600 shrink-0">
+                          <span className="material-symbols-outlined text-[24px]">{attachment.icon}</span>
+                        </div>
+                      )}
                       <div className="flex flex-col min-w-0">
                         <span className="text-xs font-mono font-medium text-slate-900 truncate">
                           {attachment.name}
@@ -563,9 +600,12 @@ export default function SimplePublicReportPortal() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setAttachment(null)}
+                      onClick={() => {
+                        if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+                        setAttachment(null);
+                      }}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-white transition-colors cursor-pointer"
-                      title="ลบรูปภาพ"
+                      title="ลบไฟล์แนบ"
                     >
                       <span className="material-symbols-outlined text-[18px]">close</span>
                     </button>
@@ -579,13 +619,13 @@ export default function SimplePublicReportPortal() {
                     className="flex flex-col items-center justify-center p-5 rounded-xl border-2 border-dashed border-sky-200 hover:border-sky-400 hover:bg-sky-50/40 transition-all cursor-pointer text-center group"
                   >
                     <span className="material-symbols-outlined text-sky-600 text-[26px] mb-1 group-hover:scale-110 transition-transform">
-                      add_photo_alternate
+                      attach_file
                     </span>
                     <p className="text-xs font-medium text-slate-700">
-                      คลิกเพื่อเลือกรูป หรือลากรูปมาวางที่นี่
+                      คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่ (รูปภาพ, PDF, Excel, Word, CSV, ZIP)
                     </p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      หรือกด <kbd className="px-1 py-0.5 rounded bg-slate-100 border text-slate-700 text-[10px] font-mono">Ctrl+V</kbd> เพื่อวางรูปจาก Clipboard ได้ทันที
+                      หรือกด <kbd className="px-1 py-0.5 rounded bg-slate-100 border text-slate-700 text-[10px] font-mono">Ctrl+V</kbd> เพื่อวางรูปภาพจาก Clipboard ได้ทันที
                     </p>
                   </div>
                 )}

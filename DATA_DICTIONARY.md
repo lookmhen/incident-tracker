@@ -154,7 +154,7 @@ erDiagram
 | `fileUrl` | String | NO | - | - | URL Path สำหรับเข้าถึงไฟล์ เช่น `/uploads/1730894042_sap_dump.png` |
 | `fileType` | String | NO | - | - | MIME Type ของไฟล์ เช่น `image/png`, `image/jpeg`, `image/gif` |
 | `fileName` | String | YES | `NULL` | - | ชื่อไฟล์เดิมของผู้ใช้งาน |
-| `fileSize` | Int | YES | `NULL` | - | ขนาดของไฟล์ในหน่วย Bytes (จำกัดขนาดสูงสุดไม่เกิน 5,242,880 Bytes หรือ 5MB) |
+| `fileSize` | Int | YES | `NULL` | - | ขนาดของไฟล์ในหน่วย Bytes (จำกัดขนาดสูงสุดไม่เกิน 10,485,760 Bytes หรือ 10MB; รองรับรูปภาพ, PDF, Excel, Word, PowerPoint, CSV, TXT, LOG, JSON, XML, ZIP) |
 | `kind` | String | NO | `REPORT` | - | ประเภทไฟล์แนบ: `REPORT` (รูปอาการจากฝั่งผู้แจ้ง) หรือ `RESOLUTION` (รูปหลักฐานปิดงาน) |
 | `createdAt`| DateTime| NO | `now()` | - | วันและเวลาที่อัปโหลดไฟล์ |
 

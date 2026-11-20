@@ -3,6 +3,17 @@
 import { useState, useEffect, useRef, use } from 'react';
 import Link from 'next/link';
 import DepartmentInput from '@/components/DepartmentInput';
+import {
+  ALLOWED_ATTACHMENT_LABEL,
+  ATTACHMENT_ACCEPT,
+  fallbackAttachmentFileName,
+  getAttachmentIcon,
+  isAllowedAttachment,
+  isImageAttachment,
+  isPdfAttachment,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_MB,
+} from '@/lib/attachments';
 import { useRouter } from 'next/navigation';
 
 interface RelatedIncidentSummary {
@@ -745,6 +756,7 @@ export default function IncidentDetailMcpHub({
     att.fileName || att.fileUrl.split('/').pop() || att.fileUrl;
 
   const handleUploadAttachments = async (files: FileList | File[], kind: 'REPORT' | 'RESOLUTION') => {
+    if (uploadingKind || (incident && ['RESOLVED', 'CLOSED'].includes(normStatus(incident.status)))) return;
     const fileList = Array.from(files);
     if (fileList.length === 0) return;
 
@@ -752,16 +764,21 @@ export default function IncidentDetailMcpHub({
     let uploadedCount = 0;
     try {
       for (const file of fileList) {
-        if (!file.type.startsWith('image/')) {
-          alert(`ไฟล์ "${file.name}" ไม่ใช่รูปภาพ (รองรับ PNG, JPG, GIF, WebP)`);
+        if (!isAllowedAttachment(file.name, file.type)) {
+          showToast(`ไม่รองรับไฟล์ "${file.name}" (รองรับ: ${ALLOWED_ATTACHMENT_LABEL})`, 'error');
           continue;
         }
-        if (file.size > 5 * 1024 * 1024) {
-          alert(`ไฟล์ "${file.name}" มีขนาดเกิน 5MB`);
+        if (file.size === 0) {
+          showToast(`ไฟล์ "${file.name}" เป็นไฟล์ว่าง (0 bytes)`, 'error');
           continue;
         }
+        if (file.size > MAX_ATTACHMENT_BYTES) {
+          showToast(`ไฟล์ "${file.name}" มีขนาดเกิน ${MAX_ATTACHMENT_MB}MB`, 'error');
+          continue;
+        }
+        const fileName = file.name || fallbackAttachmentFileName(file.type);
         const formData = new FormData();
-        formData.append('file', file, file.name || `screenshot_${Date.now()}.png`);
+        formData.append('file', file, fileName);
         formData.append('kind', kind);
         const res = await fetch(`/api/incidents/${encodeURIComponent(id)}/attachments`, {
           method: 'POST',
@@ -769,7 +786,7 @@ export default function IncidentDetailMcpHub({
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          alert(err.error || 'อัปโหลดรูปภาพไม่สำเร็จ');
+          showToast(err.error || 'อัปโหลดไฟล์แนบไม่สำเร็จ', 'error');
           continue;
         }
         const created = await res.json();
@@ -779,33 +796,38 @@ export default function IncidentDetailMcpHub({
       if (uploadedCount > 0) {
         showToast(
           kind === 'RESOLUTION'
-            ? `เพิ่มรูปหลักฐานปิดงาน ${uploadedCount} รูปเรียบร้อย`
-            : `แนบรูปอาการเพิ่มเติม ${uploadedCount} รูปเรียบร้อย`
+            ? `เพิ่มไฟล์หลักฐานปิดงาน ${uploadedCount} ไฟล์เรียบร้อย`
+            : `แนบไฟล์เพิ่มเติม ${uploadedCount} ไฟล์เรียบร้อย`
         );
       }
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ', 'error');
     } finally {
       setUploadingKind(null);
     }
   };
 
   const handlePasteImages = (e: React.ClipboardEvent, kind: 'REPORT' | 'RESOLUTION') => {
+    if (incident && ['RESOLVED', 'CLOSED'].includes(normStatus(incident.status))) return;
     const items = e.clipboardData?.items;
     if (!items) return;
-    const images: File[] = [];
+    const pastedFiles: File[] = [];
     for (let i = 0; i < items.length; i++) {
-      if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+      if (items[i].kind === 'file') {
         const f = items[i].getAsFile();
-        if (f) images.push(f);
+        if (f && isAllowedAttachment(f.name, f.type)) pastedFiles.push(f);
       }
     }
-    if (images.length > 0) {
+    if (pastedFiles.length > 0) {
       e.preventDefault();
-      handleUploadAttachments(images, kind);
+      handleUploadAttachments(pastedFiles, kind);
     }
   };
 
   const handleDeleteAttachment = async (att: IncidentDetail['attachments'][number]) => {
-    if (!confirm(`ต้องการลบรูปแนบ "${attName(att)}" ใช่ไหม?`)) return;
+    if (deletingAttId || (incident && ['RESOLVED', 'CLOSED'].includes(normStatus(incident.status)))) return;
+    if (!confirm(`ต้องการลบไฟล์แนบ "${attName(att)}" ใช่ไหม?`)) return;
     setDeletingAttId(att.id);
     try {
       const res = await fetch(
@@ -814,21 +836,26 @@ export default function IncidentDetailMcpHub({
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || 'ลบรูปแนบไม่สำเร็จ');
+        showToast(err.error || 'ลบไฟล์แนบไม่สำเร็จ', 'error');
         return;
       }
       setIncident((prev) =>
         prev ? { ...prev, attachments: prev.attachments.filter((a) => a.id !== att.id) } : prev
       );
       if (previewAtt?.id === att.id) setPreviewAtt(null);
-      showToast('ลบรูปแนบเรียบร้อย');
+      showToast('ลบไฟล์แนบเรียบร้อย');
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการลบไฟล์แนบ', 'error');
     } finally {
       setDeletingAttId(null);
     }
   };
 
   const renderAttachmentRow = (att: IncidentDetail['attachments'][number], tone: 'sky' | 'emerald') => {
-    const isImage = att.fileType.startsWith('image/');
+    const name = attName(att);
+    const canPreview = isImageAttachment(name, att.fileType) || isPdfAttachment(name, att.fileType);
+    const iconName = getAttachmentIcon(name, att.fileType);
     const boxStyle =
       tone === 'emerald'
         ? 'bg-emerald-50/50 border-emerald-200/80 hover:bg-emerald-50'
@@ -844,10 +871,10 @@ export default function IncidentDetailMcpHub({
       >
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${iconStyle}`}>
-            <span className="material-symbols-outlined text-[20px]">{isImage ? 'image' : 'description'}</span>
+            <span className="material-symbols-outlined text-[20px]">{iconName}</span>
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-slate-800 font-mono truncate">{attName(att)}</div>
+            <div className="text-xs font-semibold text-slate-800 font-mono truncate">{name}</div>
             <div className="text-[11px] text-slate-500">
               {att.fileType}
               {att.fileSize != null && ` • ${formatSize(att.fileSize)}`}
@@ -855,20 +882,31 @@ export default function IncidentDetailMcpHub({
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setPreviewAtt(att)}
-            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1 transition-all shadow-xs cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[15px]">visibility</span>
-            <span>Preview</span>
-          </button>
+          {canPreview ? (
+            <button
+              type="button"
+              onClick={() => setPreviewAtt(att)}
+              className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[15px]">visibility</span>
+              <span>Preview</span>
+            </button>
+          ) : (
+            <a
+              href={att.fileUrl}
+              download={name}
+              className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[15px]">download</span>
+              <span>Download</span>
+            </a>
+          )}
           {!(incident && ['RESOLVED', 'CLOSED'].includes(normStatus(incident.status))) && (
             <button
               type="button"
               disabled={deletingAttId === att.id}
               onClick={() => handleDeleteAttachment(att)}
-              title="ลบรูปแนบ"
+              title="ลบไฟล์แนบ"
               className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-400 transition-all cursor-pointer disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[15px]">delete</span>
@@ -1417,11 +1455,11 @@ export default function IncidentDetailMcpHub({
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-[17px] text-emerald-600">add_photo_alternate</span>
                     <span className="text-xs font-headline font-bold text-slate-800">
-                      รูปหลักฐานการแก้ไข / ปิดงาน ({resolutionAttachments.length})
+                      ไฟล์ / รูปหลักฐานการแก้ไข / ปิดงาน ({resolutionAttachments.length})
                     </span>
                     {!isClosed && (
                       <span className="text-[11px] text-slate-500 hidden sm:inline">
-                        วางรูป (Ctrl+V) หรือลากวางได้
+                        รูปภาพ, PDF, Excel, Word, ZIP • วางรูป (Ctrl+V) หรือลากวางได้
                       </span>
                     )}
                   </div>
@@ -1430,7 +1468,7 @@ export default function IncidentDetailMcpHub({
                       <input
                         ref={resolutionFileRef}
                         type="file"
-                        accept="image/*"
+                        accept={ATTACHMENT_ACCEPT}
                         multiple
                         className="hidden"
                         onChange={(e) => {
@@ -1447,7 +1485,7 @@ export default function IncidentDetailMcpHub({
                         <span className="material-symbols-outlined text-[15px]">
                           {uploadingKind === 'RESOLUTION' ? 'sync' : 'upload'}
                         </span>
-                        <span>{uploadingKind === 'RESOLUTION' ? 'กำลังอัปโหลด...' : '+ เพิ่มรูปปิดงาน'}</span>
+                        <span>{uploadingKind === 'RESOLUTION' ? 'กำลังอัปโหลด...' : '+ เพิ่มไฟล์ปิดงาน'}</span>
                       </button>
                     </>
                   )}
@@ -2007,7 +2045,7 @@ export default function IncidentDetailMcpHub({
                     </h3>
                     <p className="text-[11px] text-slate-500">
                       {reportAttachments.length} attachment file(s)
-                      {!isClosed ? ' • คลิกหรือวางรูป (Ctrl+V)' : ''}
+                      {!isClosed ? ' • รูปภาพ, PDF, Excel, Word, ZIP หรือ Ctrl+V' : ''}
                     </p>
                   </div>
                 </div>
@@ -2016,7 +2054,7 @@ export default function IncidentDetailMcpHub({
                     <input
                       ref={reportFileRef}
                       type="file"
-                      accept="image/*"
+                      accept={ATTACHMENT_ACCEPT}
                       multiple
                       className="hidden"
                       onChange={(e) => {
@@ -2031,9 +2069,9 @@ export default function IncidentDetailMcpHub({
                       className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50 shrink-0"
                     >
                       <span className="material-symbols-outlined text-[15px]">
-                        {uploadingKind === 'REPORT' ? 'sync' : 'add_photo_alternate'}
+                        {uploadingKind === 'REPORT' ? 'sync' : 'attach_file'}
                       </span>
-                      <span>{uploadingKind === 'REPORT' ? 'กำลังอัปโหลด...' : '+ แนบรูป'}</span>
+                      <span>{uploadingKind === 'REPORT' ? 'กำลังอัปโหลด...' : '+ แนบไฟล์'}</span>
                     </button>
                   </>
                 )}
@@ -2043,7 +2081,7 @@ export default function IncidentDetailMcpHub({
                 reportAttachments.map((att) => renderAttachmentRow(att, 'sky'))
               ) : (
                 <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-500 text-center">
-                  {isClosed ? 'ไม่มีไฟล์แนบจากผู้แจ้ง' : 'ไม่มีไฟล์แนบจากผู้แจ้ง — กด "+ แนบรูป" หรือวางรูปเพิ่มภายหลังได้'}
+                  {isClosed ? 'ไม่มีไฟล์แนบจากผู้แจ้ง' : 'ไม่มีไฟล์แนบจากผู้แจ้ง — กด "+ แนบไฟล์" หรือวางรูปเพิ่มภายหลังได้'}
                 </div>
               )}
             </div>
@@ -2389,7 +2427,7 @@ export default function IncidentDetailMcpHub({
                       : 'bg-sky-50 text-sky-700 border border-sky-200'
                   }`}
                 >
-                  {previewAtt.kind === 'RESOLUTION' ? 'รูปปิดงาน' : 'รูปฝั่งผู้แจ้ง'}
+                  {previewAtt.kind === 'RESOLUTION' ? 'หลักฐานปิดงาน' : 'ไฟล์ฝั่งผู้แจ้ง'}
                 </span>
               </div>
               <button
@@ -2401,16 +2439,22 @@ export default function IncidentDetailMcpHub({
               </button>
             </div>
 
-            {previewAtt.fileType.startsWith('image/') ? (
+            {isImageAttachment(attName(previewAtt), previewAtt.fileType) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={previewAtt.fileUrl}
                 alt={attName(previewAtt)}
                 className="max-h-[70vh] w-full object-contain rounded-xl border border-slate-200 bg-slate-50"
               />
+            ) : isPdfAttachment(attName(previewAtt), previewAtt.fileType) ? (
+              <iframe
+                src={previewAtt.fileUrl}
+                title={attName(previewAtt)}
+                className="w-full h-[70vh] rounded-xl border border-slate-200 bg-slate-50"
+              />
             ) : (
               <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-600">
-                ไม่สามารถแสดงตัวอย่างไฟล์ประเภท {previewAtt.fileType} ได้
+                ไม่สามารถแสดงตัวอย่างไฟล์ประเภท {previewAtt.fileType} ได้ กรุณากด Open / Download ด้านล่าง
               </div>
             )}
 

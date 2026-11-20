@@ -159,7 +159,7 @@ export class EmailService {
           ${
             attachmentLink
               ? `<div style="margin-bottom: 20px; padding: 10px 14px; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; font-size: 13px;">
-                  📎 <strong>ไฟล์ภาพแนบ (Screenshot):</strong> <a href="${escapeHtml(attachmentLink)}" style="color: #0284c7; font-weight: 600; text-decoration: underline;">คลิกเพื่อเปิดดูรูปภาพบนเว็บ</a>
+                  📎 <strong>ไฟล์แนบ (Attachment):</strong> <a href="${escapeHtml(attachmentLink)}" style="color: #0284c7; font-weight: 600; text-decoration: underline;">คลิกเพื่อเปิดดู / ดาวน์โหลดไฟล์</a>
                 </div>`
               : ''
           }
@@ -176,7 +176,7 @@ export class EmailService {
       </div>
     `;
 
-    const textBody = `[${payload.ticketNo}] ${payload.title}\nระดับความเร่งด่วน: ${payload.urgency}\nผู้แจ้ง: ${payload.reporterName} (${payload.department || '-'}, ${payload.contactInfo})\nรายละเอียด: ${payload.description}\n${attachmentLink ? `ดูรูปแนบ: ${attachmentLink}\n` : ''}จัดการเคส: ${detailLink}`;
+    const textBody = `[${payload.ticketNo}] ${payload.title}\nระดับความเร่งด่วน: ${payload.urgency}\nผู้แจ้ง: ${payload.reporterName} (${payload.department || '-'}, ${payload.contactInfo})\nรายละเอียด: ${payload.description}\n${attachmentLink ? `ไฟล์แนบ: ${attachmentLink}\n` : ''}จัดการเคส: ${detailLink}`;
 
     try {
       const transporter = this.createTransporter(smtp);

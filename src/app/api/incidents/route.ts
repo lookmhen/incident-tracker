@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { IncidentService } from '@/lib/services/incident.service';
 import { EmailService } from '@/lib/services/email.service';
 import { checkApiAccess } from '@/lib/api-guard';
+import {
+  ALLOWED_ATTACHMENT_LABEL,
+  fallbackAttachmentFileName,
+  isAllowedAttachment,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_MB,
+  resolveAttachmentMime,
+} from '@/lib/attachments';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -52,51 +60,95 @@ export async function POST(req: NextRequest) {
     let filePayload: { buffer: Buffer; fileName: string; fileType: string; fileSize: number } | undefined;
 
     if (contentType.includes('multipart/form-data')) {
-      const formData = await req.formData();
-      reporterName = formData.get('reporterName') as string;
-      department = (formData.get('department') as string) || '';
-      contactInfo = formData.get('contactInfo') as string;
-      title = formData.get('title') as string;
-      description = formData.get('description') as string;
-      urgency = ((formData.get('urgency') as string) || 'MEDIUM') as any;
-      category = (formData.get('category') as string) || '';
-      categoryId = (formData.get('categoryId') as string) || '';
+      let formData: FormData;
+      try {
+        formData = await req.formData();
+      } catch {
+        return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 });
+      }
+      reporterName = String(formData.get('reporterName') || '');
+      department = String(formData.get('department') || '');
+      contactInfo = String(formData.get('contactInfo') || '');
+      title = String(formData.get('title') || '');
+      description = String(formData.get('description') || '');
+      urgency = (String(formData.get('urgency') || 'MEDIUM')) as any;
+      category = String(formData.get('category') || '');
+      categoryId = String(formData.get('categoryId') || '');
 
-      const uploadedFile = formData.get('attachment') as File | null;
-      if (uploadedFile && uploadedFile.size > 0) {
-        if (uploadedFile.size > 5 * 1024 * 1024) {
-          return NextResponse.json({ error: 'Attachment exceeds maximum size of 5MB' }, { status: 400 });
+      const rawAttachment = formData.get('attachment');
+      if (rawAttachment instanceof File) {
+        if (rawAttachment.size === 0) {
+          if (rawAttachment.name) {
+            return NextResponse.json({ error: 'Uploaded file is empty' }, { status: 400 });
+          }
+        } else {
+          if (!isAllowedAttachment(rawAttachment.name, rawAttachment.type)) {
+            return NextResponse.json(
+              { error: `Unsupported file type. Allowed: ${ALLOWED_ATTACHMENT_LABEL}` },
+              { status: 400 }
+            );
+          }
+          if (rawAttachment.size > MAX_ATTACHMENT_BYTES) {
+            return NextResponse.json(
+              { error: `Attachment exceeds maximum size of ${MAX_ATTACHMENT_MB}MB` },
+              { status: 400 }
+            );
+          }
+          const fileName = rawAttachment.name || fallbackAttachmentFileName(rawAttachment.type);
+          const arrayBuffer = await rawAttachment.arrayBuffer();
+          filePayload = {
+            buffer: Buffer.from(arrayBuffer),
+            fileName,
+            fileType: resolveAttachmentMime(fileName, rawAttachment.type),
+            fileSize: rawAttachment.size,
+          };
         }
-        const arrayBuffer = await uploadedFile.arrayBuffer();
-        filePayload = {
-          buffer: Buffer.from(arrayBuffer),
-          fileName: uploadedFile.name,
-          fileType: uploadedFile.type || 'image/png',
-          fileSize: uploadedFile.size,
-        };
+      } else if (rawAttachment !== null && rawAttachment !== '') {
+        return NextResponse.json({ error: 'Invalid attachment field' }, { status: 400 });
       }
     } else {
-      const json = await req.json();
-      reporterName = json.reporterName;
-      department = json.department || '';
-      contactInfo = json.contactInfo;
-      title = json.title;
-      description = json.description;
-      urgency = json.urgency || 'MEDIUM';
-      category = json.category || '';
-      categoryId = json.categoryId || '';
+      let json: any;
+      try {
+        json = await req.json();
+      } catch {
+        return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 });
+      }
+      reporterName = json?.reporterName;
+      department = json?.department || '';
+      contactInfo = json?.contactInfo;
+      title = json?.title;
+      description = json?.description;
+      urgency = json?.urgency || 'MEDIUM';
+      category = json?.category || '';
+      categoryId = json?.categoryId || '';
 
-      if (json.fileBase64 && json.fileName) {
-        const buffer = Buffer.from(json.fileBase64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-        if (buffer.length > 5 * 1024 * 1024) {
-          return NextResponse.json({ error: 'Attachment exceeds maximum size of 5MB' }, { status: 400 });
+      if (json?.fileBase64 !== undefined || json?.fileName !== undefined) {
+        if (typeof json.fileBase64 === 'string' && typeof json.fileName === 'string' && json.fileName.trim()) {
+          if (!isAllowedAttachment(json.fileName, json.fileType)) {
+            return NextResponse.json(
+              { error: `Unsupported file type. Allowed: ${ALLOWED_ATTACHMENT_LABEL}` },
+              { status: 400 }
+            );
+          }
+          const buffer = Buffer.from(json.fileBase64.replace(/^data:[^;]+;base64,/, ''), 'base64');
+          if (buffer.length === 0) {
+            return NextResponse.json({ error: 'Uploaded file is empty' }, { status: 400 });
+          }
+          if (buffer.length > MAX_ATTACHMENT_BYTES) {
+            return NextResponse.json(
+              { error: `Attachment exceeds maximum size of ${MAX_ATTACHMENT_MB}MB` },
+              { status: 400 }
+            );
+          }
+          filePayload = {
+            buffer,
+            fileName: json.fileName,
+            fileType: resolveAttachmentMime(json.fileName, json.fileType),
+            fileSize: buffer.length,
+          };
+        } else if (json?.fileBase64 || json?.fileName) {
+          return NextResponse.json({ error: 'Invalid attachment payload' }, { status: 400 });
         }
-        filePayload = {
-          buffer,
-          fileName: json.fileName,
-          fileType: json.fileType || 'image/png',
-          fileSize: buffer.length,
-        };
       }
     }
 

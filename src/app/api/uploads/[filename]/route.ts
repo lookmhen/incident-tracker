@@ -4,7 +4,7 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-const MIME_TYPES: Record<string, string> = {
+const INLINE_MIME_TYPES: Record<string, string> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -15,6 +15,17 @@ const MIME_TYPES: Record<string, string> = {
   '.log': 'text/plain; charset=utf-8',
   '.csv': 'text/csv; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+};
+
+const DOWNLOAD_MIME_TYPES: Record<string, string> = {
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.xml': 'application/xml; charset=utf-8',
+  '.zip': 'application/zip',
 };
 
 export async function GET(
@@ -45,7 +56,8 @@ export async function GET(
   try {
     const data = await fs.promises.readFile(filePath);
     const ext = path.extname(filename).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const inlineMime = INLINE_MIME_TYPES[ext];
+    const contentType = inlineMime || DOWNLOAD_MIME_TYPES[ext] || 'application/octet-stream';
 
     const headers: Record<string, string> = {
       'Content-Type': contentType,
@@ -54,8 +66,8 @@ export async function GET(
       'Cache-Control': 'private, max-age=3600',
     };
 
-    if (!MIME_TYPES[ext]) {
-      headers['Content-Disposition'] = `attachment; filename="${path.basename(filename).replace(/"/g, '')}"`;
+    if (!inlineMime) {
+      headers['Content-Disposition'] = `attachment; filename="${path.basename(filename).replace(/["\r\n]/g, '')}"`;
     }
 
     return new NextResponse(data, { status: 200, headers });

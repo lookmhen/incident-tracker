@@ -7,6 +7,7 @@ import prisma from '../src/lib/prisma';
 import { CategoryService } from '../src/lib/services/category.service';
 import { IncidentService } from '../src/lib/services/incident.service';
 import { IntegrationService } from '../src/lib/services/integration.service';
+import { isImageAttachment, isPdfAttachment } from '../src/lib/attachments';
 import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
 import { GET as exportCsvHandler } from '../src/app/api/incidents/export/route';
 import { POST as incidentsPostHandler } from '../src/app/api/incidents/route';
@@ -594,9 +595,9 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     );
     assert.equal(unauthRes.status, 401);
 
-    // 2. Non-image upload rejected
+    // 2. Disallowed file extension rejected (400)
     const fdBad = new FormData();
-    fdBad.append('file', new File([Buffer.from('hello')], 'notes.txt', { type: 'text/plain' }));
+    fdBad.append('file', new File([Buffer.from('<script>alert(1)</script>')], 'payload.html', { type: 'text/html' }));
     const badRes = await attachmentsPostHandler(
       new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}/attachments`, {
         method: 'POST',
@@ -861,5 +862,108 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const created = await okRes.json();
     testIncidentIds.push(created.id);
     assert.equal(created.department, 'Packing');
+  });
+
+  it('allows PDF/Excel attachments and blocks dangerous extensions like .exe/.html/.svg', async () => {
+    const adminToken = await createAdminSessionToken();
+    const cookieHeader = `${ADMIN_COOKIE_NAME}=${adminToken}`;
+    const inc = await IncidentService.createIncident({
+      reporterName: 'File Tester',
+      department: 'Packing',
+      contactInfo: 'file@test.local',
+      title: 'Multi-file attachment test',
+      description: 'Verify PDF and Excel uploads + blocklist',
+    });
+    testIncidentIds.push(inc.id);
+
+    const uploadFile = async (name: string, type: string, kind: 'REPORT' | 'RESOLUTION') => {
+      const fd = new FormData();
+      fd.append('file', new File([Buffer.from('TESTDATA')], name, { type }));
+      fd.append('kind', kind);
+      return attachmentsPostHandler(
+        new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}/attachments`, {
+          method: 'POST',
+          headers: { cookie: cookieHeader },
+          body: fd,
+        }),
+        { params: Promise.resolve({ id: inc.ticketNo }) }
+      );
+    };
+
+    // Disallowed dangerous extensions must be rejected (400)
+    for (const bad of [
+      ['malware.exe', 'application/octet-stream'],
+      ['xss.html', 'text/html'],
+      ['vector.svg', 'image/svg+xml'],
+    ]) {
+      const badRes = await uploadFile(bad[0], bad[1], 'REPORT');
+      assert.equal(badRes.status, 400, `Expected 400 for ${bad[0]}`);
+    }
+
+    // PDF and Excel (even with empty/octet-stream browser MIME) succeed (201)
+    const pdfRes = await uploadFile('error-dump.pdf', 'application/pdf', 'REPORT');
+    assert.equal(pdfRes.status, 201);
+    const pdfAtt = await pdfRes.json();
+    assert.equal(pdfAtt.fileType, 'application/pdf');
+
+    const xlsxRes = await uploadFile('packing-list.xlsx', 'application/octet-stream', 'RESOLUTION');
+    assert.equal(xlsxRes.status, 201);
+    const xlsxAtt = await xlsxRes.json();
+    assert.equal(xlsxAtt.fileType, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    // Extension takes precedence over spoofed browser MIME
+    assert.equal(isImageAttachment('report.pdf', 'image/png'), false);
+    assert.equal(isPdfAttachment('photo.png', 'application/pdf'), false);
+
+    // 0-byte attachment is rejected (400) on both attachments endpoint and portal POST
+    const emptyAttFd = new FormData();
+    emptyAttFd.append('file', new File([], 'empty.pdf', { type: 'application/pdf' }));
+    emptyAttFd.append('kind', 'REPORT');
+    const emptyAttRes = await attachmentsPostHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}/attachments`, {
+        method: 'POST',
+        headers: { cookie: cookieHeader },
+        body: emptyAttFd,
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(emptyAttRes.status, 400);
+
+    const emptyPortalFd = new FormData();
+    emptyPortalFd.append('reporterName', 'File Tester');
+    emptyPortalFd.append('department', 'Packing');
+    emptyPortalFd.append('contactInfo', 'file@test.local');
+    emptyPortalFd.append('title', 'Empty attachment rejection test');
+    emptyPortalFd.append('description', 'Should fail 400 on 0-byte named file');
+    emptyPortalFd.append('attachment', new File([], 'empty.pdf', { type: 'application/pdf' }));
+    const emptyPortalRes = await incidentsPostHandler(
+      new NextRequest('http://localhost:3000/api/incidents', {
+        method: 'POST',
+        body: emptyPortalFd,
+      })
+    );
+    assert.equal(emptyPortalRes.status, 400);
+
+    // Malformed JSON payload on POST /api/incidents returns 400 instead of 500
+    const badJsonRes = await incidentsPostHandler(
+      new NextRequest('http://localhost:3000/api/incidents', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{bad-json',
+      })
+    );
+    assert.equal(badJsonRes.status, 400);
+
+    // Clean up both uploaded files via DELETE endpoint
+    for (const att of [pdfAtt, xlsxAtt]) {
+      const delRes = await attachmentsDeleteHandler(
+        new NextRequest(
+          `http://localhost:3000/api/incidents/${inc.ticketNo}/attachments?attachmentId=${att.id}`,
+          { method: 'DELETE', headers: { cookie: cookieHeader } }
+        ),
+        { params: Promise.resolve({ id: inc.ticketNo }) }
+      );
+      assert.equal(delRes.status, 200);
+    }
   });
 });

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IncidentService } from '@/lib/services/incident.service';
 import { checkApiAccess } from '@/lib/api-guard';
+import {
+  ALLOWED_ATTACHMENT_LABEL,
+  fallbackAttachmentFileName,
+  isAllowedAttachment,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_MB,
+  resolveAttachmentMime,
+} from '@/lib/attachments';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const denied = await checkApiAccess(req, { requireAuth: true });
@@ -13,31 +19,43 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const { id } = await params;
-    const formData = await req.formData();
-    const uploadedFile = (formData.get('file') || formData.get('attachment')) as File | null;
-    const kindRaw = ((formData.get('kind') as string | null) || 'REPORT').toUpperCase();
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch {
+      return NextResponse.json({ error: 'Invalid multipart form data' }, { status: 400 });
+    }
+    const rawFile = formData.get('file') || formData.get('attachment');
+    const kindRaw = (typeof formData.get('kind') === 'string' ? (formData.get('kind') as string) : 'REPORT').toUpperCase();
 
     if (kindRaw !== 'REPORT' && kindRaw !== 'RESOLUTION') {
       return NextResponse.json({ error: 'kind must be REPORT or RESOLUTION' }, { status: 400 });
     }
-    if (!uploadedFile || uploadedFile.size === 0) {
-      return NextResponse.json({ error: 'Image file is required' }, { status: 400 });
+    if (!(rawFile instanceof File) || rawFile.size === 0) {
+      return NextResponse.json({ error: 'File is required and must not be empty' }, { status: 400 });
     }
-    if (!uploadedFile.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'Only image files are allowed (PNG, JPG, GIF, WebP)' }, { status: 400 });
+    if (!isAllowedAttachment(rawFile.name, rawFile.type)) {
+      return NextResponse.json(
+        { error: `Unsupported file type. Allowed: ${ALLOWED_ATTACHMENT_LABEL}` },
+        { status: 400 }
+      );
     }
-    if (uploadedFile.size > MAX_FILE_BYTES) {
-      return NextResponse.json({ error: 'Attachment exceeds maximum size of 5MB' }, { status: 400 });
+    if (rawFile.size > MAX_ATTACHMENT_BYTES) {
+      return NextResponse.json(
+        { error: `Attachment exceeds maximum size of ${MAX_ATTACHMENT_MB}MB` },
+        { status: 400 }
+      );
     }
 
-    const buffer = Buffer.from(await uploadedFile.arrayBuffer());
+    const fileName = rawFile.name || fallbackAttachmentFileName(rawFile.type);
+    const buffer = Buffer.from(await rawFile.arrayBuffer());
     const attachment = await IncidentService.addAttachment(
       id,
       {
         buffer,
-        fileName: uploadedFile.name || `image_${Date.now()}.png`,
-        fileType: uploadedFile.type,
-        fileSize: uploadedFile.size,
+        fileName,
+        fileType: resolveAttachmentMime(fileName, rawFile.type),
+        fileSize: rawFile.size,
       },
       kindRaw
     );

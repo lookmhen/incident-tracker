@@ -46,6 +46,7 @@ interface DashboardKpis {
 export default function AdminDashboardPage() {
   const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [departments, setDepartments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [kpis, setKpis] = useState<DashboardKpis>({
     totalRecords: 0,
@@ -137,6 +138,12 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchCategories();
+    fetch('/api/departments', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => {
+        if (Array.isArray(d)) setDepartments(d.filter((v): v is string => typeof v === 'string'));
+      })
+      .catch(() => {});
     fetch('/api/auth/admin', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
@@ -479,15 +486,18 @@ export default function AdminDashboardPage() {
             <div className="relative">
               <select
                 value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
+                onChange={(e) => {
+                  setDeptFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Dept: All Units</option>
-                <option value="Finance">Finance &amp; Accounting</option>
-                <option value="Logistics">Logistics &amp; Supply Chain</option>
-                <option value="Sales">Sales &amp; Distribution</option>
-                <option value="Infra">Infra Operations</option>
-                <option value="Executive">Executive Offices</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
               </select>
               <span className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">
                 expand_more

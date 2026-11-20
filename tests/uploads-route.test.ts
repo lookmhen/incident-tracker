@@ -3,10 +3,19 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
 import { NextRequest } from 'next/server';
-import { GET as uploadGetHandler } from '../src/app/api/uploads/[filename]/route';
+import { GET as uploadGetHandler } from '../src/app/api/uploads/[...path]/route';
 import { IncidentService } from '../src/lib/services/incident.service';
+import { backupDatabase } from '../scripts/backup-db';
 
-describe('11. Dynamic Upload Serving (/api/uploads/[filename])', () => {
+describe('11. Dynamic Upload Serving (/api/uploads/[...path])', () => {
+  const invokeHandler = (parts: string | string[]) => {
+    const segments = Array.isArray(parts) ? parts : parts.split('/');
+    const url = `http://localhost:3000/api/uploads/${segments.join('/')}`;
+    return uploadGetHandler(new NextRequest(url), {
+      params: Promise.resolve({ path: segments }),
+    });
+  };
+
   it('serves a newly saved upload with proper headers and cleans up', async () => {
     const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const saved = await IncidentService.saveUploadedFile({
@@ -17,12 +26,11 @@ describe('11. Dynamic Upload Serving (/api/uploads/[filename])', () => {
     });
 
     assert.ok(saved.fileUrl.startsWith('/uploads/'));
-    const filename = saved.fileUrl.replace('/uploads/', '');
-    const savedPath = path.join(process.cwd(), 'public', 'uploads', filename);
+    const relPath = saved.fileUrl.replace('/uploads/', '');
+    const savedPath = path.join(process.cwd(), 'public', 'uploads', ...relPath.split('/'));
 
     try {
-      const req = new NextRequest(`http://localhost:3000/api/uploads/${filename}`);
-      const res = await uploadGetHandler(req, { params: Promise.resolve({ filename }) });
+      const res = await invokeHandler(relPath);
 
       assert.equal(res.status, 200);
       assert.equal(res.headers.get('content-type'), 'image/png');
@@ -35,6 +43,37 @@ describe('11. Dynamic Upload Serving (/api/uploads/[filename])', () => {
     }
   });
 
+  it('serves both legacy flat uploads and nested YYYY/MM/ticketNo uploads', async () => {
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    const flatFile = path.join(uploadsDir, 'legacy_flat_proof.png');
+    const nestedDir = path.join(uploadsDir, '2026', '11', 'INC-202611-999');
+    const nestedFile = path.join(nestedDir, 'nested_proof.png');
+
+    const sampleBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x11, 0x22, 0x33, 0x44]);
+
+    try {
+      await fs.promises.mkdir(nestedDir, { recursive: true });
+      await fs.promises.writeFile(flatFile, sampleBytes);
+      await fs.promises.writeFile(nestedFile, sampleBytes);
+
+      // Legacy flat lookup
+      const flatRes = await invokeHandler('legacy_flat_proof.png');
+      assert.equal(flatRes.status, 200);
+      assert.equal(flatRes.headers.get('content-type'), 'image/png');
+      assert.deepEqual(Buffer.from(await flatRes.arrayBuffer()), sampleBytes);
+
+      // Hierarchical nested lookup
+      const nestedRes = await invokeHandler('2026/11/INC-202611-999/nested_proof.png');
+      assert.equal(nestedRes.status, 200);
+      assert.equal(nestedRes.headers.get('content-type'), 'image/png');
+      assert.deepEqual(Buffer.from(await nestedRes.arrayBuffer()), sampleBytes);
+    } finally {
+      await fs.promises.unlink(flatFile).catch(() => {});
+      await fs.promises.unlink(nestedFile).catch(() => {});
+      await fs.promises.rm(path.join(uploadsDir, '2026'), { recursive: true, force: true }).catch(() => {});
+    }
+  });
+
   it('forces download for active/unknown extensions like .html', async () => {
     const htmlBuf = Buffer.from('<script>alert(1)</script>');
     const saved = await IncidentService.saveUploadedFile({
@@ -44,12 +83,11 @@ describe('11. Dynamic Upload Serving (/api/uploads/[filename])', () => {
       fileSize: htmlBuf.length,
     });
 
-    const filename = saved.fileUrl.replace('/uploads/', '');
-    const savedPath = path.join(process.cwd(), 'public', 'uploads', filename);
+    const relPath = saved.fileUrl.replace('/uploads/', '');
+    const savedPath = path.join(process.cwd(), 'public', 'uploads', ...relPath.split('/'));
 
     try {
-      const req = new NextRequest(`http://localhost:3000/api/uploads/${filename}`);
-      const res = await uploadGetHandler(req, { params: Promise.resolve({ filename }) });
+      const res = await invokeHandler(relPath);
 
       assert.equal(res.status, 200);
       assert.equal(res.headers.get('content-type'), 'application/octet-stream');
@@ -60,18 +98,28 @@ describe('11. Dynamic Upload Serving (/api/uploads/[filename])', () => {
   });
 
   it('returns 404 for missing attachments', async () => {
-    const req = new NextRequest('http://localhost:3000/api/uploads/does-not-exist.png');
-    const res = await uploadGetHandler(req, {
-      params: Promise.resolve({ filename: 'does-not-exist.png' }),
-    });
+    const res = await invokeHandler('does-not-exist.png');
     assert.equal(res.status, 404);
+
+    const nestedMissingRes = await invokeHandler('2026/11/INC-202611-999/missing.png');
+    assert.equal(nestedMissingRes.status, 404);
   });
 
-  it('blocks path traversal and hidden dotfiles', async () => {
-    for (const bad of ['../.env', '..\\package.json', '.gitkeep', 'sub/file.png']) {
-      const req = new NextRequest('http://localhost:3000/api/uploads/bad');
-      const res = await uploadGetHandler(req, { params: Promise.resolve({ filename: bad }) });
-      assert.equal(res.status, 400, `Expected 400 for ${bad}`);
+  it('blocks path traversal, hidden dotfiles, and invalid segment shapes', async () => {
+    const badCases: (string | string[])[] = [
+      ['..', '.env'],
+      ['2026', '..', '.env'],
+      ['2026', '.gitkeep'],
+      ['..\\package.json'],
+      ['2026', 'a\\b.png'],
+      ['2026', 'file\0.png'],
+      [''],
+      [],
+    ];
+
+    for (const bad of badCases) {
+      const res = await invokeHandler(bad);
+      assert.equal(res.status, 400, `Expected 400 for ${JSON.stringify(bad)}`);
     }
   });
 
@@ -89,22 +137,18 @@ describe('11. Dynamic Upload Serving (/api/uploads/[filename])', () => {
       fileSize: 9,
     });
 
-    const pdfName = pdfSaved.fileUrl.replace('/uploads/', '');
-    const xlsxName = xlsxSaved.fileUrl.replace('/uploads/', '');
-    const pdfPath = path.join(process.cwd(), 'public', 'uploads', pdfName);
-    const xlsxPath = path.join(process.cwd(), 'public', 'uploads', xlsxName);
+    const pdfRel = pdfSaved.fileUrl.replace('/uploads/', '');
+    const xlsxRel = xlsxSaved.fileUrl.replace('/uploads/', '');
+    const pdfPath = path.join(process.cwd(), 'public', 'uploads', ...pdfRel.split('/'));
+    const xlsxPath = path.join(process.cwd(), 'public', 'uploads', ...xlsxRel.split('/'));
 
     try {
-      const pdfRes = await uploadGetHandler(new NextRequest(`http://localhost:3000/api/uploads/${pdfName}`), {
-        params: Promise.resolve({ filename: pdfName }),
-      });
+      const pdfRes = await invokeHandler(pdfRel);
       assert.equal(pdfRes.status, 200);
       assert.equal(pdfRes.headers.get('content-type'), 'application/pdf');
       assert.equal(pdfRes.headers.get('content-disposition'), null);
 
-      const xlsxRes = await uploadGetHandler(new NextRequest(`http://localhost:3000/api/uploads/${xlsxName}`), {
-        params: Promise.resolve({ filename: xlsxName }),
-      });
+      const xlsxRes = await invokeHandler(xlsxRel);
       assert.equal(xlsxRes.status, 200);
       assert.equal(
         xlsxRes.headers.get('content-type'),
@@ -114,6 +158,43 @@ describe('11. Dynamic Upload Serving (/api/uploads/[filename])', () => {
     } finally {
       await fs.promises.unlink(pdfPath).catch(() => {});
       await fs.promises.unlink(xlsxPath).catch(() => {});
+    }
+  });
+
+  it('creates an atomic SQLite snapshot via VACUUM INTO and prunes backups older than keepDays', async () => {
+    const tmpDir = path.join(process.cwd(), 'tests', 'fixtures', `tmp_backup_${Date.now()}`);
+    await fs.promises.mkdir(tmpDir, { recursive: true });
+
+    const oldBackupFile = path.join(tmpDir, 'incident_2020-01-01_000000.db');
+    const keepTextFile = path.join(tmpDir, 'keep-me.txt');
+
+    try {
+      // Plant old backup and non-backup file with mtime 40 days ago
+      await fs.promises.writeFile(oldBackupFile, 'OLD_DB');
+      await fs.promises.writeFile(keepTextFile, 'STAY');
+      const oldTime = (Date.now() - 40 * 86_400_000) / 1000;
+      await fs.promises.utimes(oldBackupFile, oldTime, oldTime);
+      await fs.promises.utimes(keepTextFile, oldTime, oldTime);
+
+      const res = await backupDatabase({ destDir: tmpDir, keepDays: 30 });
+
+      assert.ok(fs.existsSync(res.backupPath), 'Snapshot file must exist on disk');
+      const stat = await fs.promises.stat(res.backupPath);
+      assert.ok(stat.size > 0, 'Snapshot must not be empty');
+
+      // Verify valid SQLite 3 file header
+      const fd = await fs.promises.open(res.backupPath, 'r');
+      const headerBuf = Buffer.alloc(16);
+      await fd.read(headerBuf, 0, 16, 0);
+      await fd.close();
+      assert.equal(headerBuf.toString('utf8', 0, 15), 'SQLite format 3');
+
+      // Verify retention pruning
+      assert.equal(res.pruned, 1, 'Should prune exactly 1 old backup');
+      assert.equal(fs.existsSync(oldBackupFile), false, 'Old backup file should have been deleted');
+      assert.equal(fs.existsSync(keepTextFile), true, 'Unrelated file must not be pruned');
+    } finally {
+      await fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     }
   });
 });

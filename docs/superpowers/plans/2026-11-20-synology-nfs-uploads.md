@@ -38,25 +38,25 @@
 - Produces: `GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> })` in `src/app/api/uploads/[...path]/route.ts`.
 - Consumes: `process.env.UPLOADS_DIR` (optional; defaults to `path.resolve(process.cwd(), 'public', 'uploads')`).
 
-- [ ] **Step 1: Update `tests/uploads-route.test.ts` to target `[...path]` and add nested + legacy + multi-segment traversal cases**
+- [x] **Step 1: Update `tests/uploads-route.test.ts` to target `[...path]` and add nested + legacy + multi-segment traversal cases**
   - Import `GET as uploadGetHandler` from `../src/app/api/uploads/[...path]/route`.
   - Update existing tests to pass `{ params: Promise.resolve({ path: relPath.split('/') }) }`.
   - Add test `serves both legacy flat uploads and nested YYYY/MM/ticketNo uploads` asserting `200`, `content-type: image/png`, and byte equality for both flat and nested paths (cleaning up created files/folders in `finally`).
   - Expand traversal test to reject `['..', '.env']`, `['2026', '..', '.env']`, `['2026', '.gitkeep']`, `['..\\\\package.json']`, and `['']` with `400`.
 
-- [ ] **Step 2: Run `npx tsx --test tests/uploads-route.test.ts` to confirm it fails before route creation**
+- [x] **Step 2: Run `npx tsx --test tests/uploads-route.test.ts` to confirm it fails before route creation**
   - Expected: FAIL (module `../src/app/api/uploads/[...path]/route` not found).
 
-- [ ] **Step 3: Create `src/app/api/uploads/[...path]/route.ts`, delete old `[filename]/route.ts`, and update `next.config.ts`**
+- [x] **Step 3: Create `src/app/api/uploads/[...path]/route.ts`, delete old `[filename]/route.ts`, and update `next.config.ts`**
   - Validate `segments = (await params).path`: reject if `!Array.isArray(segments) || segments.length === 0`, or any segment is empty, starts with `.`, equals `..`, or contains `/`, `\\`, `\0`.
   - Resolve `uploadDir = path.resolve(process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'public', 'uploads'))` and `filePath = path.resolve(uploadDir, ...segments)`; enforce `filePath.startsWith(uploadDir + path.sep)`.
   - Preserve existing `MIME_TYPES`, `X-Content-Type-Options: nosniff`, `Cache-Control: private, max-age=3600`, `Content-Disposition: attachment` for unknown extensions, and `404` on `ENOENT`.
   - Update `next.config.ts` rewrite from `/uploads/:filename` → `/api/uploads/:filename` to `/uploads/:path*` → `/api/uploads/:path*`.
 
-- [ ] **Step 4: Run `npx tsx --test tests/uploads-route.test.ts`**
+- [x] **Step 4: Run `npx tsx --test tests/uploads-route.test.ts`**
   - Expected: PASS (all cases in Suite 11 pass).
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
   - `git add next.config.ts src/app/api/uploads tests/uploads-route.test.ts`
   - `git commit -m "feat(uploads): switch serving route to catch-all path with nested traversal guards"`
 
@@ -74,17 +74,17 @@
   - `IncidentService.saveUploadedFile(file, options?: { ticketNo?: string; kind?: 'REPORT' | 'RESOLUTION'; date?: Date }): Promise<{ fileUrl: string; fileName: string; fileType: string; fileSize: number }>`
 - Consumes: catch-all `/uploads/:path*` route from Task 1.
 
-- [ ] **Step 1: Add nested upload/delete assertions in `tests/incident-analytics-export.test.ts`**
+- [x] **Step 1: Add nested upload/delete assertions in `tests/incident-analytics-export.test.ts`**
   - In `allows admin to upload and delete REPORT vs RESOLUTION attachments separately` (lines 625–664):
     - Assert `reportAtt.fileUrl` matches `/^\/uploads\/\d{4}\/\d{2}\/INC-\d{6}-\d+\/report_\d+_/` and uses forward slashes only (no `\\`).
     - Assert `resolutionAtt.fileUrl` matches `/^\/uploads\/\d{4}\/\d{2}\/INC-\d{6}-\d+\/resolution_\d+_/`.
     - Replace `path.basename(att.fileUrl)` on line 653 with `path.join(IncidentService.getUploadsRoot(), ...att.fileUrl.replace(/^\/uploads\//, '').split('/'))` so disk existence & unlink assertions verify the real nested path.
   - Also verify deleting a legacy flat attachment (e.g. `/uploads/legacy_test.png`) still unlinks cleanly from `getUploadsRoot()`.
 
-- [ ] **Step 2: Run `npx tsx --test tests/incident-analytics-export.test.ts` to verify the new assertions fail**
+- [x] **Step 2: Run `npx tsx --test tests/incident-analytics-export.test.ts` to verify the new assertions fail**
   - Expected: FAIL (`fileUrl` is still flat `/uploads/<ts>_...`).
 
-- [ ] **Step 3: Implement `getUploadsRoot()`, hierarchical `saveUploadedFile()`, reordered `createIncident()`, and nested `deleteAttachment()` in `src/lib/services/incident.service.ts`**
+- [x] **Step 3: Implement `getUploadsRoot()`, hierarchical `saveUploadedFile()`, reordered `createIncident()`, and nested `deleteAttachment()` in `src/lib/services/incident.service.ts`**
   - `getUploadsRoot()`: returns `path.resolve(process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'public', 'uploads'))`.
   - `saveUploadedFile(file, options?)`:
     - Compute `d = options?.date ?? new Date()`, `yyyy = String(d.getFullYear())`, `mm = String(d.getMonth() + 1).padStart(2, '0')`.
@@ -97,10 +97,10 @@
   - `addAttachment()`: pass `{ ticketNo: target.ticketNo, kind, date: target.createdAt }` to `saveUploadedFile`.
   - `deleteAttachment()`: strip leading `/uploads/`, split on `/`, validate no empty/`..`/dotfile segments, resolve `path.resolve(uploadRoot, ...segments)`, check `filePath.startsWith(uploadRoot + path.sep)`, then `unlink`.
 
-- [ ] **Step 4: Run `npx tsx --test tests/incident-analytics-export.test.ts tests/uploads-route.test.ts` and `npx tsc --noEmit -p .`**
+- [x] **Step 4: Run `npx tsx --test tests/incident-analytics-export.test.ts tests/uploads-route.test.ts` and `npx tsc --noEmit -p .`**
   - Expected: PASS (all tests green, `tsc` exit 0).
 
-- [ ] **Step 5: Commit Task 2**
+- [x] **Step 5: Commit Task 2**
   - `git add src/lib/services/incident.service.ts tests/incident-analytics-export.test.ts`
   - `git commit -m "feat(uploads): organize new attachments under YYYY/MM/ticketNo with UPLOADS_DIR support"`
 
@@ -116,21 +116,21 @@
 **Interfaces:**
 - Produces: Compose env var `UPLOADS_VOLUME` (default `./public/uploads`) mapped to `/app/public/uploads`; non-recursive entrypoint startup on `/app/public/uploads`.
 
-- [ ] **Step 1: Update `docker-compose.yml` volume mapping**
+- [x] **Step 1: Update `docker-compose.yml` volume mapping**
   - Change `- ./public/uploads:/app/public/uploads` to `- ${UPLOADS_VOLUME:-./public/uploads}:/app/public/uploads`.
   - Keep `- ./data:/app/data` strictly on local disk with an inline comment warning against live SQLite on NFS.
 
-- [ ] **Step 2: Fix `docker-entrypoint.sh` to avoid recursive `chown -R` / `chmod -R` on NFS**
+- [x] **Step 2: Fix `docker-entrypoint.sh` to avoid recursive `chown -R` / `chmod -R` on NFS**
   - Keep `chown -R nextjs:nodejs /app/data` and `chmod -R 775 /app/data` (local disk only).
   - For `/app/public/uploads`, run non-recursive `mkdir -p /app/public/uploads` and top-level `chown nextjs:nodejs /app/public/uploads 2>/dev/null || true` only (never `-R`).
 
-- [ ] **Step 3: Document `UPLOADS_VOLUME` (optional Synology NFS mount path) and `DB_BACKUP_DIR` in `.env.example`**
+- [x] **Step 3: Document `UPLOADS_VOLUME` (optional Synology NFS mount path) and `DB_BACKUP_DIR` in `.env.example`**
   - Keep defaults commented/safe for local dev.
 
-- [ ] **Step 4: Verify `docker compose config` (if Docker CLI available) and `git diff`**
+- [x] **Step 4: Verify `docker compose config` (if Docker CLI available) and `git diff`**
   - Expected: valid compose YAML with `${UPLOADS_VOLUME:-./public/uploads}:/app/public/uploads` and zero recursive ops on `/app/public/uploads`.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
   - `git add docker-compose.yml docker-entrypoint.sh .env.example`
   - `git commit -m "chore(docker): support UPLOADS_VOLUME for Synology NFS and skip recursive chmod on uploads"`
 
@@ -147,25 +147,25 @@
 **Interfaces:**
 - Produces: `backupDatabase(options: { destDir: string; keepDays?: number }): Promise<{ backupPath: string; pruned: number }>` exported from `scripts/backup-db.ts`, plus CLI entrypoint (`npm run backup:db -- --dest=/mnt/synology/db-backups --keep-days=30`).
 
-- [ ] **Step 1: Write failing test for `backupDatabase()` in `tests/uploads-route.test.ts`**
+- [x] **Step 1: Write failing test for `backupDatabase()` in `tests/uploads-route.test.ts`**
   - Create a temp directory, plant one fake old file `incident_2020-01-01_000000.db` (mtime 40 days ago) and one unrelated file `keep-me.txt` (mtime 40 days ago).
   - Call `backupDatabase({ destDir: tmpDir, keepDays: 30 })`.
   - Assert returned `backupPath` exists, has size > 0, begins with SQLite header `'SQLite format 3\0'`, old `incident_*.db` was pruned (`pruned === 1`), and unrelated `keep-me.txt` was untouched. Clean up `tmpDir` in `finally`.
 
-- [ ] **Step 2: Run `npx tsx --test tests/uploads-route.test.ts` to confirm failure**
+- [x] **Step 2: Run `npx tsx --test tests/uploads-route.test.ts` to confirm failure**
   - Expected: FAIL (`scripts/backup-db.ts` not found).
 
-- [ ] **Step 3: Implement `scripts/backup-db.ts` and register `"backup:db"` in `package.json`**
+- [x] **Step 3: Implement `scripts/backup-db.ts` and register `"backup:db"` in `package.json`**
   - Use `fs.promises.mkdir(destDir, { recursive: true })`.
   - Generate `incident_YYYY-MM-DD_HHmmss.db`, escape single quotes (`target.replace(/'/g, "''")`), and execute `await prisma.$executeRawUnsafe(\`VACUUM INTO '${escaped}'\`)` (online-safe atomic SQLite snapshot without stopping the app).
   - Prune only files matching `/^incident_.*\.db$/` in `destDir` whose `mtimeMs < Date.now() - keepDays * 86_400_000`.
   - Run CLI block only when executed directly (`require.main === module` or `import.meta.url` / `process.argv[1]` check), reading `--dest` / `DB_BACKUP_DIR` and `--keep-days` (default `30`).
 
-- [ ] **Step 4: Add concise Synology NFS + cron backup section to `README.md` and run full verification**
+- [x] **Step 4: Add concise Synology NFS + cron backup section to `README.md` and run full verification**
   - Document: Synology NFS export permission for `UID 1001` (`nextjs`), mounting to host `/mnt/synology/incident-uploads`, setting `UPLOADS_VOLUME=/mnt/synology/incident-uploads` in `.env`, and a sample host cron line for `npm run backup:db`.
   - Run `npx tsc --noEmit -p .` and full `npm test`.
   - Expected: `tsc` exit 0, all test suites pass (`fail: 0`).
 
-- [ ] **Step 5: Commit Task 4**
+- [x] **Step 5: Commit Task 4**
   - `git add scripts/backup-db.ts package.json tests/uploads-route.test.ts README.md`
   - `git commit -m "feat(backup): add online SQLite VACUUM INTO backup script and Synology NFS docs"`

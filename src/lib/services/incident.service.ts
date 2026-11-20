@@ -268,27 +268,53 @@ export class IncidentService {
   }
 
   /**
-   * Saves an uploaded buffer to ./public/uploads
+   * Resolves root uploads directory, honoring UPLOADS_DIR env if set
    */
-  public static async saveUploadedFile(file: {
-    buffer: Buffer;
-    fileName: string;
-    fileType: string;
-    fileSize: number;
-  }): Promise<{ fileUrl: string; fileName: string; fileType: string; fileSize: number }> {
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+  public static getUploadsRoot(): string {
+    return path.resolve(process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'public', 'uploads'));
+  }
+
+  /**
+   * Saves an uploaded buffer under YYYY/MM/<ticketNo>/ or fallback YYYY/MM/
+   */
+  public static async saveUploadedFile(
+    file: {
+      buffer: Buffer;
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+    },
+    options?: {
+      ticketNo?: string;
+      kind?: 'REPORT' | 'RESOLUTION';
+      date?: Date;
+    }
+  ): Promise<{ fileUrl: string; fileName: string; fileType: string; fileSize: number }> {
+    const uploadRoot = this.getUploadsRoot();
+    const d = options?.date ?? new Date();
+    const yyyy = String(d.getFullYear());
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const safeTicket = options?.ticketNo?.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    const relSegments: string[] = safeTicket ? [yyyy, mm, safeTicket] : [yyyy, mm];
+    const targetDir = path.join(uploadRoot, ...relSegments);
+
+    if (!fs.existsSync(targetDir)) {
+      await fs.promises.mkdir(targetDir, { recursive: true });
     }
 
     const safeName = file.fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const uniqueFileName = `${Date.now()}_${safeName}`;
-    const targetPath = path.join(uploadDir, uniqueFileName);
+    const prefix = options?.kind ? `${options.kind.toLowerCase()}_` : '';
+    const uniqueFileName = `${prefix}${Date.now()}_${safeName}`;
+    const targetPath = path.join(targetDir, uniqueFileName);
 
     await fs.promises.writeFile(targetPath, file.buffer);
 
+    // Always use POSIX forward-slashes for fileUrl in database & URLs
+    const fileUrl = `/uploads/${[...relSegments, uniqueFileName].join('/')}`;
+
     return {
-      fileUrl: `/uploads/${uniqueFileName}`,
+      fileUrl,
       fileName: file.fileName,
       fileType: file.fileType,
       fileSize: file.fileSize,
@@ -301,11 +327,6 @@ export class IncidentService {
   public static async createIncident(data: CreateIncidentDTO) {
     const cleanDesc = McpService.cleanText(data.description);
     const cleanTitle = McpService.cleanText(data.title);
-
-    let savedAttachment: { fileUrl: string; fileName: string; fileType: string; fileSize: number } | null = null;
-    if (data.file && data.file.buffer) {
-      savedAttachment = await this.saveUploadedFile(data.file);
-    }
 
     let created: any = null;
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -323,16 +344,6 @@ export class IncidentService {
             category: data.category?.trim() || null,
             categoryId: data.categoryId || null,
             status: 'OPEN',
-            attachments: savedAttachment
-              ? {
-                  create: {
-                    fileUrl: savedAttachment.fileUrl,
-                    fileName: savedAttachment.fileName,
-                    fileType: savedAttachment.fileType,
-                    fileSize: savedAttachment.fileSize,
-                  },
-                }
-              : undefined,
           },
           include: {
             attachments: true,
@@ -347,6 +358,26 @@ export class IncidentService {
         }
         throw err;
       }
+    }
+
+    // Save attachment under YYYY/MM/<ticketNo>/ after ticketNo is finalized
+    if (data.file && data.file.buffer) {
+      const savedAttachment = await this.saveUploadedFile(data.file, {
+        ticketNo: created.ticketNo,
+        kind: 'REPORT',
+        date: created.createdAt,
+      });
+      const attachment = await prisma.attachment.create({
+        data: {
+          incidentId: created.id,
+          fileUrl: savedAttachment.fileUrl,
+          fileName: savedAttachment.fileName,
+          fileType: savedAttachment.fileType,
+          fileSize: savedAttachment.fileSize,
+          kind: 'REPORT',
+        },
+      });
+      created.attachments = [attachment];
     }
 
     // Asynchronously dispatch to Microsoft Teams & Admin Email in parallel (non-blocking)
@@ -836,7 +867,11 @@ export class IncidentService {
       throw new Error('Incident is closed; reopen to IN_PROGRESS before modifying attachments');
     }
 
-    const saved = await this.saveUploadedFile(file);
+    const saved = await this.saveUploadedFile(file, {
+      ticketNo: target.ticketNo,
+      kind,
+      date: target.createdAt,
+    });
     return prisma.attachment.create({
       data: {
         incidentId: target.id,
@@ -871,10 +906,19 @@ export class IncidentService {
     await prisma.attachment.delete({ where: { id: att.id } });
 
     if (att.fileUrl.startsWith('/uploads/')) {
-      const uploadDir = path.resolve(process.cwd(), 'public', 'uploads');
-      const filePath = path.resolve(uploadDir, path.basename(att.fileUrl));
-      if (filePath.startsWith(uploadDir + path.sep)) {
-        await fs.promises.unlink(filePath).catch(() => {});
+      const uploadRoot = this.getUploadsRoot();
+      const relPath = att.fileUrl.slice('/uploads/'.length);
+      const segments = relPath.split('/').filter(Boolean);
+      if (
+        segments.length > 0 &&
+        !segments.some(
+          (s) => !s || s.startsWith('.') || s.includes('..') || s.includes('\\') || s.includes('\0')
+        )
+      ) {
+        const filePath = path.resolve(uploadRoot, ...segments);
+        if (filePath.startsWith(uploadRoot + path.sep)) {
+          await fs.promises.unlink(filePath).catch(() => {});
+        }
       }
     }
   }

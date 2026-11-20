@@ -10,8 +10,8 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         {
-          source: '/uploads/:filename',
-          destination: '/api/uploads/:filename',
+          source: '/uploads/:path*',
+          destination: '/api/uploads/:path*',
         },
       ],
     };

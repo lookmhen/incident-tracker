@@ -293,7 +293,7 @@ stateDiagram-v2
 | **DELETE**| `/api/categories/[id]` | `id` | `{ success: true }` |
 | **GET/POST/DELETE** | `/api/root-causes` | JSON `{ name }` (POST) หรือ `?name=` (DELETE) | จัดการตัวเลือก Root Cause (`Human`, `System`, `Data` และรายการที่เพิ่มเอง) |
 | **GET** | `/api/departments` | `?q=` (optional, public) | รายชื่อแผนกทั้งหมดที่มีในระบบแบบ deduplicate (ไม่สนตัวพิมพ์เล็ก-ใหญ่) สำหรับ autocomplete |
-| **GET** | `/api/uploads/[filename]` | `filename` (rewrite จาก `/uploads/:filename`) | อ่านไฟล์แนบจาก `public/uploads` ในโหมด standalone พร้อมตรวจ path traversal |
+| **GET** | `/api/uploads/[...path]` | `path` (rewrite จาก `/uploads/:path*`) | อ่านไฟล์แนบจาก `public/uploads` (รองรับทั้ง flat legacy และ `YYYY/MM/<ticketNo>/`) ในโหมด standalone พร้อมตรวจ path traversal |
 | **GET** | `/api/mcp/v1/context` | `?ticketNo=INC-XXX` (รองรับ Header `x-api-key`) | Clean MCP Schema JSON สำหรับ External MCP Client |
 | **GET** | `/api/mcp/v1/insights` | รองรับ Header `x-api-key` | ข้อมูลสรุปภาพรวม KPI, MTTA, MTTR และ Category Load |
 | **GET** | `/api/mcp/v1/recurring`| รองรับ Header `x-api-key` | การจัดกลุ่มเคสที่เกิดซ้ำซ้อน (Clustering by Patterns) |

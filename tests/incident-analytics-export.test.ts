@@ -630,6 +630,16 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.equal(reportAtt.kind, 'REPORT');
     assert.equal(resolutionAtt.kind, 'RESOLUTION');
 
+    // Assert hierarchical path structure: /uploads/YYYY/MM/<ticketNo>/<kind>_<timestamp>_<filename>
+    const expectedPrefix = new RegExp(`^/uploads/\\d{4}/\\d{2}/${inc.ticketNo}/`);
+    assert.ok(expectedPrefix.test(reportAtt.fileUrl), `report fileUrl should follow nested structure, got: ${reportAtt.fileUrl}`);
+    assert.ok(reportAtt.fileUrl.includes('/report_'), `report filename should be prefixed with report_`);
+    assert.ok(!reportAtt.fileUrl.includes('\\'), 'fileUrl must use forward slashes only');
+
+    assert.ok(expectedPrefix.test(resolutionAtt.fileUrl), `resolution fileUrl should follow nested structure, got: ${resolutionAtt.fileUrl}`);
+    assert.ok(resolutionAtt.fileUrl.includes('/resolution_'), `resolution filename should be prefixed with resolution_`);
+    assert.ok(!resolutionAtt.fileUrl.includes('\\'), 'fileUrl must use forward slashes only');
+
     const detailRes = await incidentGetHandler(
       new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
         headers: { cookie: cookieHeader },
@@ -652,9 +662,14 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.equal(crossDelRes.status, 404);
 
     // 5. Cleanup both uploaded files via DELETE endpoint
+    const uploadsRoot = (IncidentService as any).getUploadsRoot
+      ? (IncidentService as any).getUploadsRoot()
+      : path.join(process.cwd(), 'public', 'uploads');
+
     for (const att of [reportAtt, resolutionAtt]) {
-      const storedPath = path.join(process.cwd(), 'public', 'uploads', path.basename(att.fileUrl));
-      assert.ok(fs.existsSync(storedPath), 'Uploaded file should exist on disk before delete');
+      const relSegments = att.fileUrl.replace(/^\/uploads\//, '').split('/');
+      const storedPath = path.join(uploadsRoot, ...relSegments);
+      assert.ok(fs.existsSync(storedPath), `Uploaded file should exist on disk before delete: ${storedPath}`);
       const delAttRes = await attachmentsDeleteHandler(
         new NextRequest(
           `http://localhost:3000/api/incidents/${inc.ticketNo}/attachments?attachmentId=${att.id}`,
@@ -665,6 +680,29 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       assert.equal(delAttRes.status, 200);
       assert.equal(fs.existsSync(storedPath), false, 'Uploaded file should be unlinked on delete');
     }
+
+    // 6. Verify deleting a legacy flat attachment still unlinks cleanly
+    const legacyFlatPath = path.join(uploadsRoot, 'legacy_compat_test.png');
+    await fs.promises.writeFile(legacyFlatPath, Buffer.from('LEGACY'));
+    const legacyAtt = await prisma.attachment.create({
+      data: {
+        incidentId: inc.id,
+        fileUrl: '/uploads/legacy_compat_test.png',
+        fileName: 'legacy_compat_test.png',
+        fileType: 'image/png',
+        fileSize: 6,
+        kind: 'REPORT',
+      },
+    });
+    const delLegacyRes = await attachmentsDeleteHandler(
+      new NextRequest(
+        `http://localhost:3000/api/incidents/${inc.ticketNo}/attachments?attachmentId=${legacyAtt.id}`,
+        { method: 'DELETE', headers: { cookie: cookieHeader } }
+      ),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(delLegacyRes.status, 200);
+    assert.equal(fs.existsSync(legacyFlatPath), false, 'Legacy flat file should be unlinked on delete');
   });
 
   it('handles concurrent incident creation without ticketNo P2002 collision', async () => {

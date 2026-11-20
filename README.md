@@ -104,9 +104,10 @@ Run these scripts from the repository root:
 | **Development Server** | `npm run dev` | Start Next.js development server on port 3000 |
 | **Production Build** | `npm run build` | Compile Next.js production build with type checking |
 | **Start Production** | `npm start` | Run compiled Next.js production server |
-| **Unit & Integration Tests** | `npm test` | Run all 54 automated tests across 12 test suites |
+| **Unit & Integration Tests** | `npm test` | Run all automated tests across 12 test suites |
 | **MCP Server (Stdio)** | `npm run mcp` | Launch standalone Model Context Protocol server for Claude, Cursor, and AI Agents |
 | **Historical CSV Import** | `npm run import:csv [file]` | Import legacy incident CSV files into SQLite database with Thai Buddhist era parsing |
+| **Online Database Backup** | `npm run backup:db` | Snapshot live SQLite DB via `VACUUM INTO` and prune backups older than retention |
 | **Reset Database** | `npm run db:reset` | Force reset SQLite database and re-seed default master categories |
 | **Database Migration** | `npm run prisma:push` | Push Prisma schema changes directly to SQLite database |
 | **Seed Master Categories** | `npm run prisma:seed` | Seed default master categories (SAP Basis, Network, Interface, Helpdesk) |
@@ -144,9 +145,43 @@ docker compose up -d --build
 ```
 
 The container maps:
-* `./data:/app/data` (persisting SQLite database)
-* `./public/uploads:/app/public/uploads` (persisting attachments)
+* `./data:/app/data` (persisting SQLite database on local disk)
+* `${UPLOADS_VOLUME:-./public/uploads}:/app/public/uploads` (persisting attachments hierarchically under `YYYY/MM/<ticketNo>/`)
 * Port `3000:3000`
+
+### 🗄️ Synology NAS NFS & Safe SQLite Backup
+
+#### 1. File Attachments on Synology NFS
+Attachments are stored in a hierarchical structure: `YYYY/MM/<ticketNo>/<kind>_<timestamp>_<filename>`.
+1. On Synology DSM: Create a shared folder (e.g. `/volume1/incident-uploads`), enable NFS permissions for your Docker host IP with Read/Write privilege.
+2. Mount to host:
+   ```bash
+   sudo mkdir -p /mnt/synology/incident-uploads
+   sudo mount -t nfs synology-nas-ip:/volume1/incident-uploads /mnt/synology/incident-uploads
+   ```
+3. Set `UPLOADS_VOLUME` in `.env`:
+   ```env
+   UPLOADS_VOLUME=/mnt/synology/incident-uploads
+   ```
+4. Start container: `docker compose up -d`
+*(Note: Container runs as unprivileged UID `1001:1001`. Container startup avoids recursive chmod on uploads so large NFS mounts never stall).*
+
+#### 2. SQLite Online Snapshot Backup (Zero Downtime)
+> [!IMPORTANT]
+> **Never mount live SQLite (`/app/data`) directly over NFS.** Network lock latencies can cause database corruption. Keep live SQLite on fast local disk, and use `VACUUM INTO` snapshots for Synology backups.
+
+```bash
+# Run online atomic backup (creates incident_YYYY-MM-DD_HHmmss.db and prunes >30 days)
+npm run backup:db -- --dest=/mnt/synology/db-backups --keep-days=30
+
+# Or run via docker container
+docker compose exec incident-app node -e "require('./scripts/backup-db').backupDatabase({ destDir: '/mnt/synology/db-backups', keepDays: 30 })"
+```
+
+Sample Host Crontab (daily at 02:00 AM):
+```cron
+0 2 * * * cd /opt/incident-tracker && npm run backup:db -- --dest=/mnt/synology/db-backups --keep-days=30 >> /var/log/incident-backup.log 2>&1
+```
 
 ---
 

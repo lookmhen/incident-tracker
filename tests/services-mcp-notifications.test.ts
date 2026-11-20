@@ -292,4 +292,32 @@ describe('6. IntegrationService Encryption at Rest, Masking & Audit Logs', () =>
     createdLogIds.push(postAckFail.id);
     assert.equal(await IntegrationService.getUnresolvedFailedCount(), 1);
   });
+
+  it('auto-prunes notification logs older than 14 days on write', async () => {
+    const expiredDate = new Date(Date.now() - (IntegrationService.LOG_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000);
+    const staleLog = await prisma.notificationLog.create({
+      data: {
+        channel: 'EMAIL',
+        ticketNo: 'INC-TEST-STALE',
+        destination: 'stale@example.com',
+        status: 'SUCCESS',
+        createdAt: expiredDate,
+      },
+    });
+    createdLogIds.push(staleLog.id);
+
+    const freshLog = await IntegrationService.logNotification({
+      channel: 'EMAIL',
+      ticketNo: 'INC-TEST-FRESH',
+      destination: 'fresh@example.com',
+      status: 'SUCCESS',
+    });
+    assert.ok(freshLog);
+    createdLogIds.push(freshLog.id);
+
+    const remainingStale = await prisma.notificationLog.findUnique({ where: { id: staleLog.id } });
+    const remainingFresh = await prisma.notificationLog.findUnique({ where: { id: freshLog.id } });
+    assert.equal(remainingStale, null, 'logs older than 14 days must be pruned');
+    assert.ok(remainingFresh, 'fresh logs within 14 days must be kept');
+  });
 });

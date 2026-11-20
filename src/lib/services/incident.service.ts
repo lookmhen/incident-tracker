@@ -543,6 +543,9 @@ export class IncidentService {
   public static async updateIncident(
     idOrTicketNo: string,
     data: {
+      reporterName?: string;
+      department?: string | null;
+      contactInfo?: string;
       title?: string;
       description?: string;
       category?: string;
@@ -568,16 +571,46 @@ export class IncidentService {
     }
 
     const currentStatus = (target.status || '').trim().toUpperCase();
-    if (
-      ['RESOLVED', 'CLOSED'].includes(currentStatus) &&
-      ((data.title !== undefined && String(data.title ?? '').trim() !== target.title) ||
-        (data.description !== undefined && String(data.description ?? '').trim() !== target.description))
-    ) {
-      throw new Error('Cannot edit incident details after the incident is resolved or closed');
+    const nextStatus = data.status !== undefined ? data.status.trim().toUpperCase() : undefined;
+    const isReopening = nextStatus !== undefined && !['RESOLVED', 'CLOSED'].includes(nextStatus);
+    if (['RESOLVED', 'CLOSED'].includes(currentStatus) && !isReopening) {
+      // One-way closed lock: only SLA/close timestamps, mttrExcluded, or Reopen may change after closure
+      const hasLockedFieldMutation =
+        data.reporterName !== undefined ||
+        data.department !== undefined ||
+        data.contactInfo !== undefined ||
+        data.title !== undefined ||
+        data.description !== undefined ||
+        data.category !== undefined ||
+        data.categoryId !== undefined ||
+        data.rootCause !== undefined ||
+        data.urgency !== undefined ||
+        data.assignedTo !== undefined ||
+        data.resolution !== undefined ||
+        data.resolutionType !== undefined ||
+        data.workaroundNote !== undefined ||
+        data.relatedTickets !== undefined;
+      if (hasLockedFieldMutation) {
+        throw new Error('Incident is closed; reopen to IN_PROGRESS before editing');
+      }
     }
 
     const updatePayload: any = {};
 
+    if (data.reporterName !== undefined) {
+      const cleanedName = McpService.cleanText(data.reporterName);
+      if (!cleanedName) throw new Error('Reporter name cannot be empty');
+      updatePayload.reporterName = cleanedName;
+    }
+    if (data.department !== undefined) {
+      const cleanedDept = data.department ? McpService.cleanText(data.department) : '';
+      updatePayload.department = cleanedDept || null;
+    }
+    if (data.contactInfo !== undefined) {
+      const cleanedContact = McpService.cleanText(data.contactInfo);
+      if (!cleanedContact) throw new Error('Contact info cannot be empty');
+      updatePayload.contactInfo = cleanedContact;
+    }
     if (data.title !== undefined) updatePayload.title = McpService.cleanText(data.title);
     if (data.description !== undefined) updatePayload.description = McpService.cleanText(data.description);
     if (data.category !== undefined) updatePayload.category = data.category;
@@ -787,6 +820,9 @@ export class IncidentService {
     if (!target) {
       throw new Error(`Incident not found: ${idOrTicketNo}`);
     }
+    if (['RESOLVED', 'CLOSED'].includes((target.status || '').trim().toUpperCase())) {
+      throw new Error('Incident is closed; reopen to IN_PROGRESS before modifying attachments');
+    }
 
     const saved = await this.saveUploadedFile(file);
     return prisma.attachment.create({
@@ -808,6 +844,9 @@ export class IncidentService {
     const target = await this.getIncidentById(idOrTicketNo);
     if (!target) {
       throw new Error(`Incident not found: ${idOrTicketNo}`);
+    }
+    if (['RESOLVED', 'CLOSED'].includes((target.status || '').trim().toUpperCase())) {
+      throw new Error('Incident is closed; reopen to IN_PROGRESS before modifying attachments');
     }
 
     const att = await prisma.attachment.findFirst({

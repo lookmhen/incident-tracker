@@ -192,7 +192,7 @@ erDiagram
 ---
 
 ### 2.6 Table: `NotificationLog`
-ตารางบันทึกประวัติการส่งแจ้งเตือนขาออกทุกช่องทาง (Teams Webhook, SMTP Email, Custom Event API) พร้อมรองรับการกดส่งซ้ำ (Resend)
+ตารางบันทึกประวัติการส่งแจ้งเตือนขาออกทุกช่องทาง (Teams Webhook, SMTP Email, Custom Event API) พร้อมรองรับการกดส่งซ้ำ (Resend) — **Auto-prune ลบรายการที่เก่ากว่า 14 วันอัตโนมัติ** ทุกครั้งที่บันทึก log ใหม่ (`IntegrationService.LOG_RETENTION_DAYS = 14`)
 
 | Field Name | Type | Nullable | Default | Constraints | Description |
 | :--- | :--- | :---: | :---: | :--- | :--- |
@@ -236,11 +236,12 @@ stateDiagram-v2
 | `ON_HOLD → IN_PROGRESS` | `กลับมาทำต่อ (Resume)` | Staff, Manager | - | กลับเข้าคิว Active (`mttrExcluded` คงค่าเดิมจนกว่าจะสลับเอง) |
 | `IN_PROGRESS / ON_HOLD → PENDING_CONFIRM` | `ส่งให้ Manager ยืนยันปิดเคส` | Staff | ต้อง Claim แล้ว (`assignedTo` ไม่ว่างและไม่ใช่ `OPEN`) + มี `category`, `rootCause` (และ `workaroundNote` ถ้าเลือก Workaround) | ส่ง Email แจ้ง Manager (เฉพาะครั้งแรกที่เข้า `PENDING_CONFIRM`), ปุ่มสีเทากันส่งซ้ำ |
 | `PENDING_CONFIRM → IN_PROGRESS` | `ตีกลับแก้ไข (In Progress)` | Manager | - | ส่งเคสกลับให้ทีมแก้ไขต่อ |
-| `IN_PROGRESS / ON_HOLD / PENDING_CONFIRM → RESOLVED` | `Confirm & Mark Resolved` | **Manager เท่านั้น** (`403` ถ้า Staff) | Claim แล้ว (UI) + `category`, `rootCause` (และ `workaroundNote` ถ้าเลือก Workaround) | ตั้ง `closedAt = now` (หยุด MTTR), บันทึก `resolvedBy`, ตั้ง `resolutionType` (`PERMANENT`/`WORKAROUND`), ล็อกการแก้ `title`/`description` |
-| `RESOLVED / CLOSED → IN_PROGRESS` | `เปิดเคสใหม่ (Reopen)` | **Manager เท่านั้น** (`403` ถ้า Staff) | `window.confirm` ใน UI | ล้าง `closedAt = null`, ปลดล็อกการแก้ `title`/`description` |
+| `IN_PROGRESS / ON_HOLD / PENDING_CONFIRM → RESOLVED` | `Confirm & Mark Resolved` | **Manager เท่านั้น** (`403` ถ้า Staff) | Claim แล้ว (UI) + `category`, `rootCause` (และ `workaroundNote` ถ้าเลือก Workaround) | ตั้ง `closedAt = now` (หยุด MTTR), บันทึก `resolvedBy`, ตั้ง `resolutionType` (`PERMANENT`/`WORKAROUND`), **ล็อกการแก้ไขข้อมูล/รูปแนบทั้งหมดแบบ One-way ทั้ง Staff และ Manager** (ยกเว้น Manager ปรับ `closedAt` / `mttrExcluded` หรือกด `Reopen`) |
+| `RESOLVED / CLOSED → IN_PROGRESS` | `เปิดเคสใหม่ (Reopen)` | **Manager เท่านั้น** (`403` ถ้า Staff) | `window.confirm` ใน UI | ล้าง `closedAt = null`, ปลดล็อกให้กลับมาแก้ไขข้อมูลเคสและรูปแนบได้ |
 
 > **หมายเหตุเพิ่มเติม:**
-> - **Re-assign (`Assigned: ...`)** บนเคสที่ไม่ใช่ `OPEN` จะอัปเดตเฉพาะ `assignedTo` โดย **ไม่เปลี่ยน `status` เดิม** (และ Staff ถูกบล็อก `403` บนเคสที่ปิดแล้ว)
+> - **One-way Closed Lock:** เมื่อเคสเป็น `RESOLVED`/`CLOSED` จะล็อกการแก้ไขข้อมูลทั้งหมด (ชื่อ/แผนก/ติดต่อ, หัวข้อ/รายละเอียด, Resolution, Category, Root Cause, Re-assign, รูปแนบ, Related Incidents) สำหรับทั้ง Staff และ Manager (Backend ปฏิเสธด้วย `400`/`403`) — Manager ต้องกด **`เปิดเคสใหม่ (Reopen)`** กลับเป็น `IN_PROGRESS` ก่อนจึงจะแก้ได้ ยกเว้นเฉพาะ **`closedAt`** และ **`mttrExcluded`** ที่ Manager ยังปรับหลังปิดเคสได้
+> - **Re-assign (`Assigned: ...`)** บนเคสที่ยังไม่ปิด (`IN_PROGRESS`, `ON_HOLD`, `PENDING_CONFIRM`) จะอัปเดตเฉพาะ `assignedTo` โดย **ไม่เปลี่ยน `status` เดิม**
 > - **Legacy `CLOSED`:** UI ใหม่ปิดเคสเป็น `RESOLVED` เสมอ แต่ Backend, Analytics และ Export ยังคงรองรับเคสเก่าที่เป็น `CLOSED` เทียบเท่า `RESOLVED` และ Manager สามารถกด `Reopen` ได้เช่นเดียวกัน
 > - **Spec อ้างอิง:** [`docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md`](docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md)
 
@@ -283,7 +284,7 @@ stateDiagram-v2
 | **GET** | `/api/incidents` | `search`, `status`, `urgency`, `category`, `department`, `page`, `limit` | รายการเคสแบบ Paginated พร้อมสถิติ KPI รวม |
 | **POST** | `/api/incidents` | `multipart/form-data` หรือ JSON: `reporterName`, `department`, `contactInfo`, `title`, `description`, `urgency`, `attachment` | Incident Object ที่ถูกสร้างใหม่พร้อม Ticket ID |
 | **GET** | `/api/incidents/[id]` | `id` หรือ `ticketNo` | รายละเอียดเคสพร้อม Attachments และ Category Relation |
-| **PATCH** | `/api/incidents/[id]` | JSON: `{ status?, category?, rootCause?, urgency?, assignedTo?, resolution?, resolutionType?, workaroundNote?, relatedTickets?, createdAt?, closedAt?, mttrExcluded? }` (รองรับ `x-api-key`) | Incident Object ที่อัปเดตแล้ว (บังคับ Claim ก่อน `PENDING_CONFIRM`, บังคับ `category`+`rootCause` ก่อนส่ง/ปิดเคส, และจำกัดสิทธิ์ปิด/Reopen เฉพาะ `MANAGER`) |
+| **PATCH** | `/api/incidents/[id]` | JSON: `{ reporterName?, department?, contactInfo?, status?, category?, rootCause?, urgency?, assignedTo?, resolution?, resolutionType?, workaroundNote?, relatedTickets?, createdAt?, closedAt?, mttrExcluded? }` (รองรับ `x-api-key`) | Incident Object ที่อัปเดตแล้ว (บังคับ Claim ก่อน `PENDING_CONFIRM`, บังคับ `category`+`rootCause` ก่อนส่ง/ปิดเคส, และจำกัดสิทธิ์ปิด/Reopen เฉพาะ `MANAGER`) |
 | **POST/DELETE** | `/api/incidents/[id]/attachments` | `multipart/form-data` (`file`, `kind: REPORT\|RESOLUTION`) หรือ `?attachmentId=` | อัปโหลด/ลบรูปแนบแยกฝั่งผู้แจ้งและหลักฐานปิดงาน |
 | **GET** | `/api/incidents/export` | `search`, `status`, `urgency`, `category`, `rootCause`, `department`, `startDate`, `endDate` | ไฟล์ `.csv` เข้ารหัส UTF-8 with BOM สำหรับเปิดใน Excel |
 | **GET** | `/api/incidents/analytics` | `startDate`, `endDate`, `groupBy`, `urgency`, `category`, `rootCause`, `department` | ข้อมูลสรุป Analytics (Created vs Resolved, Category, Root Cause, Department, Status/SLA, MTTR Breakdown, Backlog Aging) |

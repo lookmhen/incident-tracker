@@ -48,6 +48,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (msg.startsWith('Incident not found:')) {
       return NextResponse.json({ error: msg }, { status: 404 });
     }
+    if (msg.includes('Incident is closed')) {
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -69,6 +72,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const msg = error?.message || 'Failed to delete attachment';
     if (msg.startsWith('Incident not found:') || msg.startsWith('Attachment not found:')) {
       return NextResponse.json({ error: msg }, { status: 404 });
+    }
+    if (msg.includes('Incident is closed')) {
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
     return NextResponse.json({ error: msg }, { status: 500 });
   }

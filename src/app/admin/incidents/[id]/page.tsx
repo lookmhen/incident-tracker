@@ -94,6 +94,13 @@ export default function IncidentDetailMcpHub({
   const [editDescription, setEditDescription] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
 
+  // Edit Reporter / Department / Contact state
+  const [isEditingReporter, setIsEditingReporter] = useState(false);
+  const [editReporterName, setEditReporterName] = useState('');
+  const [editDepartment, setEditDepartment] = useState('');
+  const [editContactInfo, setEditContactInfo] = useState('');
+  const [savingReporter, setSavingReporter] = useState(false);
+
   // Edit createdAt / closedAt timestamp state
   const [editingTimeField, setEditingTimeField] = useState<'createdAt' | 'closedAt' | null>(null);
   const [editTimeValue, setEditTimeValue] = useState('');
@@ -187,6 +194,7 @@ export default function IncidentDetailMcpHub({
     setResolutionFeedback(null);
     setUpdatingStatus(false);
     setIsEditingDetails(false);
+    setIsEditingReporter(false);
     setEditingTimeField(null);
     fetchCurrentUser();
     fetchIncident();
@@ -462,6 +470,41 @@ export default function IncidentDetailMcpHub({
     }
   };
 
+  // Save edited reporter name, department, and contact info
+  const handleSaveReporter = async () => {
+    if (!incident || savingReporter) return;
+    if (!editReporterName.trim() || !editContactInfo.trim()) {
+      showToast('กรุณาระบุ Name และ Contact ให้ครบถ้วน', 'error');
+      return;
+    }
+    setSavingReporter(true);
+    try {
+      const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reporterName: editReporterName.trim(),
+          department: editDepartment.trim() || null,
+          contactInfo: editContactInfo.trim(),
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setIncident(updated);
+        setIsEditingReporter(false);
+        showToast('บันทึกข้อมูลผู้แจ้งและแผนกเรียบร้อยแล้ว');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || 'ไม่สามารถบันทึกข้อมูลผู้แจ้งได้', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setSavingReporter(false);
+    }
+  };
+
   // Save edited incident title and description
   const handleSaveDetails = async () => {
     if (!incident || !editTitle.trim() || !editDescription.trim()) return;
@@ -523,6 +566,8 @@ export default function IncidentDetailMcpHub({
         setIncident(updated);
         if (targetStatus === 'RESOLVED') {
           setIsEditingDetails(false);
+          setIsEditingReporter(false);
+          setEditingTimeField(null);
           const msg = `ปิดเคส ${incident.ticketNo} เป็น RESOLVED เรียบร้อยแล้ว`;
           setResolutionFeedback({ type: 'success', text: msg });
           showToast(msg, 'success');
@@ -817,15 +862,17 @@ export default function IncidentDetailMcpHub({
             <span className="material-symbols-outlined text-[15px]">visibility</span>
             <span>Preview</span>
           </button>
-          <button
-            type="button"
-            disabled={deletingAttId === att.id}
-            onClick={() => handleDeleteAttachment(att)}
-            title="ลบรูปแนบ"
-            className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-400 transition-all cursor-pointer disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-[15px]">delete</span>
-          </button>
+          {!(incident && ['RESOLVED', 'CLOSED'].includes(normStatus(incident.status))) && (
+            <button
+              type="button"
+              disabled={deletingAttId === att.id}
+              onClick={() => handleDeleteAttachment(att)}
+              title="ลบรูปแนบ"
+              className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-400 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[15px]">delete</span>
+            </button>
+          )}
         </div>
       </div>
     );
@@ -889,7 +936,7 @@ export default function IncidentDetailMcpHub({
   const relatedIncidents = incident.relatedIncidents || [];
   const referencedBy = incident.referencedBy || [];
   const currentRelatedNos = relatedIncidents.map((r) => r.ticketNo);
-  const canEditRelated = isManager || !isClosed;
+  const canEditRelated = !isClosed;
   const filteredRelatedResults = relatedSearchResults.filter(
     (item) => item.ticketNo !== incident.ticketNo && !currentRelatedNos.includes(item.ticketNo)
   );
@@ -988,29 +1035,123 @@ export default function IncidentDetailMcpHub({
                 </h1>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600">
-                <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] text-sky-600">account_circle</span>
-                  <span className="text-slate-900 font-semibold">{incident.reporterName}</span>
-                  <span className="text-slate-500">
-                    ({incident.department || 'General'}, {incident.contactInfo})
-                  </span>
-                </div>
-                <span className="hidden sm:inline text-slate-300">•</span>
-                <div className="flex items-center gap-1.5 text-sky-700 font-medium">
-                  <span className="material-symbols-outlined text-[16px]">api</span>
-                  <span>MCP Context Endpoint Ready</span>
-                </div>
-                {isClosed && incident.resolvedBy && (
-                  <>
-                    <span className="hidden sm:inline text-slate-300">•</span>
-                    <div className="flex items-center gap-1 text-emerald-700 font-medium">
-                      <span className="material-symbols-outlined text-[15px]">verified</span>
-                      <span>Resolved by: {incident.resolvedBy}</span>
+              {isEditingReporter && !isClosed ? (
+                <div className="p-3 rounded-xl bg-sky-50/60 border border-sky-200 space-y-2.5 max-w-2xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-700">Name (ชื่อผู้แจ้ง)</label>
+                      <input
+                        type="text"
+                        value={editReporterName}
+                        onChange={(e) => setEditReporterName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveReporter();
+                          if (e.key === 'Escape') setIsEditingReporter(false);
+                        }}
+                        placeholder="ชื่อผู้แจ้ง"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      />
                     </div>
-                  </>
-                )}
-              </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-700">Dept. (แผนก)</label>
+                      <input
+                        type="text"
+                        value={editDepartment}
+                        onChange={(e) => setEditDepartment(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveReporter();
+                          if (e.key === 'Escape') setIsEditingReporter(false);
+                        }}
+                        placeholder="เช่น Finance, IT, Sales"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-700">Contact (ติดต่อ)</label>
+                      <input
+                        type="text"
+                        value={editContactInfo}
+                        onChange={(e) => setEditContactInfo(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveReporter();
+                          if (e.key === 'Escape') setIsEditingReporter(false);
+                        }}
+                        placeholder="Email / เบอร์ต่อ"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      disabled={savingReporter}
+                      onClick={() => setIsEditingReporter(false)}
+                      className="px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-medium cursor-pointer disabled:opacity-50"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingReporter || !editReporterName.trim() || !editContactInfo.trim()}
+                      onClick={handleSaveReporter}
+                      className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">save</span>
+                      <span>{savingReporter ? 'กำลังบันทึก...' : 'บันทึก'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-xs text-slate-600">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[15px] text-sky-600">account_circle</span>
+                    <span className="text-slate-400 font-medium">Name:</span>
+                    <span className="text-slate-900 font-semibold">{incident.reporterName}</span>
+                  </div>
+                  <span className="hidden sm:inline text-slate-300">•</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[15px] text-sky-600">corporate_fare</span>
+                    <span className="text-slate-400 font-medium">Dept.:</span>
+                    <span className="text-slate-800 font-semibold">{incident.department || 'General'}</span>
+                  </div>
+                  <span className="hidden sm:inline text-slate-300">•</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[15px] text-sky-600">contact_phone</span>
+                    <span className="text-slate-400 font-medium">Contact:</span>
+                    <span className="text-slate-700">{incident.contactInfo}</span>
+                  </div>
+                  {!isClosed && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditReporterName(incident.reporterName);
+                        setEditDepartment(incident.department || '');
+                        setEditContactInfo(incident.contactInfo);
+                        setIsEditingReporter(true);
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                      title="แก้ไขชื่อผู้แจ้ง แผนก หรือข้อมูลติดต่อ"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">edit</span>
+                      <span>แก้ไข</span>
+                    </button>
+                  )}
+                  <span className="hidden sm:inline text-slate-300">•</span>
+                  <div className="flex items-center gap-1.5 text-sky-700 font-medium">
+                    <span className="material-symbols-outlined text-[16px]">api</span>
+                    <span>MCP Context Endpoint Ready</span>
+                  </div>
+                  {isClosed && incident.resolvedBy && (
+                    <>
+                      <span className="hidden sm:inline text-slate-300">•</span>
+                      <div className="flex items-center gap-1 text-emerald-700 font-medium">
+                        <span className="material-symbols-outlined text-[15px]">verified</span>
+                        <span>Resolved by: {incident.resolvedBy}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {incident.resolutionType === 'WORKAROUND' && incident.workaroundNote && (
                 <div className="px-3 py-2 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
@@ -1040,9 +1181,9 @@ export default function IncidentDetailMcpHub({
                 <button
                   type="button"
                   onClick={handleAssignToMe}
-                  disabled={isMutatingStatus || (!isManager && isClosed)}
+                  disabled={isMutatingStatus || isClosed}
                   className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-xs cursor-pointer"
-                  title={!isManager && isClosed ? 'ปิดเคสแล้ว (เฉพาะ Manager)' : 'คลิกเพื่อ Re-assign เคสนี้ให้ตนเอง'}
+                  title={isClosed ? 'ปิดเคสแล้ว — Manager ต้องกด Reopen ก่อนจึงจะแก้ไขได้' : 'คลิกเพื่อ Re-assign เคสนี้ให้ตนเอง'}
                 >
                   <span className="material-symbols-outlined text-[16px] text-sky-600">assignment_ind</span>
                   <span>{incident.assignedTo ? `Assigned: ${incident.assignedTo}` : 'Assign to Me'}</span>
@@ -1211,10 +1352,12 @@ export default function IncidentDetailMcpHub({
 
             {/* AI-Ready Resolution Editor (Clean Text for MCP) */}
             <div
-              onPaste={(e) => handlePasteImages(e, 'RESOLUTION')}
+              onPaste={(e) => {
+                if (!isClosed) handlePasteImages(e, 'RESOLUTION');
+              }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
-                if (e.dataTransfer.files?.length) {
+                if (!isClosed && e.dataTransfer.files?.length) {
                   e.preventDefault();
                   handleUploadAttachments(e.dataTransfer.files, 'RESOLUTION');
                 }
@@ -1242,30 +1385,33 @@ export default function IncidentDetailMcpHub({
                 </div>
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 border border-sky-200 text-[10px] font-mono text-sky-700 font-semibold shadow-inner">
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-600"></span>
-                  <span>Clean Text Mode: Active</span>
+                  <span>{isClosed ? 'Locked (Read-Only)' : 'Clean Text Mode: Active'}</span>
                 </div>
               </div>
 
               {/* Action Helper Tags */}
-              <div className="flex items-center justify-end text-xs">
-                <button
-                  type="button"
-                  onClick={handleSanitizeText}
-                  className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-600 hover:text-slate-900 border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[13px]">format_clear</span>
-                  Sanitize Clean Text
-                </button>
-              </div>
+              {!isClosed && (
+                <div className="flex items-center justify-end text-xs">
+                  <button
+                    type="button"
+                    onClick={handleSanitizeText}
+                    className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-[11px] text-slate-600 hover:text-slate-900 border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">format_clear</span>
+                    Sanitize Clean Text
+                  </button>
+                </div>
+              )}
 
               {/* Textarea */}
               <div className="relative">
                 <textarea
                   rows={6}
+                  readOnly={isClosed}
                   value={resolutionText}
                   onChange={(e) => setResolutionText(e.target.value)}
                   placeholder="Enter root cause, mitigation, and preventive actions in clean text format..."
-                  className="w-full bg-slate-50 text-slate-900 border border-slate-200 text-xs font-mono rounded-xl p-4 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white resize-y transition-all"
+                  className="w-full bg-slate-50 text-slate-900 border border-slate-200 text-xs font-mono rounded-xl p-4 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white resize-y transition-all read-only:bg-slate-100/80 read-only:text-slate-600 read-only:cursor-not-allowed"
                 />
                 <div className="absolute bottom-3 right-3 text-[10px] font-mono text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded shadow-xs">
                   <span>{charCount}</span> characters • {wordCount} words
@@ -1280,32 +1426,38 @@ export default function IncidentDetailMcpHub({
                     <span className="text-xs font-headline font-bold text-slate-800">
                       รูปหลักฐานการแก้ไข / ปิดงาน ({resolutionAttachments.length})
                     </span>
-                    <span className="text-[11px] text-slate-500 hidden sm:inline">
-                      วางรูป (Ctrl+V) หรือลากวางได้
-                    </span>
+                    {!isClosed && (
+                      <span className="text-[11px] text-slate-500 hidden sm:inline">
+                        วางรูป (Ctrl+V) หรือลากวางได้
+                      </span>
+                    )}
                   </div>
-                  <input
-                    ref={resolutionFileRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files?.length) handleUploadAttachments(e.target.files, 'RESOLUTION');
-                      e.target.value = '';
-                    }}
-                  />
-                  <button
-                    type="button"
-                    disabled={uploadingKind === 'RESOLUTION'}
-                    onClick={() => resolutionFileRef.current?.click()}
-                    className="px-3 py-1.5 rounded-lg bg-white hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-xs"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">
-                      {uploadingKind === 'RESOLUTION' ? 'sync' : 'upload'}
-                    </span>
-                    <span>{uploadingKind === 'RESOLUTION' ? 'กำลังอัปโหลด...' : '+ เพิ่มรูปปิดงาน'}</span>
-                  </button>
+                  {!isClosed && (
+                    <>
+                      <input
+                        ref={resolutionFileRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files?.length) handleUploadAttachments(e.target.files, 'RESOLUTION');
+                          e.target.value = '';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={uploadingKind === 'RESOLUTION'}
+                        onClick={() => resolutionFileRef.current?.click()}
+                        className="px-3 py-1.5 rounded-lg bg-white hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          {uploadingKind === 'RESOLUTION' ? 'sync' : 'upload'}
+                        </span>
+                        <span>{uploadingKind === 'RESOLUTION' ? 'กำลังอัปโหลด...' : '+ เพิ่มรูปปิดงาน'}</span>
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {resolutionAttachments.length > 0 && (
@@ -1324,11 +1476,12 @@ export default function IncidentDetailMcpHub({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
+                    disabled={isClosed}
                     onClick={() => setResolutionType('PERMANENT')}
-                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
                       resolutionType === 'PERMANENT'
                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 disabled:opacity-50'
                     }`}
                   >
                     <span className="material-symbols-outlined text-[16px]">task_alt</span>
@@ -1336,11 +1489,12 @@ export default function IncidentDetailMcpHub({
                   </button>
                   <button
                     type="button"
+                    disabled={isClosed}
                     onClick={() => setResolutionType('WORKAROUND')}
-                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
                       resolutionType === 'WORKAROUND'
                         ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                        : 'bg-white hover:bg-amber-50 text-slate-700 border-slate-200'
+                        : 'bg-white hover:bg-amber-50 text-slate-700 border-slate-200 disabled:opacity-50'
                     }`}
                   >
                     <span className="material-symbols-outlined text-[16px]">build_circle</span>
@@ -1351,10 +1505,11 @@ export default function IncidentDetailMcpHub({
                   <div className="pt-1">
                     <textarea
                       rows={2}
+                      readOnly={isClosed}
                       value={workaroundNote}
                       onChange={(e) => setWorkaroundNote(e.target.value)}
                       placeholder="เงื่อนไข / งานที่ต้องติดตามต่อ..."
-                      className="w-full bg-white text-slate-900 border border-amber-300 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y"
+                      className="w-full bg-white text-slate-900 border border-amber-300 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y read-only:bg-slate-100 read-only:text-slate-600 read-only:cursor-not-allowed"
                     />
                   </div>
                 )}
@@ -1550,7 +1705,7 @@ export default function IncidentDetailMcpHub({
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
                       เปิดเคสเมื่อ (Created)
                     </span>
-                    {editingTimeField !== 'createdAt' && (
+                    {!isClosed && editingTimeField !== 'createdAt' && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1596,7 +1751,7 @@ export default function IncidentDetailMcpHub({
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
                       {isClosed ? 'ปิดเคสเมื่อ (Closed)' : 'สถานะเวลาปัจจุบัน'}
                     </span>
-                    {isClosed && editingTimeField !== 'closedAt' && (
+                    {isClosed && isManager && editingTimeField !== 'closedAt' && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1691,13 +1846,15 @@ export default function IncidentDetailMcpHub({
                       ? 'ไม่นำไปคำนวณค่าเฉลี่ย MTTR (เคย On Hold)'
                       : 'นับรวมในค่าเฉลี่ย MTTR'}
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleToggleMttrExcluded}
-                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold cursor-pointer shrink-0"
-                  >
-                    {incident.mttrExcluded ? 'นับเข้า MTTR' : 'ยกเว้น MTTR'}
-                  </button>
+                  {(!isClosed || isManager) && (
+                    <button
+                      type="button"
+                      onClick={handleToggleMttrExcluded}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold cursor-pointer shrink-0"
+                    >
+                      {incident.mttrExcluded ? 'นับเข้า MTTR' : 'ยกเว้น MTTR'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1729,11 +1886,13 @@ export default function IncidentDetailMcpHub({
                   return (
                     <button
                       key={cat.id}
+                      type="button"
+                      disabled={isClosed}
                       onClick={() => handleSelectCategory(cat.name)}
-                      className={`py-2 px-2.5 rounded-xl flex items-center gap-2 transition-all text-xs font-semibold cursor-pointer ${
+                      className={`py-2 px-2.5 rounded-xl flex items-center gap-2 transition-all text-xs font-semibold cursor-pointer disabled:cursor-not-allowed ${
                         isSelected
                           ? 'bg-sky-600 text-white shadow-[0_4px_12px_rgba(2,132,199,0.3)] border border-sky-600'
-                          : 'bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-slate-700'
+                          : 'bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-slate-700 disabled:opacity-50'
                       }`}
                     >
                       <span className="material-symbols-outlined text-[18px]">
@@ -1788,11 +1947,12 @@ export default function IncidentDetailMcpHub({
                     <button
                       key={rc}
                       type="button"
+                      disabled={isClosed}
                       onClick={() => handleSelectRootCause(rc)}
-                      className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                      className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:cursor-not-allowed border ${
                         isSelected
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-600/25'
-                          : 'bg-slate-50 hover:bg-indigo-50 text-slate-700 border-slate-200 hover:border-indigo-200'
+                          : 'bg-slate-50 hover:bg-indigo-50 text-slate-700 border-slate-200 hover:border-indigo-200 disabled:opacity-50'
                       }`}
                     >
                       {rc}
@@ -1801,38 +1961,42 @@ export default function IncidentDetailMcpHub({
                 })}
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="text"
-                  value={newRootCause}
-                  onChange={(e) => setNewRootCause(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddRootCause();
-                    }
-                  }}
-                  placeholder="เพิ่ม Root Cause ใหม่ (เช่น Vendor, Network)..."
-                  className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400"
-                />
-                <button
-                  type="button"
-                  disabled={addingRootCause || !newRootCause.trim()}
-                  onClick={handleAddRootCause}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold cursor-pointer disabled:opacity-50 shrink-0"
-                >
-                  + เพิ่ม
-                </button>
-              </div>
+              {!isClosed && (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={newRootCause}
+                    onChange={(e) => setNewRootCause(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddRootCause();
+                      }
+                    }}
+                    placeholder="เพิ่ม Root Cause ใหม่ (เช่น Vendor, Network)..."
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400"
+                  />
+                  <button
+                    type="button"
+                    disabled={addingRootCause || !newRootCause.trim()}
+                    onClick={handleAddRootCause}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold cursor-pointer disabled:opacity-50 shrink-0"
+                  >
+                    + เพิ่ม
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Attached Diagnostics & System Error Snapshot (REPORT) */}
             <div
               tabIndex={0}
-              onPaste={(e) => handlePasteImages(e, 'REPORT')}
+              onPaste={(e) => {
+                if (!isClosed) handlePasteImages(e, 'REPORT');
+              }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
-                if (e.dataTransfer.files?.length) {
+                if (!isClosed && e.dataTransfer.files?.length) {
                   e.preventDefault();
                   handleUploadAttachments(e.dataTransfer.files, 'REPORT');
                 }
@@ -1849,39 +2013,44 @@ export default function IncidentDetailMcpHub({
                       Diagnostics &amp; Evidence (ฝั่งผู้แจ้ง)
                     </h3>
                     <p className="text-[11px] text-slate-500">
-                      {reportAttachments.length} attachment file(s) • คลิกหรือวางรูป (Ctrl+V)
+                      {reportAttachments.length} attachment file(s)
+                      {!isClosed ? ' • คลิกหรือวางรูป (Ctrl+V)' : ''}
                     </p>
                   </div>
                 </div>
-                <input
-                  ref={reportFileRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files?.length) handleUploadAttachments(e.target.files, 'REPORT');
-                    e.target.value = '';
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={uploadingKind === 'REPORT'}
-                  onClick={() => reportFileRef.current?.click()}
-                  className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50 shrink-0"
-                >
-                  <span className="material-symbols-outlined text-[15px]">
-                    {uploadingKind === 'REPORT' ? 'sync' : 'add_photo_alternate'}
-                  </span>
-                  <span>{uploadingKind === 'REPORT' ? 'กำลังอัปโหลด...' : '+ แนบรูป'}</span>
-                </button>
+                {!isClosed && (
+                  <>
+                    <input
+                      ref={reportFileRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files?.length) handleUploadAttachments(e.target.files, 'REPORT');
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={uploadingKind === 'REPORT'}
+                      onClick={() => reportFileRef.current?.click()}
+                      className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">
+                        {uploadingKind === 'REPORT' ? 'sync' : 'add_photo_alternate'}
+                      </span>
+                      <span>{uploadingKind === 'REPORT' ? 'กำลังอัปโหลด...' : '+ แนบรูป'}</span>
+                    </button>
+                  </>
+                )}
               </div>
 
               {reportAttachments.length > 0 ? (
                 reportAttachments.map((att) => renderAttachmentRow(att, 'sky'))
               ) : (
                 <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-500 text-center">
-                  ไม่มีไฟล์แนบจากผู้แจ้ง — กด &quot;+ แนบรูป&quot; หรือวางรูปเพิ่มภายหลังได้
+                  {isClosed ? 'ไม่มีไฟล์แนบจากผู้แจ้ง' : 'ไม่มีไฟล์แนบจากผู้แจ้ง — กด "+ แนบรูป" หรือวางรูปเพิ่มภายหลังได้'}
                 </div>
               )}
             </div>

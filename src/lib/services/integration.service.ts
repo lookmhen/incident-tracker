@@ -290,8 +290,10 @@ export class IntegrationService {
     return { allowed: true };
   }
 
+  public static readonly LOG_RETENTION_DAYS = 14;
+
   /**
-   * Logs a notification delivery attempt
+   * Logs a notification delivery attempt and prunes logs older than LOG_RETENTION_DAYS
    */
   public static async logNotification(entry: {
     ticketNo?: string | null;
@@ -304,7 +306,7 @@ export class IntegrationService {
     errorMessage?: string | null;
   }) {
     try {
-      return await prisma.notificationLog.create({
+      const created = await prisma.notificationLog.create({
         data: {
           ticketNo: entry.ticketNo || null,
           channel: entry.channel,
@@ -316,6 +318,12 @@ export class IntegrationService {
           errorMessage: entry.errorMessage ?? null,
         },
       });
+      // Keep NotificationLog table small without external cron jobs
+      const cutoff = new Date(Date.now() - this.LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+      await prisma.notificationLog
+        .deleteMany({ where: { createdAt: { lt: cutoff } } })
+        .catch((pruneErr) => console.error('[IntegrationService] Failed to prune old logs:', pruneErr));
+      return created;
     } catch (e) {
       console.error('[IntegrationService] Failed to write notification log:', e);
       return null;

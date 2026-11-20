@@ -53,6 +53,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const updated = await IncidentService.updateIncident(id, {
+      reporterName: body.reporterName,
+      department: body.department,
+      contactInfo: body.contactInfo,
       title: body.title,
       description: body.description,
       category: body.category,
@@ -86,6 +89,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       msg.includes('required before') ||
       msg.includes('must be claimed') ||
       msg.includes('Cannot edit incident details') ||
+      msg.includes('Incident is closed') ||
+      msg.includes('cannot be empty') ||
       msg.includes('Cannot reference') ||
       msg.includes('Referenced incident not found') ||
       msg.includes('Invalid relatedTickets')

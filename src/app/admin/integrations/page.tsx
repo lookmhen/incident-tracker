@@ -921,6 +921,9 @@ export default function IntegrationsSecurityHubPage() {
               </div>
 
               <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-500 hidden sm:inline">
+                  เก็บย้อนหลัง 14 วัน (ลบอัตโนมัติ)
+                </span>
                 {unresolvedFailedCount > 0 && (
                   <button
                     type="button"

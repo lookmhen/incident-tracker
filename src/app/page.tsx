@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import DepartmentInput from '@/components/DepartmentInput';
 
 interface AttachedFile {
   file: File;
@@ -323,16 +324,17 @@ export default function SimplePublicReportPortal() {
                     แผนก (Department)
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3.5 top-2.5 text-[18px] text-slate-400">corporate_fare</span>
-                    <input
+                    <span className="material-symbols-outlined absolute left-3.5 top-2.5 text-[18px] text-slate-400 z-10 pointer-events-none">
+                      corporate_fare
+                    </span>
+                    <DepartmentInput
                       id="department"
-                      type="text"
                       value={department}
-                      onChange={(e) => {
-                        setDepartment(e.target.value);
-                        saveIdentity(reporterName, e.target.value, contactInfo);
+                      onChange={(next) => {
+                        setDepartment(next);
+                        saveIdentity(reporterName, next, contactInfo);
                       }}
-                      placeholder="เช่น บัญชี, คลังสินค้า, IT, ฝ่ายขาย..."
+                      placeholder="เช่น Packing, บัญชี, คลังสินค้า, IT..."
                       className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all shadow-2xs"
                     />
                   </div>

@@ -13,6 +13,7 @@ import { GET as inboundGetHandler, POST as inboundPostHandler } from '../src/app
 import { GET as incidentGetHandler, PATCH as incidentPatchHandler } from '../src/app/api/incidents/[id]/route';
 import { POST as attachmentsPostHandler, DELETE as attachmentsDeleteHandler } from '../src/app/api/incidents/[id]/attachments/route';
 import { GET as analyticsGetHandler } from '../src/app/api/incidents/analytics/route';
+import { GET as departmentsGetHandler } from '../src/app/api/departments/route';
 import { GET as rootCausesGet, POST as rootCausesPost, DELETE as rootCausesDelete } from '../src/app/api/root-causes/route';
 
 describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
@@ -778,5 +779,51 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const cleared = await clearRes.json();
     assert.deepEqual(cleared.relatedTicketNos, []);
     assert.equal(cleared.relatedTickets, null);
+  });
+
+  it('lists canonical deduplicated departments and supports case-insensitive search via GET /api/departments', async () => {
+    const suffix = Date.now();
+    const deptName = `PackingZone${suffix}`;
+    const d1 = await IncidentService.createIncident({
+      reporterName: 'Dept A',
+      department: deptName,
+      contactInfo: 'a@test.local',
+      title: 'Dept search test 1',
+      description: 'Test',
+    });
+    const d2 = await IncidentService.createIncident({
+      reporterName: 'Dept B',
+      department: deptName.toLowerCase(),
+      contactInfo: 'b@test.local',
+      title: 'Dept search test 2',
+      description: 'Test',
+    });
+    const d3 = await IncidentService.createIncident({
+      reporterName: 'Dept C',
+      department: deptName,
+      contactInfo: 'c@test.local',
+      title: 'Dept search test 3',
+      description: 'Test',
+    });
+    testIncidentIds.push(d1.id, d2.id, d3.id);
+
+    const paRes = await departmentsGetHandler(
+      new NextRequest(`http://localhost:3000/api/departments?q=PA`)
+    );
+    assert.equal(paRes.status, 200);
+    const paList: string[] = await paRes.json();
+    assert.ok(paList.includes(deptName), 'uppercase query PA should match canonical PackingZone');
+    assert.equal(
+      paList.filter((d) => d.toLowerCase() === deptName.toLowerCase()).length,
+      1,
+      'mixed-case duplicates must collapse to one canonical entry'
+    );
+
+    const pacRes = await departmentsGetHandler(
+      new NextRequest(`http://localhost:3000/api/departments?q=pac`)
+    );
+    assert.equal(pacRes.status, 200);
+    const pacList: string[] = await pacRes.json();
+    assert.ok(pacList.includes(deptName), 'lowercase query pac should match canonical PackingZone');
   });
 });

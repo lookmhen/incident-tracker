@@ -68,6 +68,21 @@ export class IncidentService {
     });
   }
 
+  /**
+   * Returns canonical, case-insensitively deduplicated department names for autocomplete
+   */
+  public static async getDepartments(query?: string): Promise<string[]> {
+    const rows = await prisma.incident.findMany({
+      where: { department: { not: null } },
+      select: { department: true },
+    });
+    const list = this.groupDepartments(rows, false)
+      .sort((a, b) => b.count - a.count || a.department.localeCompare(b.department))
+      .map((d) => d.department);
+    const q = query?.trim().toLowerCase();
+    return q ? list.filter((d) => d.toLowerCase().includes(q)) : list;
+  }
+
   private static readonly MTTR_EXCLUDED_KEY = 'mttr_excluded_tickets';
   private static readonly ROOT_CAUSE_OPTIONS_KEY = 'root_cause_options';
   private static readonly DEFAULT_ROOT_CAUSES = ['Human', 'System', 'Data'];

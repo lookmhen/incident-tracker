@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, use } from 'react';
 import Link from 'next/link';
+import DepartmentInput from '@/components/DepartmentInput';
 import { useRouter } from 'next/navigation';
 
 interface RelatedIncidentSummary {
@@ -1054,15 +1055,14 @@ export default function IncidentDetailMcpHub({
                     </div>
                     <div className="space-y-1">
                       <label className="text-[11px] font-semibold text-slate-700">Dept. (แผนก)</label>
-                      <input
-                        type="text"
+                      <DepartmentInput
                         value={editDepartment}
-                        onChange={(e) => setEditDepartment(e.target.value)}
+                        onChange={setEditDepartment}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleSaveReporter();
                           if (e.key === 'Escape') setIsEditingReporter(false);
                         }}
-                        placeholder="เช่น Finance, IT, Sales"
+                        placeholder="เช่น Packing, Finance, IT..."
                         className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-sky-500"
                       />
                     </div>
@@ -1136,11 +1136,6 @@ export default function IncidentDetailMcpHub({
                       <span>แก้ไข</span>
                     </button>
                   )}
-                  <span className="hidden sm:inline text-slate-300">•</span>
-                  <div className="flex items-center gap-1.5 text-sky-700 font-medium">
-                    <span className="material-symbols-outlined text-[16px]">api</span>
-                    <span>MCP Context Endpoint Ready</span>
-                  </div>
                   {isClosed && incident.resolvedBy && (
                     <>
                       <span className="hidden sm:inline text-slate-300">•</span>

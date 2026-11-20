@@ -9,6 +9,7 @@ import { IncidentService } from '../src/lib/services/incident.service';
 import { IntegrationService } from '../src/lib/services/integration.service';
 import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
 import { GET as exportCsvHandler } from '../src/app/api/incidents/export/route';
+import { POST as incidentsPostHandler } from '../src/app/api/incidents/route';
 import { GET as inboundGetHandler, POST as inboundPostHandler } from '../src/app/api/incidents/inbound/route';
 import { GET as incidentGetHandler, PATCH as incidentPatchHandler } from '../src/app/api/incidents/[id]/route';
 import { POST as attachmentsPostHandler, DELETE as attachmentsDeleteHandler } from '../src/app/api/incidents/[id]/attachments/route';
@@ -825,5 +826,40 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.equal(pacRes.status, 200);
     const pacList: string[] = await pacRes.json();
     assert.ok(pacList.includes(deptName), 'lowercase query pac should match canonical PackingZone');
+  });
+
+  it('requires department on POST /api/incidents user portal submission', async () => {
+    const missingDeptRes = await incidentsPostHandler(
+      new NextRequest('http://localhost:3000/api/incidents', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          reporterName: 'Portal User',
+          department: '   ',
+          contactInfo: 'ext 100',
+          title: 'Missing dept test',
+          description: 'Should fail validation',
+        }),
+      })
+    );
+    assert.equal(missingDeptRes.status, 400);
+
+    const okRes = await incidentsPostHandler(
+      new NextRequest('http://localhost:3000/api/incidents', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          reporterName: 'Portal User',
+          department: 'Packing',
+          contactInfo: 'ext 100',
+          title: 'Valid dept test',
+          description: 'Should succeed',
+        }),
+      })
+    );
+    assert.equal(okRes.status, 201);
+    const created = await okRes.json();
+    testIncidentIds.push(created.id);
+    assert.equal(created.department, 'Packing');
   });
 });

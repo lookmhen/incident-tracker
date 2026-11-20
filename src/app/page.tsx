@@ -21,6 +21,7 @@ export default function SimplePublicReportPortal() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [urgency, setUrgency] = useState<'HIGH' | 'MEDIUM' | 'LOW'>('MEDIUM');
+  const [showUrgencyGuide, setShowUrgencyGuide] = useState(false);
   const [attachment, setAttachment] = useState<AttachedFile | null>(null);
 
   // Submission state
@@ -114,8 +115,8 @@ export default function SimplePublicReportPortal() {
   // Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reporterName.trim() || !contactInfo.trim()) {
-      alert('กรุณากรอกชื่อผู้แจ้งและช่องทางติดต่อ');
+    if (!reporterName.trim() || !department.trim() || !contactInfo.trim()) {
+      alert('กรุณากรอกชื่อผู้แจ้ง แผนก และช่องทางติดต่อให้ครบถ้วน');
       return;
     }
     if (!title.trim() || !description.trim()) {
@@ -321,7 +322,7 @@ export default function SimplePublicReportPortal() {
                 {/* Department */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-label font-medium text-slate-700 block" htmlFor="department">
-                    แผนก (Department)
+                    แผนก (Department) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3.5 top-2.5 text-[18px] text-slate-400 z-10 pointer-events-none">
@@ -329,6 +330,7 @@ export default function SimplePublicReportPortal() {
                     </span>
                     <DepartmentInput
                       id="department"
+                      required
                       value={department}
                       onChange={(next) => {
                         setDepartment(next);
@@ -366,58 +368,131 @@ export default function SimplePublicReportPortal() {
                 </div>
               </div>
 
-              {/* Urgency Selector (Clean 3 Buttons) */}
+              {/* Urgency Selector (Clean 3 Buttons + Hover Tooltips + Expandable Guide) */}
               <div className="space-y-2 pt-1">
-                <label className="text-xs font-label font-medium text-slate-700 flex items-center justify-between">
+                <div className="text-xs font-label font-medium text-slate-700 flex items-center justify-between gap-2">
                   <span>ระดับความเร่งด่วน (Urgency)</span>
-                  <span className="text-[11px] text-slate-500">ผลกระทบต่อการทำงาน</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {/* High */}
                   <button
                     type="button"
-                    onClick={() => setUrgency('HIGH')}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                      urgency === 'HIGH'
-                        ? 'bg-red-50 border-red-500 text-red-800 shadow-xs ring-1 ring-red-400'
-                        : 'bg-slate-50/70 border-slate-200 hover:bg-red-50/50 text-slate-700'
-                    }`}
+                    aria-expanded={showUrgencyGuide}
+                    onClick={() => setShowUrgencyGuide((prev) => !prev)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[11px] font-semibold cursor-pointer transition-colors"
                   >
-                    <span className="w-2 h-2 rounded-full bg-red-600"></span>
-                    <span className="font-semibold">🔴 สูง (High)</span>
-                    <span className="text-[10px] text-slate-500 text-center leading-tight">ระบบล่ม / ทำงานไม่ได้</span>
-                  </button>
-
-                  {/* Medium */}
-                  <button
-                    type="button"
-                    onClick={() => setUrgency('MEDIUM')}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                      urgency === 'MEDIUM'
-                        ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs ring-1 ring-amber-400'
-                        : 'bg-slate-50/70 border-slate-200 hover:bg-amber-50/50 text-slate-700'
-                    }`}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    <span className="font-semibold">🟡 ปานกลาง (Medium)</span>
-                    <span className="text-[10px] text-slate-500 text-center leading-tight">ติดขัด / พอมีทางเลี่ยง</span>
-                  </button>
-
-                  {/* Low */}
-                  <button
-                    type="button"
-                    onClick={() => setUrgency('LOW')}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                      urgency === 'LOW'
-                        ? 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs ring-1 ring-sky-400'
-                        : 'bg-slate-50/70 border-slate-200 hover:bg-sky-50/50 text-slate-700'
-                    }`}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-sky-500"></span>
-                    <span className="font-semibold">🟢 ทั่วไป (Low)</span>
-                    <span className="text-[10px] text-slate-500 text-center leading-tight">ขอสิทธิ์ / คำถามทั่วไป</span>
+                    <span className="material-symbols-outlined text-[14px]">help</span>
+                    <span>{showUrgencyGuide ? 'ซ่อนเกณฑ์การเลือก' : 'ดูเกณฑ์การเลือก'}</span>
                   </button>
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {[
+                    {
+                      value: 'HIGH' as const,
+                      dot: 'bg-red-600',
+                      label: '🔴 สูง (High)',
+                      short: 'หยุดผลิต / ขาย-ส่งของไม่ได้',
+                      activeClass: 'bg-red-50 border-red-500 text-red-800 shadow-xs ring-1 ring-red-400',
+                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-red-50/50 text-slate-700',
+                      tipHeader: '🔴 สูง (High) — หยุดงานหลักทันที',
+                      tipAccent: 'border-red-200 bg-red-50/40 text-red-900',
+                      tooltipPos: 'sm:left-0',
+                      points: [
+                        'กระบวนการผลิตหยุดชะงัก, ขายหรือส่งของให้ลูกค้าไม่ได้',
+                        'ระบบหลัก (SAP/ERP, เน็ต, Server) ล่มทั้งแผนกหรือหลายคนทำงานต่อไม่ได้เลย',
+                      ],
+                    },
+                    {
+                      value: 'MEDIUM' as const,
+                      dot: 'bg-amber-500',
+                      label: '🟡 ปานกลาง (Medium)',
+                      short: 'ติดขัด / พอมีทางเลี่ยง',
+                      activeClass: 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs ring-1 ring-amber-400',
+                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-amber-50/50 text-slate-700',
+                      tipHeader: '🟡 ปานกลาง (Medium) — ติดขัดแต่ยังเดินงานต่อได้',
+                      tipAccent: 'border-amber-200 bg-amber-50/40 text-amber-900',
+                      tooltipPos: 'sm:left-1/2 sm:-translate-x-1/2',
+                      points: [
+                        'กระทบเฉพาะบางเครื่อง/บางฟังก์ชัน ยังมีทางเลี่ยงชั่วคราว (ไม่หยุดผลิต/ส่งของ)',
+                        'เช่น ปริ้นท์ไม่ออกแต่สลับเครื่องได้, โปรแกรมช้า/ค้างบางหน้าจอ, กระทบแค่บางคน',
+                      ],
+                    },
+                    {
+                      value: 'LOW' as const,
+                      dot: 'bg-sky-500',
+                      label: '🟢 ทั่วไป (Low)',
+                      short: 'คำขอ / ไม่เร่งด่วน',
+                      activeClass: 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs ring-1 ring-sky-400',
+                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-sky-50/50 text-slate-700',
+                      tipHeader: '🟢 ทั่วไป (Low) — ไม่เร่งด่วน / งานคำขอทั่วไป',
+                      tipAccent: 'border-sky-200 bg-sky-50/40 text-sky-900',
+                      tooltipPos: 'sm:right-0',
+                      points: [
+                        'ขอสิทธิ์ใช้งาน, รีเซ็ตรหัสผ่าน, ขอติดตั้งโปรแกรมหรืออุปกรณ์เสริม',
+                        'สอบถามวิธีใช้งาน, ขอรายงาน/แก้ข้อมูลไม่เร่งด่วน, แจ้งซ่อมอุปกรณ์ที่ไม่กระทบงาน',
+                      ],
+                    },
+                  ].map((opt) => (
+                    <div key={opt.value} className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => setUrgency(opt.value)}
+                        className={`w-full py-2.5 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                          urgency === opt.value ? opt.activeClass : opt.idleClass
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${opt.dot}`}></span>
+                        <span className="font-semibold">{opt.label}</span>
+                        <span className="text-[10px] text-slate-500 text-center leading-tight">{opt.short}</span>
+                      </button>
+
+                      {/* Desktop Hover Tooltip */}
+                      <div
+                        role="tooltip"
+                        className={`hidden sm:group-hover:block pointer-events-none absolute bottom-full mb-2 z-30 w-64 ${opt.tooltipPos} rounded-xl border border-slate-200 bg-white p-3 shadow-lg text-left space-y-1.5`}
+                      >
+                        <div className="text-[11px] font-bold text-slate-900">{opt.tipHeader}</div>
+                        <ul className="space-y-1 text-[11px] text-slate-600 list-disc pl-4 leading-snug">
+                          {opt.points.map((pt) => (
+                            <li key={pt}>{pt}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Clickable 3-Level Comparison Guide (Mobile & Desktop friendly) */}
+                {showUrgencyGuide && (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3.5 space-y-2 text-[11px] text-slate-700">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-900 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[15px] text-sky-600">info</span>
+                        เกณฑ์การเลือกระดับความเร่งด่วน
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowUrgencyGuide(false)}
+                        className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                        aria-label="ปิดเกณฑ์การเลือก"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">close</span>
+                      </button>
+                    </div>
+                    <div className="space-y-1.5 leading-relaxed">
+                      <div className="p-2 rounded-lg bg-white border border-red-200/80">
+                        <div className="font-semibold text-red-800">🔴 สูง (High) — หยุดงานหลักทันที</div>
+                        <p className="text-slate-600">กระบวนการผลิตหยุดชะงัก, ขายหรือส่งของให้ลูกค้าไม่ได้, หรือระบบหลัก (SAP/ERP, เน็ต, Server) ล่มทั้งแผนก</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-amber-200/80">
+                        <div className="font-semibold text-amber-900">🟡 ปานกลาง (Medium) — ติดขัดแต่ยังเดินงานต่อได้</div>
+                        <p className="text-slate-600">กระทบเฉพาะบางเครื่อง/บางฟังก์ชัน ยังมีทางเลี่ยงชั่วคราว (เช่น ปริ้นท์ไม่ออกแต่สลับเครื่องได้, โปรแกรมช้า/ค้างบางหน้าจอ)</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-sky-200/80">
+                        <div className="font-semibold text-sky-900">🟢 ทั่วไป (Low) — ไม่เร่งด่วน / งานคำขอทั่วไป</div>
+                        <p className="text-slate-600">ขอสิทธิ์ใช้งาน, รีเซ็ตรหัสผ่าน, ติดตั้งโปรแกรม/อุปกรณ์เสริม, สอบถามวิธีใช้งาน, หรือขอรายงาน/ซ่อมอุปกรณ์ที่ไม่กระทบงาน</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Title Input */}

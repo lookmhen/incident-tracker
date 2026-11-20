@@ -103,9 +103,9 @@ export async function POST(req: NextRequest) {
     // If contactInfo is not provided, fallback to '-' or department
     contactInfo = contactInfo?.trim() || department?.trim() || '-';
 
-    if (!reporterName || !title || !description) {
+    if (!reporterName?.trim() || !department?.trim() || !title?.trim() || !description?.trim()) {
       return NextResponse.json(
-        { error: 'Please provide all required fields (reporterName, title, description)' },
+        { error: 'Please provide all required fields (reporterName, department, title, description)' },
         { status: 400 }
       );
     }

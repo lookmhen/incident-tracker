@@ -9,6 +9,7 @@ interface DepartmentInputProps {
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   placeholder?: string;
   className?: string;
+  required?: boolean;
 }
 
 export default function DepartmentInput({
@@ -18,6 +19,7 @@ export default function DepartmentInput({
   onKeyDown,
   placeholder,
   className,
+  required,
 }: DepartmentInputProps) {
   const [departments, setDepartments] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
@@ -63,6 +65,7 @@ export default function DepartmentInput({
       <input
         id={id}
         type="text"
+        required={required}
         autoComplete="off"
         role="combobox"
         aria-expanded={open && matches.length > 0}

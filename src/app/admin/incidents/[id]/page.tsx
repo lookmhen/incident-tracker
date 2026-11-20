@@ -1036,7 +1036,7 @@ export default function IncidentDetailMcpHub({
                 </h1>
               </div>
 
-              {isEditingReporter && !isClosed ? (
+              {isEditingReporter ? (
                 <div className="p-3 rounded-xl bg-sky-50/60 border border-sky-200 space-y-2.5 max-w-2xl">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div className="space-y-1">
@@ -1120,22 +1120,20 @@ export default function IncidentDetailMcpHub({
                     <span className="text-slate-400 font-medium">Contact:</span>
                     <span className="text-slate-700">{incident.contactInfo}</span>
                   </div>
-                  {!isClosed && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditReporterName(incident.reporterName);
-                        setEditDepartment(incident.department || '');
-                        setEditContactInfo(incident.contactInfo);
-                        setIsEditingReporter(true);
-                      }}
-                      className="px-2 py-0.5 rounded-md bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                      title="แก้ไขชื่อผู้แจ้ง แผนก หรือข้อมูลติดต่อ"
-                    >
-                      <span className="material-symbols-outlined text-[13px]">edit</span>
-                      <span>แก้ไข</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditReporterName(incident.reporterName);
+                      setEditDepartment(incident.department || '');
+                      setEditContactInfo(incident.contactInfo);
+                      setIsEditingReporter(true);
+                    }}
+                    className="px-2 py-0.5 rounded-md bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                    title="แก้ไขชื่อผู้แจ้ง แผนก หรือข้อมูลติดต่อ"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">edit</span>
+                    <span>แก้ไข</span>
+                  </button>
                   {isClosed && incident.resolvedBy && (
                     <>
                       <span className="hidden sm:inline text-slate-300">•</span>

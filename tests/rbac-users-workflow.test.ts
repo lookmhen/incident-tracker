@@ -538,20 +538,37 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
       assert.equal(editedReporter.department, 'Finance & Accounting');
       assert.equal(editedReporter.contactInfo, 'ext-9999');
 
-      // 3. Manager resolves -> One-way lock blocks Staff (403) & Manager content/attachment edits (400),
-      //    while allowing Manager closedAt/mttrExcluded edits and Reopen -> editing unlocked
+      // 3. Manager resolves -> Staff & Manager can still fix reporterName/department/contactInfo without altering closedAt,
+      //    while One-way lock blocks Staff on all other fields (403) and blocks Manager content/attachment edits (400)
       const resolveRes = await patch(mgrCookie, { status: 'RESOLVED' });
       assert.equal(resolveRes.status, 200);
       const resolved = await resolveRes.json();
       assert.equal(resolved.status, 'RESOLVED');
       assert.notEqual(resolved.closedAt, null);
 
-      const staffEditClosedDeptRes = await patch(staffCookie, { department: 'IT Ops' });
-      assert.equal(staffEditClosedDeptRes.status, 403);
+      // Staff CAN fix reporterName/department/contactInfo on closed ticket (200), preserving closedAt
+      const staffEditClosedDeptRes = await patch(staffCookie, {
+        reporterName: 'Somchai Final',
+        department: 'Packing',
+        contactInfo: 'ext-8888',
+      });
+      assert.equal(staffEditClosedDeptRes.status, 200);
+      const staffEditedClosed = await staffEditClosedDeptRes.json();
+      assert.equal(staffEditedClosed.reporterName, 'Somchai Final');
+      assert.equal(staffEditedClosed.department, 'Packing');
+      assert.equal(staffEditedClosed.contactInfo, 'ext-8888');
+      assert.equal(staffEditedClosed.closedAt, resolved.closedAt);
 
-      // Manager also cannot edit content fields (department, category, assignedTo, resolution) while closed
+      // Staff CANNOT piggyback status/category/closedAt alongside department on a closed ticket (403)
+      const staffPiggybackRes = await patch(staffCookie, { department: 'IT Ops', status: 'IN_PROGRESS' });
+      assert.equal(staffPiggybackRes.status, 403);
+      const staffClosedCatRes = await patch(staffCookie, { category: 'Network' });
+      assert.equal(staffClosedCatRes.status, 403);
+
+      // Manager CAN fix department on closed ticket (200), but still cannot edit content fields (category, assignedTo)
       const mgrEditClosedDeptRes = await patch(mgrCookie, { department: 'Finance' });
-      assert.equal(mgrEditClosedDeptRes.status, 400);
+      assert.equal(mgrEditClosedDeptRes.status, 200);
+      assert.equal((await mgrEditClosedDeptRes.json()).department, 'Finance');
       const mgrEditClosedCatRes = await patch(mgrCookie, { category: 'Network' });
       assert.equal(mgrEditClosedCatRes.status, 400);
       const mgrReassignClosedRes = await patch(mgrCookie, { assignedTo: managerUser.name });
@@ -589,9 +606,9 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
       assert.equal(reopened.status, 'IN_PROGRESS');
       assert.equal(reopened.closedAt, null);
 
-      const mgrEditAfterReopenRes = await patch(mgrCookie, { department: 'Finance' });
+      const mgrEditAfterReopenRes = await patch(mgrCookie, { category: 'Network' });
       assert.equal(mgrEditAfterReopenRes.status, 200);
-      assert.equal((await mgrEditAfterReopenRes.json()).department, 'Finance');
+      assert.equal((await mgrEditAfterReopenRes.json()).category, 'Network');
     } finally {
       if (localIncidentId) {
         await IncidentService.setMttrExcluded(localIncidentId, false);

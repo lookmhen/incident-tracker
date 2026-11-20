@@ -45,10 +45,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
       const existing = await IncidentService.getIncidentById(id);
       if (existing && ['RESOLVED', 'CLOSED'].includes((existing.status || '').trim().toUpperCase())) {
-        return NextResponse.json(
-          { error: 'Only a Manager can modify or reopen a closed incident' },
-          { status: 403 }
-        );
+        const reporterOnlyKeys = new Set(['reporterName', 'department', 'contactInfo']);
+        const sentKeys = Object.keys(body || {}).filter((k) => body[k] !== undefined);
+        const isReporterOnlyEdit = sentKeys.length > 0 && sentKeys.every((k) => reporterOnlyKeys.has(k));
+        if (!isReporterOnlyEdit) {
+          return NextResponse.json(
+            { error: 'Only a Manager can modify or reopen a closed incident' },
+            { status: 403 }
+          );
+        }
       }
     }
 

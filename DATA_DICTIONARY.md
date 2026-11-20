@@ -240,7 +240,7 @@ stateDiagram-v2
 | `RESOLVED / CLOSED → IN_PROGRESS` | `เปิดเคสใหม่ (Reopen)` | **Manager เท่านั้น** (`403` ถ้า Staff) | `window.confirm` ใน UI | ล้าง `closedAt = null`, ปลดล็อกให้กลับมาแก้ไขข้อมูลเคสและรูปแนบได้ |
 
 > **หมายเหตุเพิ่มเติม:**
-> - **One-way Closed Lock:** เมื่อเคสเป็น `RESOLVED`/`CLOSED` จะล็อกการแก้ไขข้อมูลทั้งหมด (ชื่อ/แผนก/ติดต่อ, หัวข้อ/รายละเอียด, Resolution, Category, Root Cause, Re-assign, รูปแนบ, Related Incidents) สำหรับทั้ง Staff และ Manager (Backend ปฏิเสธด้วย `400`/`403`) — Manager ต้องกด **`เปิดเคสใหม่ (Reopen)`** กลับเป็น `IN_PROGRESS` ก่อนจึงจะแก้ได้ ยกเว้นเฉพาะ **`closedAt`** และ **`mttrExcluded`** ที่ Manager ยังปรับหลังปิดเคสได้
+> - **One-way Closed Lock:** เมื่อเคสเป็น `RESOLVED`/`CLOSED` จะล็อกการแก้ไขข้อมูลเนื้อหาเคสทั้งหมด (หัวข้อ/รายละเอียด, Resolution, Category, Root Cause, Re-assign, รูปแนบ, Related Incidents) สำหรับทั้ง Staff และ Manager (Backend ปฏิเสธด้วย `400`/`403`) — Manager ต้องกด **`เปิดเคสใหม่ (Reopen)`** กลับเป็น `IN_PROGRESS` ก่อนจึงจะแก้ได้ ยกเว้น **`Name / Dept. / Contact`** ที่แก้ไขได้ทั้ง Staff และ Manager (ไม่กระทบ `closedAt`) และ **`closedAt` / `mttrExcluded`** ที่ Manager ยังปรับหลังปิดเคสได้
 > - **Re-assign (`Assigned: ...`)** บนเคสที่ยังไม่ปิด (`IN_PROGRESS`, `ON_HOLD`, `PENDING_CONFIRM`) จะอัปเดตเฉพาะ `assignedTo` โดย **ไม่เปลี่ยน `status` เดิม**
 > - **Legacy `CLOSED`:** UI ใหม่ปิดเคสเป็น `RESOLVED` เสมอ แต่ Backend, Analytics และ Export ยังคงรองรับเคสเก่าที่เป็น `CLOSED` เทียบเท่า `RESOLVED` และ Manager สามารถกด `Reopen` ได้เช่นเดียวกัน
 > - **Spec อ้างอิง:** [`docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md`](docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md)

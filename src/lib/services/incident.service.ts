@@ -589,11 +589,8 @@ export class IncidentService {
     const nextStatus = data.status !== undefined ? data.status.trim().toUpperCase() : undefined;
     const isReopening = nextStatus !== undefined && !['RESOLVED', 'CLOSED'].includes(nextStatus);
     if (['RESOLVED', 'CLOSED'].includes(currentStatus) && !isReopening) {
-      // One-way closed lock: only SLA/close timestamps, mttrExcluded, or Reopen may change after closure
+      // One-way closed lock: only reporter metadata, SLA/close timestamps, mttrExcluded, or Reopen may change after closure
       const hasLockedFieldMutation =
-        data.reporterName !== undefined ||
-        data.department !== undefined ||
-        data.contactInfo !== undefined ||
         data.title !== undefined ||
         data.description !== undefined ||
         data.category !== undefined ||

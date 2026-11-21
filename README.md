@@ -6,11 +6,13 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 
 ## 🚀 Key Features
 
-### 1. 🌟 Zero-Barrier User Portal (`/`)
+### 1. 🌟 Zero-Barrier User Portal & Tracking (`/`, `/track`)
 * **No Authentication Required:** Instant access via direct link or QR code.
 * **Auto-Cached Identity:** Remembers reporter name, department, and contact info in `localStorage`.
+* **Default Urgency Level:** Defaults to `LOW` (🟢 ทั่วไป) to encourage balanced incident reporting.
 * **Clipboard Diagnostic Capture:** Paste screenshots directly anywhere using `Ctrl+V` or drag-and-drop up to 5MB.
 * **Instant Ticket Generation:** Generates sequential IDs (`INC-YYYYMM-XXX`).
+* **Public Ticket Tracking (`/track`):** Dedicated privacy-preserving tracking page searching by Ticket ID only (e.g. `INC-202611-0001` or 4-digit sequence). Displays 3-step visual status stepper (`แจ้งเรื่องแล้ว` ➔ `กำลังดำเนินการ` ➔ `เสร็จสิ้น`) and public resolution notes while strictly concealing internal comments (`managerComment`), reporter contact info, and internal triage details.
 * **Multi-Channel Dispatch:** Emits Microsoft Teams Adaptive Cards v1.4 and SMTP Email notifications immediately upon submission.
 
 ### 2. 📊 IT Operations Triage Matrix (`/admin`)
@@ -26,7 +28,8 @@ A modern, high-reliability enterprise IT Incident Management System built with *
   * `OPEN` ➔ **`Claim Ticket (รับเคส)`** (`IN_PROGRESS`)
   * `IN_PROGRESS` ⇄ **`พักเคส (On Hold)`** / **`กลับมาทำต่อ (Resume)`** (`ON_HOLD` pauses queue aging and auto-excludes hold duration from MTTR)
   * **Staff:** Save Draft or **`ส่งให้ Manager ยืนยันปิดเคส`** (`PENDING_CONFIRM`, requires claimed ticket + Category + Root Cause; triggers Manager confirmation email and grays out to prevent duplicate sends)
-  * **Manager:** **`ตีกลับแก้ไข (In Progress)`**, **`Confirm & Mark Resolved (ยืนยันปิดเคส)`** (`PERMANENT` or `WORKAROUND` with condition note, stops MTTR and records `resolvedBy`), and **`เปิดเคสใหม่ (Reopen)`** (Manager-only with confirmation)
+  * **Manager:** **`ตีกลับแก้ไข (In Progress)`** (with optional internal send-back comment), **`Confirm & Mark Resolved (ยืนยันปิดเคส)`** (`PERMANENT` or `WORKAROUND` with condition note and optional internal `managerComment`, stops MTTR and records `resolvedBy`), and **`เปิดเคสใหม่ (Reopen)`** (Manager-only with confirmation)
+  * **Urgency Adjustment:** Admins can adjust incident urgency (`LOW` / `MEDIUM` / `HIGH`) directly on open tickets to correct reporter misclassifications; locked automatically once ticket is closed.
   * **Status-Preserving Re-assign:** Re-assigning a claimed ticket updates `assignedTo` without resetting its current workflow status.
   * **State Machine & Transition Reference:** Full Mermaid state diagram, role guards, and side effects documented in [`DATA_DICTIONARY.md#27-incident-status-state-machine--workflow-transitions`](DATA_DICTIONARY.md#27-incident-status-state-machine--workflow-transitions).
 * **Diagnostics & Resolution Attachments:** Separate upload/paste galleries for reporter evidence (`REPORT`) and closure proof (`RESOLUTION`) via `/api/uploads/[filename]` (standalone-compatible).
@@ -89,6 +92,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser:
 * **Zero-Barrier Report:** [http://localhost:3000](http://localhost:3000)
+* **Public Ticket Tracking:** [http://localhost:3000/track](http://localhost:3000/track)
 * **Operations Triage Dashboard:** [http://localhost:3000/admin](http://localhost:3000/admin)
 * **Integration Hub:** [http://localhost:3000/admin/integrations](http://localhost:3000/admin/integrations)
 * **Analytics Dashboard:** [http://localhost:3000/admin/analytics](http://localhost:3000/admin/analytics)

@@ -55,10 +55,11 @@
   * **Description:** รายละเอียดปัญหา
   * **Attachment:** อัปโหลดรูปภาพ หรือกด Ctrl+V วางรูปจาก Clipboard ได้เลย (รองรับ PNG, JPG, GIF ขนาดไม่เกิน 5MB)
   * **Urgency Level:**
-    * 🔴 High: ระบบหลักล่ม / ทำงานต่อไม่ได้ทันที
+    * 🟢 Low: ขอสิทธิ์ / สอบถาม / งานคำขอทั่วไป (Default)
     * 🟡 Medium: ทำงานติดขัด / พอมีทางเลี่ยง
-    * 🟢 Low: ขอสิทธิ์ / สอบถาม / งานซ่อมทั่วไป
-* **Output:** แสดง Ticket ID หลังบันทึกสำเร็จ (เช่น INC-202610-001) พร้อมสถานะส่ง Teams และ SLA Tracker
+    * 🔴 High: ระบบหลักล่ม / งานหลักหยุดชะงัก
+* **Public Ticket Tracking:** ตรวจสอบสถานะผ่านหน้า `/track` ด้วย Ticket ID แสดง 3-step timeline (ปิดบังข้อมูลส่วนบุคคลของผู้แจ้งและคอมเมนต์ภายใน)
+* **Output:** แสดง Ticket ID หลังบันทึกสำเร็จ (เช่น INC-202610-001) พร้อมปุ่มติดตามสถานะ และสถานะส่ง Teams/Email SLA Tracker
 
 ### 4.2 ฝั่ง Teams / Email Integration & Admin Workflow
 * **Teams & Email Notification:** ยิง Adaptive Card / Power Automate JSON เข้า Microsoft Teams และส่งอีเมลผ่าน SMTP Relay (`nodemailer`) ทันทีที่มีเคสใหม่ พร้อมลิงก์ดูรูปแนบและปุ่มเปิดเคสตาม URL จริงของเซิร์ฟเวอร์ (`APP_URL` หรือ request host)

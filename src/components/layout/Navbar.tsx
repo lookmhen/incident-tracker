@@ -130,14 +130,28 @@ export default function Navbar() {
               </button>
             </>
           ) : (
-            <Link
-              href="/admin"
-              className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-sky-50 text-slate-600 hover:text-sky-700 border border-slate-200 hover:border-sky-200 text-xs font-medium flex items-center gap-1.5 transition-all"
-              title="Sign in to IT Operations & Admin Console"
-            >
-              <span className="material-symbols-outlined text-[15px] text-sky-600">lock</span>
-              <span>IT Admin Console</span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/track"
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+                  pathname.startsWith('/track')
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50'
+                }`}
+                title="ติดตามสถานะการแจ้งปัญหาด้วย Ticket ID"
+              >
+                <span className="material-symbols-outlined text-[15px]">search_check</span>
+                <span>ติดตามสถานะ</span>
+              </Link>
+              <Link
+                href="/admin"
+                className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-sky-50 text-slate-600 hover:text-sky-700 border border-slate-200 hover:border-sky-200 text-xs font-medium flex items-center gap-1.5 transition-all"
+                title="Sign in to IT Operations & Admin Console"
+              >
+                <span className="material-symbols-outlined text-[15px] text-sky-600">lock</span>
+                <span>IT Admin Console</span>
+              </Link>
+            </div>
           )}
         </div>
       </div>

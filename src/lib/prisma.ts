@@ -30,6 +30,7 @@ function ensureSchemaColumns(): Promise<void> {
             ['resolutionType', 'TEXT'],
             ['workaroundNote', 'TEXT'],
             ['resolvedBy', 'TEXT'],
+            ['managerComment', 'TEXT'],
             ['relatedTickets', 'TEXT'],
           ];
           for (const [col, def] of missingIncCols) {

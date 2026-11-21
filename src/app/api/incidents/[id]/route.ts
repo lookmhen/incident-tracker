@@ -75,6 +75,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       resolvedBy:
         (typeof body.resolvedBy === 'string' ? body.resolvedBy.trim() : body.resolvedBy) ||
         (isClosing && session ? session.name : body.resolvedBy),
+      managerComment: session?.role === 'MANAGER' ? body.managerComment : undefined,
       portalBaseUrl: EmailService.resolvePortalUrl(req),
       createdAt: body.createdAt,
       closedAt: body.closedAt,

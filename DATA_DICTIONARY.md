@@ -43,6 +43,7 @@ erDiagram
         string resolutionType "PERMANENT | WORKAROUND"
         string workaroundNote "Condition / follow-up note for WORKAROUND"
         string resolvedBy "Manager who confirmed closure"
+        string managerComment "Internal Manager note on close / send-back"
         string relatedTickets "JSON array of referenced ticketNos"
         datetime createdAt "Created timestamp"
         datetime updatedAt "Updated timestamp"
@@ -127,7 +128,7 @@ erDiagram
 | `contactInfo` | String | NO | - | - | ข้อมูลติดต่อกลับ เช่น อีเมล, เบอร์ต่อภายใน (`Ext. 4412`) |
 | `title` | String | NO | - | - | หัวข้อสรุปของปัญหาแบบสั้นกระชับ (Clean Text) |
 | `description` | String | NO | - | - | รายละเอียดปัญหา ข้อความ Error ที่พบ (Clean Text ปลอด HTML tags) |
-| `urgency` | String | NO | `MEDIUM` | Indexed | ระดับความเร่งด่วนของเคส มี 3 ค่า:<br>• `HIGH`: งานหยุดชะงัก / ระบบหลักล่ม (SLA: 15-30 นาที)<br>• `MEDIUM`: งานติดขัดแต่พอมีทางเลี่ยง (Default)<br>• `LOW`: งานซ่อมทั่วไป / คำถาม / ขอสิทธิ์ |
+| `urgency` | String | NO | `LOW` | Indexed | ระดับความเร่งด่วนของเคส มี 3 ค่า:<br>• `HIGH`: งานหยุดชะงัก / ระบบหลักล่ม (SLA: 15-30 นาที)<br>• `MEDIUM`: งานติดขัดแต่พอมีทางเลี่ยง<br>• `LOW`: งานคำขอทั่วไป / สอบถาม / ขอสิทธิ์ (Default)<br>*Admin สามารถปรับเปลี่ยนระดับความสำคัญของเคสที่เปิดอยู่ได้ และจะถูกล็อคอัตโนมัติเมื่อปิดเคส* |
 | `categoryId` | String | YES | `NULL` | Foreign Key | อ้างอิงถึง `Category(id)` สำหรับการ Triage เชิงโครงสร้าง |
 | `category` | String | YES | `NULL` | Indexed | Denormalized Category Name เก็บเป็นข้อความไว้เพื่อความรวดเร็วในการ Query และ Filter |
 | `rootCause` | String | YES | `NULL` | - | สาเหตุต้นตอของปัญหา (Root Cause Category) เช่น `Human`, `System`, `Data` หรือค่าที่ Admin เพิ่มเอง (**บังคับระบุคู่กับ `category` ก่อนปิดเคส**) |
@@ -137,6 +138,7 @@ erDiagram
 | `resolutionType` | String | YES | `NULL` | - | ประเภทการปิดเคส: `PERMANENT` (แก้ไขถาวร) หรือ `WORKAROUND` (แก้ไขชั่วคราว/มีเงื่อนไข — หยุดเวลา MTTR พร้อมแสดง Badge) |
 | `workaroundNote` | String | YES | `NULL` | - | เงื่อนไขหรือแผนติดตามผลเมื่อปิดเคสแบบ `WORKAROUND` (ล้างเป็น `NULL` เมื่อเปลี่ยนเป็น `PERMANENT`) |
 | `resolvedBy` | String | YES | `NULL` | - | ชื่อ Manager ที่ยืนยันปิดเคส |
+| `managerComment` | String | YES | `NULL` | - | ข้อคิดเห็น/โน้ตภายในของ Manager ตอนปิดเคสหรือตอนตีกลับเคส (บันทึกเฉพาะภายในทีม IT ไม่ถูกเปิดเผยออกไปยัง MCP, AI KM หรือหน้า Public Tracking) |
 | `relatedTickets` | String | YES | `NULL` | - | JSON Array ของเลข Ticket เก่าที่อ้างอิง เช่น `["INC-202611-001","INC-202611-005"]` (รองรับหลายเคสและแสดงลิงก์ย้อนกลับ `referencedBy`) |
 | `createdAt` | DateTime| NO | `now()` | Indexed | วันที่และเวลาที่เปิดเคส (ใช้คำนวณ Ticket Age และ MTTA) |
 | `updatedAt` | DateTime| NO | - | Auto-update | วันที่และเวลาที่มีการปรับปรุงข้อมูล Ticket ล่าสุด |

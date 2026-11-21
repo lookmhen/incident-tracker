@@ -340,7 +340,7 @@ export class IncidentService {
             contactInfo: data.contactInfo.trim(),
             title: cleanTitle,
             description: cleanDesc,
-            urgency: data.urgency || 'MEDIUM',
+            urgency: data.urgency || 'LOW',
             category: data.category?.trim() || null,
             categoryId: data.categoryId || null,
             status: 'OPEN',
@@ -604,6 +604,7 @@ export class IncidentService {
       resolutionType?: string | null;
       workaroundNote?: string | null;
       resolvedBy?: string | null;
+      managerComment?: string | null;
       portalBaseUrl?: string;
       createdAt?: string | Date;
       closedAt?: string | Date | null;
@@ -690,6 +691,10 @@ export class IncidentService {
 
     if (data.resolvedBy !== undefined) {
       updatePayload.resolvedBy = data.resolvedBy ? data.resolvedBy.trim() || null : null;
+    }
+
+    if (data.managerComment !== undefined) {
+      updatePayload.managerComment = data.managerComment ? data.managerComment.trim() || null : null;
     }
 
     if (data.createdAt !== undefined) {

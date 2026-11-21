@@ -48,6 +48,7 @@ interface IncidentDetail {
   resolutionType?: string | null;
   workaroundNote?: string | null;
   resolvedBy?: string | null;
+  managerComment?: string | null;
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
@@ -99,6 +100,7 @@ export default function IncidentDetailMcpHub({
   const [resolutionText, setResolutionText] = useState('');
   const [resolutionType, setResolutionType] = useState<'PERMANENT' | 'WORKAROUND'>('PERMANENT');
   const [workaroundNote, setWorkaroundNote] = useState('');
+  const [managerComment, setManagerComment] = useState('');
 
   // Edit Incident Details state
   const [isEditingDetails, setIsEditingDetails] = useState(false);
@@ -172,6 +174,7 @@ export default function IncidentDetailMcpHub({
         setResolutionText(data.resolution || '');
         setResolutionType(data.resolutionType === 'WORKAROUND' ? 'WORKAROUND' : 'PERMANENT');
         setWorkaroundNote(data.workaroundNote || '');
+        setManagerComment(data.managerComment || '');
       }
     } catch (e) {
       console.error(e);
@@ -426,14 +429,20 @@ export default function IncidentDetailMcpHub({
     const prevStatus = normStatus(incident.status);
     setUpdatingStatus(true);
     try {
+      const isSendBack =
+        currentUser?.role === 'MANAGER' && prevStatus === 'PENDING_CONFIRM' && newStatus === 'IN_PROGRESS';
       const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({
+          status: newStatus,
+          ...(isSendBack ? { managerComment: managerComment.trim() } : {}),
+        }),
       });
       if (res.ok) {
         const updated = await res.json();
         setIncident(updated);
+        setManagerComment(updated.managerComment || '');
         setEditingTimeField(null);
         setResolutionFeedback(null);
         if (['RESOLVED', 'CLOSED'].includes(newStatus)) {
@@ -479,6 +488,33 @@ export default function IncidentDetailMcpHub({
     } else {
       setResolutionText(cleaned);
       showToast('ล้างแท็ก HTML/Markdown และจัดช่องว่างเรียบร้อยแล้ว');
+    }
+  };
+
+  // Edit Urgency (Allowed only when !isClosed)
+  const [updatingUrgency, setUpdatingUrgency] = useState(false);
+  const handleUpdateUrgency = async (newUrgency: 'HIGH' | 'MEDIUM' | 'LOW') => {
+    if (!incident || isClosed || updatingUrgency || incident.urgency === newUrgency) return;
+    setUpdatingUrgency(true);
+    try {
+      const res = await fetch(`/api/incidents/${incident.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urgency: newUrgency }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setIncident(updated);
+        showToast(`ปรับระดับความสำคัญเป็น ${newUrgency} เรียบร้อยแล้ว`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || 'ไม่สามารถปรับระดับความสำคัญได้', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์', 'error');
+    } finally {
+      setUpdatingUrgency(false);
     }
   };
 
@@ -565,6 +601,7 @@ export default function IncidentDetailMcpHub({
       workaroundNote: resolutionType === 'WORKAROUND' ? workaroundNote.trim() : '',
     };
     if (targetStatus) payload.status = targetStatus;
+    if (targetStatus === 'RESOLVED') payload.managerComment = managerComment.trim();
 
     setSavingResolution(true);
     try {
@@ -576,6 +613,7 @@ export default function IncidentDetailMcpHub({
       if (res.ok) {
         const updated = await res.json();
         setIncident(updated);
+        setManagerComment(updated.managerComment || '');
         if (targetStatus === 'RESOLVED') {
           setIsEditingDetails(false);
           setIsEditingReporter(false);
@@ -1003,15 +1041,51 @@ export default function IncidentDetailMcpHub({
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-3 min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                {isHigh ? (
-                  <span className="px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-semibold flex items-center gap-1.5 shadow-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping"></span>
-                    HIGH URGENCY
-                  </span>
+                {isClosed ? (
+                  isHigh ? (
+                    <span className="px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-semibold flex items-center gap-1.5 shadow-xs" title="ปิดเคสแล้ว ไม่สามารถแก้ไขได้">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                      HIGH URGENCY
+                    </span>
+                  ) : incident.urgency === 'LOW' ? (
+                    <span className="px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-semibold flex items-center gap-1.5" title="ปิดเคสแล้ว ไม่สามารถแก้ไขได้">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                      LOW URGENCY
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold flex items-center gap-1.5" title="ปิดเคสแล้ว ไม่สามารถแก้ไขได้">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                      MEDIUM URGENCY
+                    </span>
+                  )
                 ) : (
-                  <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold flex items-center gap-1.5">
-                    {incident.urgency} URGENCY
-                  </span>
+                  <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50/80 p-0.5 shadow-2xs">
+                    {(['LOW', 'MEDIUM', 'HIGH'] as const).map((lvl) => {
+                      const isCurr = incident.urgency === lvl;
+                      const activeCls =
+                        lvl === 'HIGH'
+                          ? 'bg-red-600 text-white shadow-xs font-bold'
+                          : lvl === 'MEDIUM'
+                          ? 'bg-amber-500 text-white shadow-xs font-bold'
+                          : 'bg-sky-600 text-white shadow-xs font-bold';
+                      const idleCls = 'text-slate-600 hover:text-slate-900 hover:bg-white/60';
+                      return (
+                        <button
+                          key={lvl}
+                          type="button"
+                          disabled={updatingUrgency}
+                          onClick={() => handleUpdateUrgency(lvl)}
+                          className={`px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer disabled:opacity-50 ${
+                            isCurr ? activeCls : idleCls
+                          }`}
+                          title={`เปลี่ยนระดับเป็น ${lvl}`}
+                        >
+                          {lvl === 'HIGH' && isCurr && <span className="inline-block w-1 h-1 rounded-full bg-white mr-1 animate-ping align-middle"></span>}
+                          {lvl}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
 
                 <span
@@ -1190,6 +1264,16 @@ export default function IncidentDetailMcpHub({
                   <div>
                     <span className="font-semibold">Workaround Note: </span>
                     <span>{incident.workaroundNote}</span>
+                  </div>
+                </div>
+              )}
+
+              {incident.managerComment && (
+                <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-slate-500 shrink-0 mt-0.5">comment</span>
+                  <div>
+                    <span className="font-semibold">ความเห็น Manager: </span>
+                    <span className="whitespace-pre-wrap">{incident.managerComment}</span>
                   </div>
                 </div>
               )}
@@ -1577,6 +1661,25 @@ export default function IncidentDetailMcpHub({
                     >
                       <span className="material-symbols-outlined text-[16px]">close</span>
                     </button>
+                  </div>
+                )}
+                {isManager && !isClosed && (
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="managerComment"
+                      className="block text-xs font-semibold text-slate-700"
+                    >
+                      ความเห็น Manager (ไม่บังคับ — โน้ตภายใน)
+                    </label>
+                    <textarea
+                      id="managerComment"
+                      rows={2}
+                      disabled={isMutatingStatus}
+                      value={managerComment}
+                      onChange={(e) => setManagerComment(e.target.value)}
+                      placeholder="ระบุความคิดเห็นเพิ่มเติมตอนปิดเคส หรือเหตุผลเมื่อกดตีกลับแก้ไข..."
+                      className="w-full bg-white text-slate-900 border border-slate-300 text-xs rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-sky-400 resize-y disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed"
+                    />
                   </div>
                 )}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3">

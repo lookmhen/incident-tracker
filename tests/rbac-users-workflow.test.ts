@@ -6,6 +6,8 @@ import { ADMIN_COOKIE_NAME, createAdminSessionToken, createInviteToken } from '.
 import { UserService } from '../src/lib/services/user.service';
 import { IncidentService } from '../src/lib/services/incident.service';
 import { IntegrationService } from '../src/lib/services/integration.service';
+import { McpService } from '../src/lib/services/mcp.service';
+import { KmExportService } from '../src/lib/services/km-export.service';
 import { GET as authGet, POST as authPost } from '../src/app/api/auth/admin/route';
 import { GET as usersGet, POST as usersPost } from '../src/app/api/users/route';
 import { PATCH as userPatch, DELETE as userDelete } from '../src/app/api/users/[id]/route';
@@ -17,6 +19,7 @@ import {
 import { PATCH as incidentPatch } from '../src/app/api/incidents/[id]/route';
 import { POST as attachmentsPost } from '../src/app/api/incidents/[id]/attachments/route';
 import { GET as exportGet } from '../src/app/api/incidents/export/route';
+import { GET as trackGet } from '../src/app/api/track/[id]/route';
 
 describe('12. User Management, Role-Based Access, Invite Link & Workaround Workflow', () => {
   const createdUserIds: string[] = [];
@@ -372,6 +375,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
           resolution: 'Restarted worker process temporarily',
           resolutionType: 'WORKAROUND',
           workaroundNote: 'Wait for vendor patch next week',
+          managerComment: 'staff should not write this',
         }),
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
@@ -380,6 +384,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     const pending = await pendingRes.json();
     assert.equal(pending.status, 'PENDING_CONFIRM');
     assert.equal(pending.closedAt, null);
+    assert.equal(pending.managerComment ?? null, null);
 
     // 3b. Analytics byStatus includes PENDING_CONFIRM so status sum matches total
     const analyticsMid = await IncidentService.getAnalyticsData({});
@@ -395,6 +400,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
           status: 'RESOLVED',
           resolutionType: 'WORKAROUND',
           workaroundNote: 'Monitor memory daily until patch applied',
+          managerComment: '  Good fix, follow up with vendor  ',
         }),
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
@@ -406,6 +412,30 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     assert.equal(confirmed.resolutionType, 'WORKAROUND');
     assert.equal(confirmed.workaroundNote, 'Monitor memory daily until patch applied');
     assert.equal(confirmed.resolvedBy, 'Manager Approver');
+    assert.equal(confirmed.managerComment, 'Good fix, follow up with vendor');
+
+    // Internal managerComment must never leak into MCP or KM outputs
+    const freshInc = await IncidentService.getIncidentById(inc.ticketNo);
+    assert.ok(freshInc);
+    assert.ok(!JSON.stringify(McpService.formatMcpContext(freshInc)).includes('Good fix'));
+    assert.ok(!KmExportService.toKnowledgeDocument(freshInc).includes('Good fix'));
+
+    // Public tracking API: verifies sanitized fields and zero leakage of internal data or reporter contact
+    const trackRes = await trackGet(
+      new NextRequest(`http://localhost/api/track/${inc.ticketNo}`),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(trackRes.status, 200);
+    const trackData = await trackRes.json();
+    assert.equal(trackData.ticketNo, inc.ticketNo);
+    assert.equal(trackData.status, 'RESOLVED');
+    assert.equal(trackData.resolutionType, 'WORKAROUND');
+    assert.equal(trackData.managerComment, undefined);
+    assert.equal(trackData.contactInfo, undefined);
+    assert.equal(trackData.reporterName, undefined);
+    assert.equal(trackData.assignedTo, undefined);
+    assert.ok(!JSON.stringify(trackData).includes('Good fix'));
+    assert.ok(!JSON.stringify(trackData).includes('qa@example.com'));
 
     // 4b. STAFF cannot reopen or modify an already-RESOLVED ticket (403)
     const staffReopenRes = await incidentPatch(

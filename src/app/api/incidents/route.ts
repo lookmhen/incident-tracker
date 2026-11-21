@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       contactInfo = String(formData.get('contactInfo') || '');
       title = String(formData.get('title') || '');
       description = String(formData.get('description') || '');
-      urgency = (String(formData.get('urgency') || 'MEDIUM')) as any;
+      urgency = (String(formData.get('urgency') || 'LOW')) as any;
       category = String(formData.get('category') || '');
       categoryId = String(formData.get('categoryId') || '');
 
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       contactInfo = json?.contactInfo;
       title = json?.title;
       description = json?.description;
-      urgency = json?.urgency || 'MEDIUM';
+      urgency = json?.urgency || 'LOW';
       category = json?.category || '';
       categoryId = json?.categoryId || '';
 

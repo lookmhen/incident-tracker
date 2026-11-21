@@ -31,7 +31,7 @@ export default function SimplePublicReportPortal() {
   // Form values
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [urgency, setUrgency] = useState<'HIGH' | 'MEDIUM' | 'LOW'>('MEDIUM');
+  const [urgency, setUrgency] = useState<'HIGH' | 'MEDIUM' | 'LOW'>('LOW');
   const [showUrgencyGuide, setShowUrgencyGuide] = useState(false);
   const [attachment, setAttachment] = useState<AttachedFile | null>(null);
 
@@ -195,7 +195,7 @@ export default function SimplePublicReportPortal() {
   const handleResetForNew = () => {
     setTitle('');
     setDescription('');
-    setUrgency('MEDIUM');
+    setUrgency('LOW');
     setAttachment(null);
     setSubmittedTicket(null);
   };
@@ -266,7 +266,7 @@ export default function SimplePublicReportPortal() {
                   <span>{copied ? 'คัดลอกแล้ว' : 'คัดลอกรหัส'}</span>
                 </button>
                 <Link
-                  href={`/admin/incidents/${submittedTicket.ticketNo}`}
+                  href={`/track?ticket=${encodeURIComponent(submittedTicket.ticketNo)}`}
                   className="px-3.5 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                 >
                   <span>ติดตามสถานะ</span>
@@ -414,18 +414,18 @@ export default function SimplePublicReportPortal() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   {[
                     {
-                      value: 'HIGH' as const,
-                      dot: 'bg-red-600',
-                      label: '🔴 สูง (High)',
-                      short: 'หยุดผลิต / ขาย-ส่งของไม่ได้',
-                      activeClass: 'bg-red-50 border-red-500 text-red-800 shadow-xs ring-1 ring-red-400',
-                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-red-50/50 text-slate-700',
-                      tipHeader: '🔴 สูง (High) — หยุดงานหลักทันที',
-                      tipAccent: 'border-red-200 bg-red-50/40 text-red-900',
+                      value: 'LOW' as const,
+                      dot: 'bg-sky-500',
+                      label: '🟢 ทั่วไป (Low)',
+                      short: 'คำขอ / ไม่เร่งด่วน',
+                      activeClass: 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs ring-1 ring-sky-400',
+                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-sky-50/50 text-slate-700',
+                      tipHeader: '🟢 ทั่วไป (Low) — ไม่เร่งด่วน / งานคำขอทั่วไป (ค่าเริ่มต้น)',
+                      tipAccent: 'border-sky-200 bg-sky-50/40 text-sky-900',
                       tooltipPos: 'sm:left-0',
                       points: [
-                        'กระบวนการผลิตหยุดชะงัก, ขายหรือส่งของให้ลูกค้าไม่ได้',
-                        'ระบบหลัก (SAP/ERP, เน็ต, Server) ล่มทั้งแผนกหรือหลายคนทำงานต่อไม่ได้เลย',
+                        'ขอสิทธิ์ใช้งาน, รีเซ็ตรหัสผ่าน, ขอติดตั้งโปรแกรมหรืออุปกรณ์เสริม',
+                        'สอบถามวิธีใช้งาน, ขอรายงาน/แก้ข้อมูลไม่เร่งด่วน, แจ้งซ่อมอุปกรณ์ที่ไม่กระทบงาน',
                       ],
                     },
                     {
@@ -444,18 +444,18 @@ export default function SimplePublicReportPortal() {
                       ],
                     },
                     {
-                      value: 'LOW' as const,
-                      dot: 'bg-sky-500',
-                      label: '🟢 ทั่วไป (Low)',
-                      short: 'คำขอ / ไม่เร่งด่วน',
-                      activeClass: 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs ring-1 ring-sky-400',
-                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-sky-50/50 text-slate-700',
-                      tipHeader: '🟢 ทั่วไป (Low) — ไม่เร่งด่วน / งานคำขอทั่วไป',
-                      tipAccent: 'border-sky-200 bg-sky-50/40 text-sky-900',
+                      value: 'HIGH' as const,
+                      dot: 'bg-red-600',
+                      label: '🔴 สูง (High)',
+                      short: 'หยุดผลิต / ขาย-ส่งของไม่ได้',
+                      activeClass: 'bg-red-50 border-red-500 text-red-800 shadow-xs ring-1 ring-red-400',
+                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-red-50/50 text-slate-700',
+                      tipHeader: '🔴 สูง (High) — หยุดงานหลักทันที',
+                      tipAccent: 'border-red-200 bg-red-50/40 text-red-900',
                       tooltipPos: 'sm:right-0',
                       points: [
-                        'ขอสิทธิ์ใช้งาน, รีเซ็ตรหัสผ่าน, ขอติดตั้งโปรแกรมหรืออุปกรณ์เสริม',
-                        'สอบถามวิธีใช้งาน, ขอรายงาน/แก้ข้อมูลไม่เร่งด่วน, แจ้งซ่อมอุปกรณ์ที่ไม่กระทบงาน',
+                        'กระบวนการผลิตหยุดชะงัก, ขายหรือส่งของให้ลูกค้าไม่ได้',
+                        'ระบบหลัก (SAP/ERP, เน็ต, Server) ล่มทั้งแผนกหรือหลายคนทำงานต่อไม่ได้เลย',
                       ],
                     },
                   ].map((opt) => (

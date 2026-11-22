@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IncidentService } from '@/lib/services/incident.service';
+import { IncidentServiceError } from '@/lib/services/incident-errors';
 import { EmailService } from '@/lib/services/email.service';
 import { checkApiAccess } from '@/lib/api-guard';
 import { getActiveSession } from '@/lib/session';
@@ -85,24 +86,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json(updated);
   } catch (error: any) {
+    if (error instanceof IncidentServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     const msg = error?.message || 'Failed to update incident';
-    if (msg.startsWith('Incident not found:')) {
-      return NextResponse.json({ error: msg }, { status: 404 });
-    }
-    if (
-      msg.includes('closedAt') ||
-      msg.includes('createdAt') ||
-      msg.includes('required before') ||
-      msg.includes('must be claimed') ||
-      msg.includes('Cannot edit incident details') ||
-      msg.includes('Incident is closed') ||
-      msg.includes('cannot be empty') ||
-      msg.includes('Cannot reference') ||
-      msg.includes('Referenced incident not found') ||
-      msg.includes('Invalid relatedTickets')
-    ) {
-      return NextResponse.json({ error: msg }, { status: 400 });
-    }
     console.error('Error updating incident:', error);
     return NextResponse.json({ error: msg }, { status: 500 });
   }

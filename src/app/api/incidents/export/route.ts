@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActiveSession } from '@/lib/session';
-import { IncidentService } from '@/lib/services/incident.service';
+import { buildFilterWhere, parseRelatedTickets } from '@/lib/services/incident-shared';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const where = IncidentService.buildFilterWhere({
+    const where = buildFilterWhere({
       search: searchParams.get('search') || undefined,
       status: searchParams.get('status') || undefined,
       urgency: searchParams.get('urgency') || undefined,
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
       inc.workaroundNote || '',
       inc.resolvedBy || '',
       inc.closedAt ? new Date(inc.closedAt).toLocaleString('th-TH') : '',
-      IncidentService.parseRelatedTickets(inc.relatedTickets).join(', '),
+      parseRelatedTickets(inc.relatedTickets).join(', '),
     ]);
 
     const csvContent =

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { IncidentService } from '@/lib/services/incident.service';
+import { IncidentAnalyticsService } from '@/lib/services/incident-analytics.service';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -7,7 +7,7 @@ export const revalidate = 0;
 export async function GET(req: NextRequest) {
   try {
     const q = new URL(req.url).searchParams.get('q') || undefined;
-    const departments = await IncidentService.getDepartments(q);
+    const departments = await IncidentAnalyticsService.getDepartments(q);
     return NextResponse.json(departments, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     });

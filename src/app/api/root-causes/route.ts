@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { IncidentService } from '@/lib/services/incident.service';
+import { RootCauseService } from '@/lib/services/root-cause.service';
+import { IncidentServiceError } from '@/lib/services/incident-errors';
 import { checkApiAccess } from '@/lib/api-guard';
 
 export const dynamic = 'force-dynamic';
@@ -7,7 +8,7 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    const options = await IncidentService.getRootCauseOptions();
+    const options = await RootCauseService.getRootCauseOptions();
     return NextResponse.json(options, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },
     });
@@ -25,11 +26,13 @@ export async function POST(req: NextRequest) {
     if (!body.name || !String(body.name).trim()) {
       return NextResponse.json({ error: 'Root cause name is required' }, { status: 400 });
     }
-    const updated = await IncidentService.addRootCauseOption(String(body.name));
+    const updated = await RootCauseService.addRootCauseOption(String(body.name));
     return NextResponse.json(updated, { status: 201 });
   } catch (error: any) {
-    const msg = error?.message || 'Failed to add root cause';
-    return NextResponse.json({ error: msg }, { status: msg.includes('already exists') ? 400 : 500 });
+    if (error instanceof IncidentServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    return NextResponse.json({ error: error?.message || 'Failed to add root cause' }, { status: 500 });
   }
 }
 
@@ -43,10 +46,12 @@ export async function DELETE(req: NextRequest) {
     if (!name) {
       return NextResponse.json({ error: 'Root cause name is required' }, { status: 400 });
     }
-    const updated = await IncidentService.deleteRootCauseOption(name);
+    const updated = await RootCauseService.deleteRootCauseOption(name);
     return NextResponse.json(updated);
   } catch (error: any) {
-    const msg = error?.message || 'Failed to delete root cause';
-    return NextResponse.json({ error: msg }, { status: msg.includes('least one') ? 400 : 500 });
+    if (error instanceof IncidentServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    return NextResponse.json({ error: error?.message || 'Failed to delete root cause' }, { status: 500 });
   }
 }

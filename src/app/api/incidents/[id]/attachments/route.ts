@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { IncidentService } from '@/lib/services/incident.service';
+import { IncidentAttachmentService } from '@/lib/services/incident-attachment.service';
+import { IncidentServiceError } from '@/lib/services/incident-errors';
 import { checkApiAccess } from '@/lib/api-guard';
 import {
   ALLOWED_ATTACHMENT_LABEL,
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const fileName = rawFile.name || fallbackAttachmentFileName(rawFile.type);
     const buffer = Buffer.from(await rawFile.arrayBuffer());
-    const attachment = await IncidentService.addAttachment(
+    const attachment = await IncidentAttachmentService.addAttachment(
       id,
       {
         buffer,
@@ -62,14 +63,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json(attachment, { status: 201 });
   } catch (error: any) {
-    const msg = error?.message || 'Failed to upload attachment';
-    if (msg.startsWith('Incident not found:')) {
-      return NextResponse.json({ error: msg }, { status: 404 });
+    if (error instanceof IncidentServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    if (msg.includes('Incident is closed')) {
-      return NextResponse.json({ error: msg }, { status: 400 });
-    }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to upload attachment' }, { status: 500 });
   }
 }
 
@@ -84,16 +81,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'attachmentId is required' }, { status: 400 });
     }
 
-    await IncidentService.deleteAttachment(id, attachmentId);
+    await IncidentAttachmentService.deleteAttachment(id, attachmentId);
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    const msg = error?.message || 'Failed to delete attachment';
-    if (msg.startsWith('Incident not found:') || msg.startsWith('Attachment not found:')) {
-      return NextResponse.json({ error: msg }, { status: 404 });
+    if (error instanceof IncidentServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    if (msg.includes('Incident is closed')) {
-      return NextResponse.json({ error: msg }, { status: 400 });
-    }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to delete attachment' }, { status: 500 });
   }
 }

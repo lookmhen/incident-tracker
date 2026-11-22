@@ -1091,4 +1091,40 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       { department: 'General / Unspecified', count: 1 },
     ]);
   });
+
+  it('throws IncidentServiceError with 404/400 status codes from IncidentService.updateIncident', async () => {
+    await assert.rejects(
+      () => IncidentService.updateIncident('INC-999999-404', { title: 'Missing' }),
+      (err: unknown) => err instanceof IncidentServiceError && err.status === 404
+    );
+
+    const inc = await IncidentService.createIncident({
+      reporterName: 'Error Status Tester',
+      contactInfo: 'err@test.local',
+      title: 'Error handling regression test',
+      description: 'Verifies typed IncidentServiceError status codes',
+    });
+    testIncidentIds.push(inc.id);
+
+    await assert.rejects(
+      () => IncidentService.updateIncident(inc.ticketNo, { createdAt: 'not-a-date' }),
+      (err: unknown) => err instanceof IncidentServiceError && err.status === 400
+    );
+
+    await assert.rejects(
+      () => IncidentService.updateIncident(inc.ticketNo, { relatedTickets: ['INC-999999-999'] }),
+      (err: unknown) => err instanceof IncidentServiceError && err.status === 400
+    );
+
+    await IncidentService.updateIncident(inc.ticketNo, {
+      status: 'RESOLVED',
+      category: 'Helpdesk',
+      rootCause: 'System',
+    });
+
+    await assert.rejects(
+      () => IncidentService.updateIncident(inc.ticketNo, { title: 'Blocked by closed lock' }),
+      (err: unknown) => err instanceof IncidentServiceError && err.status === 400
+    );
+  });
 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActiveSession } from '@/lib/session';
-import { IncidentService } from '@/lib/services/incident.service';
+import { IncidentAnalyticsService } from '@/lib/services/incident-analytics.service';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const rootCause = searchParams.get('rootCause') || undefined;
     const department = searchParams.get('department') || undefined;
 
-    const data = await IncidentService.getAnalyticsData({
+    const data = await IncidentAnalyticsService.getAnalyticsData({
       startDate,
       endDate,
       groupBy,

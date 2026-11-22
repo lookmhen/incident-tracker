@@ -9,7 +9,10 @@ export class IncidentAttachmentService {
    * Resolves root uploads directory, honoring UPLOADS_DIR env if set
    */
   public static getUploadsRoot(): string {
-    return path.resolve(process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'public', 'uploads'));
+    return path.resolve(
+      /*turbopackIgnore: true*/
+      process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'public', 'uploads')
+    );
   }
 
   /**

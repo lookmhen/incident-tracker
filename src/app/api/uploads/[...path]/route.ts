@@ -51,9 +51,10 @@ export async function GET(
   }
 
   const uploadDir = path.resolve(
+    /*turbopackIgnore: true*/
     process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'public', 'uploads')
   );
-  const filePath = path.resolve(uploadDir, ...segments);
+  const filePath = path.resolve(/*turbopackIgnore: true*/ uploadDir, ...segments);
 
   // Guard against resolved path escaping uploadDir
   if (!filePath.startsWith(uploadDir + path.sep)) {

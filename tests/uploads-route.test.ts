@@ -199,9 +199,9 @@ describe('11. Dynamic Upload Serving (/api/uploads/[...path])', () => {
   });
 
   it('serves single-segment filenames from custom UPLOADS_DIR without [filename] shadow route', async () => {
-    const tmpUploadsDir = await fs.promises.mkdtemp(
-      path.join(process.cwd(), 'tests', 'fixtures', 'tmp_uploads_')
-    );
+    const fixturesDir = path.join(process.cwd(), 'tests', 'fixtures');
+    await fs.promises.mkdir(fixturesDir, { recursive: true });
+    const tmpUploadsDir = await fs.promises.mkdtemp(path.join(fixturesDir, 'tmp_uploads_'));
     const sampleBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xaa, 0xbb, 0xcc, 0xdd]);
     const previousUploadsDir = process.env.UPLOADS_DIR;
 

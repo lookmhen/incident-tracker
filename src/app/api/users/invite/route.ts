@@ -4,6 +4,7 @@ import {
   ADMIN_COOKIE_NAME,
   createAdminSessionToken,
   createInviteToken,
+  isHttpsRequest,
   normalizeRole,
   verifyInviteToken,
 } from '@/lib/auth';
@@ -164,6 +165,7 @@ export async function PUT(req: NextRequest) {
     res.cookies.set(ADMIN_COOKIE_NAME, sessionToken, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: isHttpsRequest(req),
       path: '/',
       maxAge: 24 * 60 * 60,
     });

@@ -227,7 +227,34 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     createdUserIds.push(created.id);
     assert.equal(created.role, 'MANAGER');
     assert.equal(created.username, `mgr_inv_${suffix}@test.local`);
-    assert.ok((acceptRes.headers.get('set-cookie') || '').includes(ADMIN_COOKIE_NAME));
+    const acceptCookie = acceptRes.headers.get('set-cookie') || '';
+    assert.ok(acceptCookie.includes(ADMIN_COOKIE_NAME));
+    assert.ok(!/;\s*secure\b/i.test(acceptCookie), `Expected no Secure flag on HTTP, got: ${acceptCookie}`);
+
+    // Invite acceptance behind HTTPS proxy sets Secure cookie flag
+    const httpsInviteToken = await createInviteToken({
+      email: `https_inv_${suffix}@test.local`,
+      name: 'HTTPS Invited',
+      role: 'STAFF',
+    });
+    const httpsAcceptRes = await invitePut(
+      new NextRequest('http://localhost/api/users/invite', {
+        method: 'PUT',
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-proto': 'https',
+        },
+        body: JSON.stringify({
+          token: httpsInviteToken,
+          password: 'secret123',
+        }),
+      })
+    );
+    assert.equal(httpsAcceptRes.status, 201);
+    createdUserIds.push((await httpsAcceptRes.json()).user.id);
+    const httpsAcceptCookie = httpsAcceptRes.headers.get('set-cookie') || '';
+    assert.ok(httpsAcceptCookie.includes(ADMIN_COOKIE_NAME));
+    assert.match(httpsAcceptCookie, /;\s*secure\b/i);
 
     // Login using Email (case-insensitive) succeeds
     const emailLoginRes = await authPost(

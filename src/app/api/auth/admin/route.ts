@@ -5,7 +5,9 @@ import {
   constantTimeEqual,
   createAdminSessionToken,
   getAdminPasscode,
+  isHttpsRequest,
   normalizeRole,
+  warnIfDefaultSecretsInProd,
 } from '@/lib/auth';
 import { getActiveSession } from '@/lib/session';
 import { IntegrationService } from '@/lib/services/integration.service';
@@ -14,12 +16,8 @@ import { UserService } from '@/lib/services/user.service';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-function isHttpsRequest(req: NextRequest): boolean {
-  const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase();
-  return forwardedProto === 'https' || req.nextUrl.protocol === 'https:';
-}
-
 export async function GET(req: NextRequest) {
+  warnIfDefaultSecretsInProd();
   const session = await getActiveSession(req);
   const authenticated = Boolean(session);
   const failedNotifications = authenticated

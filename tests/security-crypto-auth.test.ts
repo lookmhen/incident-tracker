@@ -23,6 +23,7 @@ import { IntegrationService } from '../src/lib/services/integration.service';
 import { GET as incidentsGetHandler } from '../src/app/api/incidents/route';
 import { GET as incidentDetailGetHandler } from '../src/app/api/incidents/[id]/route';
 import {
+  GET as adminAuthGetHandler,
   POST as adminLoginPostHandler,
   DELETE as adminLogoutDeleteHandler,
 } from '../src/app/api/auth/admin/route';
@@ -231,6 +232,23 @@ describe('4. Constant-Time Comparison & Production Default Secret Warnings (src/
       []
     );
 
+    assert.deepEqual(
+      getDefaultSecretWarnings({
+        NODE_ENV: 'production',
+        ENCRYPTION_SECRET: 'custom-strong-secret-key-at-least-32b',
+        ADMIN_PASSWORD: 'custom-legacy-password',
+      }),
+      []
+    );
+
+    const legacyDefaultPass = getDefaultSecretWarnings({
+      NODE_ENV: 'production',
+      ENCRYPTION_SECRET: 'custom-strong-secret-key-at-least-32b',
+      ADMIN_PASSWORD: 'admin1234',
+    });
+    assert.equal(legacyDefaultPass.length, 1);
+    assert.ok(legacyDefaultPass[0].includes('ADMIN_PASSCODE'));
+
     assert.deepEqual(getDefaultSecretWarnings({ NODE_ENV: 'development' }), []);
     assert.deepEqual(
       getDefaultSecretWarnings({ NODE_ENV: 'production', NEXT_PHASE: 'phase-production-build' }),
@@ -238,7 +256,7 @@ describe('4. Constant-Time Comparison & Production Default Secret Warnings (src/
     );
   });
 
-  it('logs default secret warnings at most once per process via warnIfDefaultSecretsInProd', () => {
+  it('logs default secret warnings at most once per process via warnIfDefaultSecretsInProd and indirect triggers', async () => {
     const g = globalThis as unknown as { __incidenthubSecretWarned?: boolean };
     const prevWarned = g.__incidenthubSecretWarned;
     const prevNodeEnv = process.env.NODE_ENV;
@@ -266,6 +284,24 @@ describe('4. Constant-Time Comparison & Production Default Secret Warnings (src/
 
       assert.equal(logged.length, 1);
       assert.ok(String(logged[0][0]).startsWith('[SECURITY WARNING]'));
+
+      // Indirect trigger via getAdminPasscode() with ADMIN_PASSWORD fallback
+      delete g.__incidenthubSecretWarned;
+      process.env.ADMIN_PASSWORD = 'legacy-fallback-pass';
+      assert.equal(getAdminPasscode(), 'legacy-fallback-pass');
+      assert.equal(logged.length, 2);
+
+      // Indirect trigger via encryptSecret()
+      delete g.__incidenthubSecretWarned;
+      delete process.env.ADMIN_PASSWORD;
+      assert.ok(encryptSecret('probe').startsWith('enc:v1:'));
+      assert.equal(logged.length, 3);
+
+      // Indirect trigger via unauthenticated GET /api/auth/admin
+      delete g.__incidenthubSecretWarned;
+      const authRes = await adminAuthGetHandler(new NextRequest('http://localhost:3000/api/auth/admin'));
+      assert.equal(authRes.status, 200);
+      assert.equal(logged.length, 4);
     } finally {
       console.warn = origWarn;
       if (prevWarned === undefined) delete g.__incidenthubSecretWarned;
@@ -285,11 +321,24 @@ describe('4. Constant-Time Comparison & Production Default Secret Warnings (src/
 });
 
 describe('5. Protocol-Aware Secure Cookie & Passcode Login (src/app/api/auth/admin/route.ts)', () => {
+  const testPasscode = 'deterministic-test-passcode';
+  let prevPasscode: string | undefined;
+
+  before(() => {
+    prevPasscode = process.env.ADMIN_PASSCODE;
+    process.env.ADMIN_PASSCODE = testPasscode;
+  });
+
+  after(() => {
+    if (prevPasscode === undefined) delete process.env.ADMIN_PASSCODE;
+    else process.env.ADMIN_PASSCODE = prevPasscode;
+  });
+
   it('omits Secure attribute on plain HTTP LAN login requests', async () => {
     const req = new NextRequest('http://192.168.1.10:3001/api/auth/admin', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ passcode: getAdminPasscode() }),
+      body: JSON.stringify({ passcode: testPasscode }),
     });
     const res = await adminLoginPostHandler(req);
     assert.equal(res.status, 200);
@@ -302,7 +351,7 @@ describe('5. Protocol-Aware Secure Cookie & Passcode Login (src/app/api/auth/adm
     const httpsReq = new NextRequest('https://incident.company.local/api/auth/admin', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ passcode: getAdminPasscode() }),
+      body: JSON.stringify({ passcode: testPasscode }),
     });
     const httpsRes = await adminLoginPostHandler(httpsReq);
     assert.equal(httpsRes.status, 200);
@@ -315,7 +364,7 @@ describe('5. Protocol-Aware Secure Cookie & Passcode Login (src/app/api/auth/adm
         'content-type': 'application/json',
         'x-forwarded-proto': 'https, http',
       },
-      body: JSON.stringify({ passcode: getAdminPasscode() }),
+      body: JSON.stringify({ passcode: testPasscode }),
     });
     const proxiedRes = await adminLoginPostHandler(proxiedReq);
     assert.equal(proxiedRes.status, 200);
@@ -333,15 +382,24 @@ describe('5. Protocol-Aware Secure Cookie & Passcode Login (src/app/api/auth/adm
     assert.equal(res.status, 401);
   });
 
-  it('clears cookie with Max-Age=0 and Secure on DELETE over HTTPS', async () => {
-    const req = new NextRequest('http://localhost:3000/api/auth/admin', {
+  it('clears cookie with Max-Age=0 and protocol-aware Secure flag on DELETE', async () => {
+    const httpReq = new NextRequest('http://192.168.1.10:3001/api/auth/admin', {
+      method: 'DELETE',
+    });
+    const httpRes = await adminLogoutDeleteHandler(httpReq);
+    assert.equal(httpRes.status, 200);
+    const httpCookie = httpRes.headers.get('set-cookie') || '';
+    assert.match(httpCookie, /max-age=0/i);
+    assert.ok(!/;\s*secure\b/i.test(httpCookie), `Expected no Secure flag on HTTP DELETE, got: ${httpCookie}`);
+
+    const httpsReq = new NextRequest('http://localhost:3000/api/auth/admin', {
       method: 'DELETE',
       headers: { 'x-forwarded-proto': 'https' },
     });
-    const res = await adminLogoutDeleteHandler(req);
-    assert.equal(res.status, 200);
-    const setCookie = res.headers.get('set-cookie') || '';
-    assert.match(setCookie, /max-age=0/i);
-    assert.match(setCookie, /;\s*secure\b/i);
+    const httpsRes = await adminLogoutDeleteHandler(httpsReq);
+    assert.equal(httpsRes.status, 200);
+    const httpsCookie = httpsRes.headers.get('set-cookie') || '';
+    assert.match(httpsCookie, /max-age=0/i);
+    assert.match(httpsCookie, /;\s*secure\b/i);
   });
 });

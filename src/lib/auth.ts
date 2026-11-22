@@ -209,6 +209,11 @@ export function extractRequestApiKey(req: NextRequest): string | null {
   return null;
 }
 
+export function isHttpsRequest(req: NextRequest): boolean {
+  const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase();
+  return forwardedProto === 'https' || req.nextUrl.protocol === 'https:';
+}
+
 export interface InvitePayload {
   inviteId: string;
   email: string;

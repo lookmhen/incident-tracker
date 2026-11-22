@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { constantTimeEqual } from '@/lib/auth';
 import { encryptSecret, decryptSecret, maskSecret, generateApiKey, SECRET_MASK } from '@/lib/crypto';
 
 export interface TeamsIntegrationSettings {
@@ -284,7 +285,7 @@ export class IntegrationService {
     if (!providedKey) {
       return { allowed: false, reason: 'Missing API Key. Provide x-api-key header or Authorization: Bearer <key>.' };
     }
-    if (providedKey !== mcpSecurity.apiKey) {
+    if (!constantTimeEqual(providedKey, mcpSecurity.apiKey)) {
       return { allowed: false, reason: 'Invalid API Key.' };
     }
     return { allowed: true };

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   ADMIN_COOKIE_NAME,
   AdminSession,
+  constantTimeEqual,
   createAdminSessionToken,
   getAdminPasscode,
   normalizeRole,
@@ -12,6 +13,11 @@ import { UserService } from '@/lib/services/user.service';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+function isHttpsRequest(req: NextRequest): boolean {
+  const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase();
+  return forwardedProto === 'https' || req.nextUrl.protocol === 'https:';
+}
 
 export async function GET(req: NextRequest) {
   const session = await getActiveSession(req);
@@ -51,7 +57,7 @@ export async function POST(req: NextRequest) {
       token = await createAdminSessionToken(sessionUser);
     } else {
       const passcode = String(body.passcode || body.password || '').trim();
-      if (!passcode || passcode !== getAdminPasscode()) {
+      if (!passcode || !constantTimeEqual(passcode, getAdminPasscode())) {
         return NextResponse.json(
           { error: 'รหัสผ่าน Admin ไม่ถูกต้อง (Invalid Admin Passcode)' },
           { status: 401 }
@@ -71,6 +77,7 @@ export async function POST(req: NextRequest) {
     res.cookies.set(ADMIN_COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: isHttpsRequest(req),
       path: '/',
       maxAge: 24 * 60 * 60,
     });
@@ -81,8 +88,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const res = NextResponse.json({ success: true, authenticated: false });
-  res.cookies.delete(ADMIN_COOKIE_NAME);
+  res.cookies.set(ADMIN_COOKIE_NAME, '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isHttpsRequest(req),
+    path: '/',
+    maxAge: 0,
+  });
   return res;
 }

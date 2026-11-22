@@ -14,6 +14,7 @@ import {
   verifyAdminSessionToken,
   extractRequestApiKey,
   constantTimeEqual,
+  getAdminPasscode,
   getDefaultSecretWarnings,
   warnIfDefaultSecretsInProd,
 } from '../src/lib/auth';
@@ -21,6 +22,10 @@ import { checkApiAccess } from '../src/lib/api-guard';
 import { IntegrationService } from '../src/lib/services/integration.service';
 import { GET as incidentsGetHandler } from '../src/app/api/incidents/route';
 import { GET as incidentDetailGetHandler } from '../src/app/api/incidents/[id]/route';
+import {
+  POST as adminLoginPostHandler,
+  DELETE as adminLogoutDeleteHandler,
+} from '../src/app/api/auth/admin/route';
 
 describe('1. AES-256-GCM Encryption & Secret Utilities (src/lib/crypto.ts)', () => {
   it('encrypts and decrypts ASCII, Thai UTF-8, and complex Webhook URLs accurately', () => {
@@ -276,5 +281,67 @@ describe('4. Constant-Time Comparison & Production Default Secret Warnings (src/
       if (prevPhase === undefined) delete process.env.NEXT_PHASE;
       else process.env.NEXT_PHASE = prevPhase;
     }
+  });
+});
+
+describe('5. Protocol-Aware Secure Cookie & Passcode Login (src/app/api/auth/admin/route.ts)', () => {
+  it('omits Secure attribute on plain HTTP LAN login requests', async () => {
+    const req = new NextRequest('http://192.168.1.10:3001/api/auth/admin', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ passcode: getAdminPasscode() }),
+    });
+    const res = await adminLoginPostHandler(req);
+    assert.equal(res.status, 200);
+    const setCookie = res.headers.get('set-cookie') || '';
+    assert.ok(setCookie.includes(`${ADMIN_COOKIE_NAME}=`), 'Must set admin session cookie');
+    assert.ok(!/;\s*secure\b/i.test(setCookie), `Expected no Secure flag on HTTP, got: ${setCookie}`);
+  });
+
+  it('sets Secure attribute on direct HTTPS and reverse-proxied x-forwarded-proto: https requests', async () => {
+    const httpsReq = new NextRequest('https://incident.company.local/api/auth/admin', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ passcode: getAdminPasscode() }),
+    });
+    const httpsRes = await adminLoginPostHandler(httpsReq);
+    assert.equal(httpsRes.status, 200);
+    const httpsCookie = httpsRes.headers.get('set-cookie') || '';
+    assert.match(httpsCookie, /;\s*secure\b/i);
+
+    const proxiedReq = new NextRequest('http://localhost:3000/api/auth/admin', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-proto': 'https, http',
+      },
+      body: JSON.stringify({ passcode: getAdminPasscode() }),
+    });
+    const proxiedRes = await adminLoginPostHandler(proxiedReq);
+    assert.equal(proxiedRes.status, 200);
+    const proxiedCookie = proxiedRes.headers.get('set-cookie') || '';
+    assert.match(proxiedCookie, /;\s*secure\b/i);
+  });
+
+  it('returns 401 on invalid passcode', async () => {
+    const req = new NextRequest('http://192.168.1.10:3001/api/auth/admin', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ passcode: 'wrong-passcode-attempt' }),
+    });
+    const res = await adminLoginPostHandler(req);
+    assert.equal(res.status, 401);
+  });
+
+  it('clears cookie with Max-Age=0 and Secure on DELETE over HTTPS', async () => {
+    const req = new NextRequest('http://localhost:3000/api/auth/admin', {
+      method: 'DELETE',
+      headers: { 'x-forwarded-proto': 'https' },
+    });
+    const res = await adminLogoutDeleteHandler(req);
+    assert.equal(res.status, 200);
+    const setCookie = res.headers.get('set-cookie') || '';
+    assert.match(setCookie, /max-age=0/i);
+    assert.match(setCookie, /;\s*secure\b/i);
   });
 });

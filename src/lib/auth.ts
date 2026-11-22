@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 
 export const ADMIN_COOKIE_NAME = 'incidenthub_admin_session';
+export const DEFAULT_ENCRYPTION_SECRET = 'incidenthub-aes256-enterprise-secret-key-2026';
+export const PLACEHOLDER_ENCRYPTION_SECRET = 'change-this-to-a-32-byte-secret-key';
+export const DEFAULT_ADMIN_PASSCODE = 'admin1234';
 
 export type UserRole = 'STAFF' | 'MANAGER';
 
@@ -30,12 +33,64 @@ function fromBase64Url(b64: string): string {
   return new TextDecoder().decode(bytes);
 }
 
+export function constantTimeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const bytesA = encoder.encode(a);
+  const bytesB = encoder.encode(b);
+  const maxLen = Math.max(bytesA.length, bytesB.length);
+  let diff = bytesA.length ^ bytesB.length;
+  for (let i = 0; i < maxLen; i++) {
+    diff |= (bytesA[i] ?? 0) ^ (bytesB[i] ?? 0);
+  }
+  return diff === 0;
+}
+
+export function getDefaultSecretWarnings(
+  env: Record<string, string | undefined> = process.env
+): string[] {
+  if (env.NODE_ENV !== 'production' || env.NEXT_PHASE === 'phase-production-build') {
+    return [];
+  }
+
+  const warnings: string[] = [];
+  const encSecret = env.ENCRYPTION_SECRET?.trim();
+  if (
+    !encSecret ||
+    encSecret === DEFAULT_ENCRYPTION_SECRET ||
+    encSecret === PLACEHOLDER_ENCRYPTION_SECRET
+  ) {
+    warnings.push(
+      'ENCRYPTION_SECRET is missing or uses a default/placeholder value in production.'
+    );
+  }
+
+  const passcode = (env.ADMIN_PASSCODE || env.ADMIN_PASSWORD)?.trim();
+  if (!passcode || passcode === DEFAULT_ADMIN_PASSCODE) {
+    warnings.push('ADMIN_PASSCODE is missing or uses the default value in production.');
+  }
+
+  return warnings;
+}
+
+export function warnIfDefaultSecretsInProd(): void {
+  const globalWithWarn = globalThis as unknown as { __incidenthubSecretWarned?: boolean };
+  if (globalWithWarn.__incidenthubSecretWarned) return;
+
+  const warnings = getDefaultSecretWarnings();
+  if (warnings.length === 0) return;
+
+  globalWithWarn.__incidenthubSecretWarned = true;
+  console.warn(`[SECURITY WARNING] ${warnings.join(' ')}`);
+}
+
 function getAdminSecret(): string {
-  return process.env.ENCRYPTION_SECRET || 'incidenthub-aes256-enterprise-secret-key-2026';
+  warnIfDefaultSecretsInProd();
+  return process.env.ENCRYPTION_SECRET || DEFAULT_ENCRYPTION_SECRET;
 }
 
 export function getAdminPasscode(): string {
-  return process.env.ADMIN_PASSCODE || process.env.ADMIN_PASSWORD || 'admin1234';
+  warnIfDefaultSecretsInProd();
+  return process.env.ADMIN_PASSCODE || process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSCODE;
 }
 
 /**
@@ -92,7 +147,7 @@ export async function parseAdminSessionToken(
     const payload = token.slice(0, lastDot);
     const sig = token.slice(lastDot + 1);
     const expectedSig = await signPayload(payload);
-    if (sig !== expectedSig) return null;
+    if (!constantTimeEqual(sig, expectedSig)) return null;
 
     if (payload.startsWith('u:')) {
       const parsed = JSON.parse(fromBase64Url(payload.slice(2)));
@@ -199,7 +254,7 @@ export async function verifyInviteToken(
     const sig = token.slice(lastDot + 1);
     if (!payload.startsWith('inv:')) return null;
     const expectedSig = await signPayload(payload);
-    if (sig !== expectedSig) return null;
+    if (!constantTimeEqual(sig, expectedSig)) return null;
 
     const parsed = JSON.parse(fromBase64Url(payload.slice(4)));
     if (

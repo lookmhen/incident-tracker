@@ -13,6 +13,9 @@ import {
   createAdminSessionToken,
   verifyAdminSessionToken,
   extractRequestApiKey,
+  constantTimeEqual,
+  getDefaultSecretWarnings,
+  warnIfDefaultSecretsInProd,
 } from '../src/lib/auth';
 import { checkApiAccess } from '../src/lib/api-guard';
 import { IntegrationService } from '../src/lib/services/integration.service';
@@ -186,5 +189,92 @@ describe('3. API Access Guard (src/lib/api-guard.ts)', () => {
     });
     const apiKeyRes = await incidentsGetHandler(apiKeyReq);
     assert.equal(apiKeyRes.status, 200);
+  });
+});
+
+describe('4. Constant-Time Comparison & Production Default Secret Warnings (src/lib/auth.ts)', () => {
+  it('compares ASCII, Thai UTF-8, empty, and mismatched-length strings in constant time', () => {
+    assert.equal(constantTimeEqual('abc', 'abc'), true);
+    assert.equal(constantTimeEqual('abc', 'abd'), false);
+    assert.equal(constantTimeEqual('abc', 'ab'), false);
+    assert.equal(constantTimeEqual('รหัสไทย', 'รหัสไทย'), true);
+    assert.equal(constantTimeEqual('', ''), true);
+    assert.equal(constantTimeEqual('รหัสไทย', 'รหัสอื่น'), false);
+  });
+
+  it('detects missing, placeholder, and default secrets only in production runtime', () => {
+    const missingProd = getDefaultSecretWarnings({ NODE_ENV: 'production' });
+    assert.equal(missingProd.length, 2);
+    assert.ok(missingProd.some((w) => w.includes('ENCRYPTION_SECRET')));
+    assert.ok(missingProd.some((w) => w.includes('ADMIN_PASSCODE')));
+
+    const placeholderProd = getDefaultSecretWarnings({
+      NODE_ENV: 'production',
+      ENCRYPTION_SECRET: 'change-this-to-a-32-byte-secret-key',
+      ADMIN_PASSCODE: 'admin1234',
+    });
+    assert.equal(placeholderProd.length, 2);
+    assert.ok(placeholderProd.some((w) => w.includes('ENCRYPTION_SECRET')));
+    assert.ok(placeholderProd.some((w) => w.includes('ADMIN_PASSCODE')));
+
+    assert.deepEqual(
+      getDefaultSecretWarnings({
+        NODE_ENV: 'production',
+        ENCRYPTION_SECRET: 'custom-strong-secret-key-at-least-32b',
+        ADMIN_PASSCODE: 'custom-passcode',
+      }),
+      []
+    );
+
+    assert.deepEqual(getDefaultSecretWarnings({ NODE_ENV: 'development' }), []);
+    assert.deepEqual(
+      getDefaultSecretWarnings({ NODE_ENV: 'production', NEXT_PHASE: 'phase-production-build' }),
+      []
+    );
+  });
+
+  it('logs default secret warnings at most once per process via warnIfDefaultSecretsInProd', () => {
+    const g = globalThis as unknown as { __incidenthubSecretWarned?: boolean };
+    const prevWarned = g.__incidenthubSecretWarned;
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevEnc = process.env.ENCRYPTION_SECRET;
+    const prevPasscode = process.env.ADMIN_PASSCODE;
+    const prevPassword = process.env.ADMIN_PASSWORD;
+    const prevPhase = process.env.NEXT_PHASE;
+    const origWarn = console.warn;
+
+    const logged: unknown[][] = [];
+    console.warn = (...args: unknown[]) => {
+      logged.push(args);
+    };
+
+    try {
+      delete g.__incidenthubSecretWarned;
+      (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
+      delete process.env.ENCRYPTION_SECRET;
+      delete process.env.ADMIN_PASSCODE;
+      delete process.env.ADMIN_PASSWORD;
+      delete process.env.NEXT_PHASE;
+
+      warnIfDefaultSecretsInProd();
+      warnIfDefaultSecretsInProd();
+
+      assert.equal(logged.length, 1);
+      assert.ok(String(logged[0][0]).startsWith('[SECURITY WARNING]'));
+    } finally {
+      console.warn = origWarn;
+      if (prevWarned === undefined) delete g.__incidenthubSecretWarned;
+      else g.__incidenthubSecretWarned = prevWarned;
+      if (prevNodeEnv === undefined) delete (process.env as Record<string, string | undefined>).NODE_ENV;
+      else (process.env as Record<string, string | undefined>).NODE_ENV = prevNodeEnv;
+      if (prevEnc === undefined) delete process.env.ENCRYPTION_SECRET;
+      else process.env.ENCRYPTION_SECRET = prevEnc;
+      if (prevPasscode === undefined) delete process.env.ADMIN_PASSCODE;
+      else process.env.ADMIN_PASSCODE = prevPasscode;
+      if (prevPassword === undefined) delete process.env.ADMIN_PASSWORD;
+      else process.env.ADMIN_PASSWORD = prevPassword;
+      if (prevPhase === undefined) delete process.env.NEXT_PHASE;
+      else process.env.NEXT_PHASE = prevPhase;
+    }
   });
 });

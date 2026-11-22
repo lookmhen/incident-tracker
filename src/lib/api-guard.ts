@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extractRequestApiKey } from '@/lib/auth';
+import { constantTimeEqual, extractRequestApiKey } from '@/lib/auth';
 import { getActiveSession } from '@/lib/session';
 import { IntegrationService } from '@/lib/services/integration.service';
 
@@ -35,7 +35,7 @@ export async function checkApiAccess(
 
   // 2. Check API Key
   const key = extractRequestApiKey(req);
-  const hasValidKey = Boolean(key && mcpSecurity.apiKey && key === mcpSecurity.apiKey);
+  const hasValidKey = Boolean(key && mcpSecurity.apiKey && constantTimeEqual(key, mcpSecurity.apiKey));
 
   if (hasValidKey) {
     return null;

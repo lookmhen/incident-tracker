@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { DEFAULT_ENCRYPTION_SECRET, warnIfDefaultSecretsInProd } from './auth';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
@@ -6,7 +7,8 @@ const AUTH_TAG_LENGTH = 16;
 const ENCRYPTED_PREFIX = 'enc:v1:';
 
 function getEncryptionKey(): Buffer {
-  const secret = process.env.ENCRYPTION_SECRET || 'incidenthub-aes256-enterprise-secret-key-2026';
+  warnIfDefaultSecretsInProd();
+  const secret = process.env.ENCRYPTION_SECRET || DEFAULT_ENCRYPTION_SECRET;
   return crypto.createHash('sha256').update(secret).digest();
 }
 

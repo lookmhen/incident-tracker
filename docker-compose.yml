@@ -6,7 +6,7 @@ services:
     container_name: it-incident-app
     restart: always
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       # Keep live SQLite on local disk (never mount live SQLite on network share like NFS)
       - ./data:/app/data

@@ -44,3 +44,7 @@ graphify-out/cache/
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Superpowers / Git Worktrees
+/.worktrees/
+/.superpowers/

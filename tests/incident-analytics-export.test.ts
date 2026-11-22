@@ -6,6 +6,7 @@ import path from 'path';
 import prisma from '../src/lib/prisma';
 import { CategoryService } from '../src/lib/services/category.service';
 import { IncidentService } from '../src/lib/services/incident.service';
+import { IncidentAnalyticsService } from '../src/lib/services/incident-analytics.service';
 import { IncidentServiceError } from '../src/lib/services/incident-errors';
 import { RootCauseService } from '../src/lib/services/root-cause.service';
 import { IntegrationService } from '../src/lib/services/integration.service';
@@ -1059,5 +1060,35 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
         });
       }
     }
+  });
+
+  it('computes departments, MTTR exclusions, and analytics consistently via IncidentAnalyticsService', async () => {
+    const [svcDepts, analyticsDepts] = await Promise.all([
+      IncidentService.getDepartments(),
+      IncidentAnalyticsService.getDepartments(),
+    ]);
+    assert.deepEqual(analyticsDepts, svcDepts);
+
+    const [svcFiltered, analyticsFiltered] = await Promise.all([
+      IncidentService.getDepartments('qa'),
+      IncidentAnalyticsService.getDepartments('qa'),
+    ]);
+    assert.deepEqual(analyticsFiltered, svcFiltered);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const [svcAnalytics, directAnalytics] = await Promise.all([
+      IncidentService.getAnalyticsData({ startDate: today, endDate: today }),
+      IncidentAnalyticsService.getAnalyticsData({ startDate: today, endDate: today }),
+    ]);
+    assert.deepEqual(directAnalytics, svcAnalytics);
+
+    const grouped = IncidentAnalyticsService.groupDepartments(
+      [{ department: '  it ' }, { department: 'IT' }, { department: null }],
+      true
+    );
+    assert.deepEqual(grouped, [
+      { department: 'IT', count: 2 },
+      { department: 'General / Unspecified', count: 1 },
+    ]);
   });
 });

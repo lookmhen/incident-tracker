@@ -4,7 +4,10 @@ import fs from 'fs';
 import path from 'path';
 import { NextRequest } from 'next/server';
 import { GET as uploadGetHandler } from '../src/app/api/uploads/[...path]/route';
+import prisma from '../src/lib/prisma';
 import { IncidentService } from '../src/lib/services/incident.service';
+import { IncidentAttachmentService } from '../src/lib/services/incident-attachment.service';
+import { IncidentServiceError } from '../src/lib/services/incident-errors';
 import { backupDatabase } from '../scripts/backup-db';
 
 describe('11. Dynamic Upload Serving (/api/uploads/[...path])', () => {
@@ -226,5 +229,59 @@ describe('11. Dynamic Upload Serving (/api/uploads/[...path])', () => {
       fs.existsSync(path.join(process.cwd(), 'src/app/api/uploads/[filename]/route.ts')),
       false
     );
+  });
+
+  it('throws typed IncidentServiceError (404/400) from IncidentAttachmentService for missing or closed tickets', async () => {
+    assert.equal(IncidentAttachmentService.getUploadsRoot(), IncidentService.getUploadsRoot());
+
+    const sampleFile = {
+      buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      fileName: 'sample.png',
+      fileType: 'image/png',
+      fileSize: 4,
+    };
+
+    await assert.rejects(
+      () => IncidentAttachmentService.addAttachment('INC-MISSING-9999', sampleFile),
+      (err: unknown) => err instanceof IncidentServiceError && err.status === 404
+    );
+
+    await assert.rejects(
+      () => IncidentAttachmentService.deleteAttachment('INC-MISSING-9999', 'att-missing'),
+      (err: unknown) => err instanceof IncidentServiceError && err.status === 404
+    );
+
+    const created = await IncidentService.createIncident({
+      reporterName: 'Attachment Guard Tester',
+      contactInfo: 'att-guard@test.local',
+      title: 'Attachment guard unit test',
+      description: 'Verifies 404 missing attachment and 400 closed incident errors',
+    });
+
+    try {
+      await assert.rejects(
+        () => IncidentAttachmentService.deleteAttachment(created.ticketNo, 'non-existent-attachment'),
+        (err: unknown) => err instanceof IncidentServiceError && err.status === 404
+      );
+
+      await prisma.incident.update({
+        where: { id: created.id },
+        data: { status: 'RESOLVED', category: 'Helpdesk', rootCause: 'Human', closedAt: new Date() },
+      });
+
+      await assert.rejects(
+        () => IncidentAttachmentService.addAttachment(created.ticketNo, sampleFile, 'REPORT'),
+        (err: unknown) =>
+          err instanceof IncidentServiceError && err.status === 400 && /closed/i.test(err.message)
+      );
+
+      await assert.rejects(
+        () => IncidentAttachmentService.deleteAttachment(created.ticketNo, 'any-attachment'),
+        (err: unknown) =>
+          err instanceof IncidentServiceError && err.status === 400 && /closed/i.test(err.message)
+      );
+    } finally {
+      await prisma.incident.delete({ where: { id: created.id } }).catch(() => {});
+    }
   });
 });

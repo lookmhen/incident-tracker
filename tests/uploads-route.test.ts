@@ -197,4 +197,34 @@ describe('11. Dynamic Upload Serving (/api/uploads/[...path])', () => {
       await fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     }
   });
+
+  it('serves single-segment filenames from custom UPLOADS_DIR without [filename] shadow route', async () => {
+    const tmpUploadsDir = await fs.promises.mkdtemp(
+      path.join(process.cwd(), 'tests', 'fixtures', 'tmp_uploads_')
+    );
+    const sampleBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xaa, 0xbb, 0xcc, 0xdd]);
+    const previousUploadsDir = process.env.UPLOADS_DIR;
+
+    try {
+      await fs.promises.writeFile(path.join(tmpUploadsDir, 'custom_flat.png'), sampleBytes);
+      process.env.UPLOADS_DIR = tmpUploadsDir;
+
+      const res = await invokeHandler('custom_flat.png');
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('content-type'), 'image/png');
+      assert.deepEqual(Buffer.from(await res.arrayBuffer()), sampleBytes);
+    } finally {
+      if (previousUploadsDir === undefined) {
+        delete process.env.UPLOADS_DIR;
+      } else {
+        process.env.UPLOADS_DIR = previousUploadsDir;
+      }
+      await fs.promises.rm(tmpUploadsDir, { recursive: true, force: true }).catch(() => {});
+    }
+
+    assert.equal(
+      fs.existsSync(path.join(process.cwd(), 'src/app/api/uploads/[filename]/route.ts')),
+      false
+    );
+  });
 });

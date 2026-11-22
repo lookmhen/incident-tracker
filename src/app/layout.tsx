@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="th">
+    <html lang="th" suppressHydrationWarning>
       <body className="bg-[#f0f7ff] text-slate-900 antialiased selection:bg-sky-100 selection:text-sky-900 min-h-screen flex flex-col font-body">
         <Navbar />
         <main className="flex-1 w-full pt-16">{children}</main>

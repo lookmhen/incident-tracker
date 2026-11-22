@@ -6,6 +6,8 @@ import path from 'path';
 import prisma from '../src/lib/prisma';
 import { CategoryService } from '../src/lib/services/category.service';
 import { IncidentService } from '../src/lib/services/incident.service';
+import { IncidentServiceError } from '../src/lib/services/incident-errors';
+import { RootCauseService } from '../src/lib/services/root-cause.service';
 import { IntegrationService } from '../src/lib/services/integration.service';
 import { isImageAttachment, isPdfAttachment } from '../src/lib/attachments';
 import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
@@ -1002,6 +1004,60 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
         { params: Promise.resolve({ id: inc.ticketNo }) }
       );
       assert.equal(delRes.status, 200);
+    }
+  });
+
+  it('validates IncidentServiceError and RootCauseService error handling', async () => {
+    const err404 = new IncidentServiceError('missing', 404);
+    assert.ok(err404 instanceof Error);
+    assert.ok(err404 instanceof IncidentServiceError);
+    assert.equal(err404.name, 'IncidentServiceError');
+    assert.equal(err404.message, 'missing');
+    assert.equal(err404.status, 404);
+
+    const errDefault = new IncidentServiceError('bad request');
+    assert.equal(errDefault.status, 400);
+
+    await assert.rejects(
+      () => RootCauseService.addRootCauseOption('   '),
+      (err: unknown) => err instanceof IncidentServiceError && err.status === 400
+    );
+
+    const prevRow = await prisma.integrationConfig.findUnique({
+      where: { key: 'root_cause_options' },
+    });
+    const tempOption = `TempRC-${Date.now()}`;
+    try {
+      const added = await RootCauseService.addRootCauseOption(tempOption);
+      assert.ok(added.includes(tempOption));
+
+      await assert.rejects(
+        () => RootCauseService.addRootCauseOption(tempOption.toLowerCase()),
+        (err: unknown) => err instanceof IncidentServiceError && err.status === 400
+      );
+
+      for (const opt of added) {
+        if (opt !== tempOption) {
+          await RootCauseService.deleteRootCauseOption(opt);
+        }
+      }
+
+      await assert.rejects(
+        () => RootCauseService.deleteRootCauseOption(tempOption),
+        (err: unknown) => err instanceof IncidentServiceError && err.status === 400
+      );
+    } finally {
+      if (prevRow) {
+        await prisma.integrationConfig.upsert({
+          where: { key: 'root_cause_options' },
+          update: { value: prevRow.value, isEnabled: prevRow.isEnabled },
+          create: { key: 'root_cause_options', value: prevRow.value, isEnabled: prevRow.isEnabled },
+        });
+      } else {
+        await prisma.integrationConfig.deleteMany({
+          where: { key: 'root_cause_options' },
+        });
+      }
     }
   });
 });

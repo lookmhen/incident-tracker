@@ -5,7 +5,7 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 
 export default [
   {
-    ignores: ['.next/**', 'node_modules/**', 'dist/**', 'data/**', 'tests/**'],
+    ignores: ['.next/**', '**/.next/**', '.worktrees/**', 'node_modules/**', 'dist/**', 'data/**', 'tests/**'],
   },
   {
     files: ['**/*.{js,jsx,ts,tsx}'],

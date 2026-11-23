@@ -20,6 +20,8 @@ interface ResolutionEditorCardProps {
   setResolutionType: (v: 'PERMANENT' | 'WORKAROUND') => void;
   workaroundNote: string;
   setWorkaroundNote: (v: string) => void;
+  resolvedByExternal: boolean;
+  setResolvedByExternal: (v: boolean) => void;
   managerComment: string;
   setManagerComment: (v: string) => void;
   resolutionFeedback: ResolutionFeedback | null;
@@ -51,6 +53,8 @@ export default function ResolutionEditorCard({
   setResolutionType,
   workaroundNote,
   setWorkaroundNote,
+  resolvedByExternal,
+  setResolvedByExternal,
   managerComment,
   setManagerComment,
   resolutionFeedback,
@@ -70,6 +74,7 @@ export default function ResolutionEditorCard({
   const resolutionFileRef = useRef<HTMLInputElement>(null);
 
   const statusKey = normStatus(incident.status);
+  const canSubmitConfirm = isClaimed || resolvedByExternal;
   const charCount = resolutionText.length;
   const wordCount = resolutionText.trim() ? resolutionText.trim().split(/\s+/).length : 0;
 
@@ -265,6 +270,32 @@ export default function ResolutionEditorCard({
             />
           </div>
         )}
+        <label
+          className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-xs transition-all ${
+            isClosed ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+          } ${
+            resolvedByExternal
+              ? 'bg-teal-50 border-teal-300 text-teal-900 font-semibold'
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              disabled={isClosed}
+              checked={resolvedByExternal}
+              onChange={(e) => setResolvedByExternal(e.target.checked)}
+              className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer disabled:cursor-not-allowed"
+            />
+            <span className="material-symbols-outlined text-[16px] text-teal-600">person_check</span>
+            <span>External User</span>
+          </span>
+          {resolvedByExternal && (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+              Skip Claim • No MTTR
+            </span>
+          )}
+        </label>
       </div>
 
       {/* Bottom Actions */}
@@ -382,19 +413,19 @@ export default function ResolutionEditorCard({
               </button>
               <button
                 type="button"
-                disabled={!isClaimed || isPendingConfirm || isClosed || isMutatingStatus}
+                disabled={!canSubmitConfirm || isPendingConfirm || isClosed || isMutatingStatus}
                 onClick={() => onSubmitResolution('PENDING_CONFIRM')}
                 title={
                   isClosed
                     ? 'ปิดเคสเรียบร้อยแล้ว'
                     : isPendingConfirm
                       ? 'ส่งเคสให้ Manager ยืนยันเรียบร้อยแล้ว'
-                      : !isClaimed
+                      : !canSubmitConfirm
                         ? 'กรุณากดปุ่ม Claim Ticket (รับเคส) ด้านบนก่อนส่ง'
                         : undefined
                 }
                 className={
-                  !isClaimed || isPendingConfirm || isClosed
+                  !canSubmitConfirm || isPendingConfirm || isClosed
                     ? 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-200 text-slate-500 cursor-not-allowed text-xs font-bold flex items-center justify-center gap-2'
                     : 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
                 }
@@ -406,7 +437,7 @@ export default function ResolutionEditorCard({
                       ? 'check_circle'
                       : isPendingConfirm
                         ? 'hourglass_top'
-                        : !isClaimed
+                        : !canSubmitConfirm
                           ? 'pan_tool'
                           : 'send'}
                 </span>
@@ -417,7 +448,7 @@ export default function ResolutionEditorCard({
                       ? `ปิดเคสแล้ว (${statusKey})`
                       : isPendingConfirm
                         ? 'รอ Manager ยืนยันแล้ว (Pending Confirm)'
-                        : !isClaimed
+                        : !canSubmitConfirm
                           ? 'กรุณากด Claim รับเคสก่อนส่ง'
                           : 'ส่งให้ Manager ยืนยันปิดเคส'}
                 </span>

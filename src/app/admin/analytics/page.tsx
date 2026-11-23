@@ -10,6 +10,7 @@ interface AnalyticsData {
     inProgressCount: number;
     onHoldCount?: number;
     criticalCount: number;
+    externalUserCount?: number;
     resolutionRate: number;
     avgResolutionMins: number;
   };
@@ -49,6 +50,7 @@ export default function AnalyticsDashboardPage() {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [rootCauseFilter, setRootCauseFilter] = useState('ALL');
   const [deptFilter, setDeptFilter] = useState('ALL');
+  const [externalFilter, setExternalFilter] = useState('ALL');
   // null = custom range from the date inputs
   const [preset, setPreset] = useState<'7' | '30' | 'year' | 'all' | null>('all');
   const currentYear = new Date().getFullYear();
@@ -61,6 +63,7 @@ export default function AnalyticsDashboardPage() {
     category?: string;
     rootCause?: string;
     department?: string;
+    resolvedByExternal?: string;
   }) => {
     setLoading(true);
     try {
@@ -71,6 +74,7 @@ export default function AnalyticsDashboardPage() {
       const c = overrides?.category !== undefined ? overrides.category : categoryFilter;
       const rc = overrides?.rootCause !== undefined ? overrides.rootCause : rootCauseFilter;
       const d = overrides?.department !== undefined ? overrides.department : deptFilter;
+      const ext = overrides?.resolvedByExternal !== undefined ? overrides.resolvedByExternal : externalFilter;
 
       const params = new URLSearchParams();
       if (s) params.set('startDate', s);
@@ -80,6 +84,7 @@ export default function AnalyticsDashboardPage() {
       if (c !== 'ALL') params.set('category', c);
       if (rc !== 'ALL') params.set('rootCause', rc);
       if (d !== 'ALL') params.set('department', d);
+      if (ext !== 'ALL') params.set('resolvedByExternal', ext);
 
       const res = await fetch(`/api/incidents/analytics?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
@@ -143,6 +148,7 @@ export default function AnalyticsDashboardPage() {
     if (categoryFilter !== 'ALL') params.set('category', categoryFilter);
     if (rootCauseFilter !== 'ALL') params.set('rootCause', rootCauseFilter);
     if (deptFilter !== 'ALL') params.set('department', deptFilter);
+    if (externalFilter !== 'ALL') params.set('resolvedByExternal', externalFilter);
     return `/api/incidents/export?${params.toString()}`;
   };
 
@@ -266,6 +272,21 @@ export default function AnalyticsDashboardPage() {
               ))}
             </select>
 
+            <select
+              value={externalFilter}
+              onChange={(e) => {
+                const v = e.target.value;
+                setExternalFilter(v);
+                fetchAnalytics({ resolvedByExternal: v });
+              }}
+              aria-label="Filter by solver"
+              className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-sky-500"
+            >
+              <option value="ALL">Solver: All</option>
+              <option value="false">IT Team</option>
+              <option value="true">External User</option>
+            </select>
+
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -336,6 +357,12 @@ export default function AnalyticsDashboardPage() {
             </div>
             <div className="text-[11px] text-slate-500 mt-2">
               แก้ไขสำเร็จแล้ว {data?.summary.resolvedCount || 0} จาก {data?.summary.total || 0} เคส
+              {(data?.summary.externalUserCount || 0) > 0 && (
+                <>
+                  {' '}
+                  • External User: <strong className="text-teal-700">{data?.summary.externalUserCount}</strong>
+                </>
+              )}
             </div>
           </div>
 

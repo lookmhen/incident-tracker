@@ -41,6 +41,7 @@ export interface IncidentFilterQuery {
   category?: string;
   department?: string;
   resolutionType?: string;
+  resolvedByExternal?: string;
   page?: number;
   limit?: number;
 }
@@ -437,6 +438,7 @@ export class IncidentService {
       resolutionType?: string | null;
       workaroundNote?: string | null;
       resolvedBy?: string | null;
+      resolvedByExternal?: boolean;
       managerComment?: string | null;
       portalBaseUrl?: string;
       createdAt?: string | Date;
@@ -466,6 +468,7 @@ export class IncidentService {
         data.resolution !== undefined ||
         data.resolutionType !== undefined ||
         data.workaroundNote !== undefined ||
+        data.resolvedByExternal !== undefined ||
         data.relatedTickets !== undefined;
       if (hasLockedFieldMutation) {
         throw new IncidentServiceError('Incident is closed; reopen to IN_PROGRESS before editing', 400);
@@ -526,6 +529,10 @@ export class IncidentService {
       updatePayload.resolvedBy = data.resolvedBy ? data.resolvedBy.trim() || null : null;
     }
 
+    if (data.resolvedByExternal !== undefined) {
+      updatePayload.resolvedByExternal = Boolean(data.resolvedByExternal);
+    }
+
     if (data.managerComment !== undefined) {
       updatePayload.managerComment = data.managerComment ? data.managerComment.trim() || null : null;
     }
@@ -541,7 +548,11 @@ export class IncidentService {
     if (data.status !== undefined) {
       updatePayload.status = data.status.trim().toUpperCase();
       if (['RESOLVED', 'CLOSED', 'PENDING_CONFIRM'].includes(updatePayload.status)) {
-        if (updatePayload.status === 'PENDING_CONFIRM') {
+        const effExternal =
+          updatePayload.resolvedByExternal !== undefined
+            ? updatePayload.resolvedByExternal
+            : Boolean(target.resolvedByExternal);
+        if (updatePayload.status === 'PENDING_CONFIRM' && !effExternal) {
           const effAssignedTo = (
             updatePayload.assignedTo !== undefined ? updatePayload.assignedTo : target.assignedTo
           )?.trim();
@@ -676,9 +687,15 @@ export class IncidentService {
     let mttrExcluded = target.mttrExcluded;
     if (data.mttrExcluded !== undefined) {
       mttrExcluded = await IncidentAnalyticsService.setMttrExcluded(target.id, Boolean(data.mttrExcluded));
-    } else if (updatePayload.status === 'ON_HOLD') {
-      // Auto-exclude from MTTR whenever placed ON_HOLD so hold duration never skews SLA averages
+    } else if (updatePayload.status === 'ON_HOLD' || updatePayload.resolvedByExternal === true) {
+      // Auto-exclude from MTTR whenever placed ON_HOLD or resolved by external user
       mttrExcluded = await IncidentAnalyticsService.setMttrExcluded(target.id, true);
+    } else if (
+      updatePayload.resolvedByExternal === false &&
+      target.resolvedByExternal &&
+      (updatePayload.status ?? currentStatus) !== 'ON_HOLD'
+    ) {
+      mttrExcluded = await IncidentAnalyticsService.setMttrExcluded(target.id, false);
     }
 
     const relatedInfo = await this.enrichRelatedInfo(updated);

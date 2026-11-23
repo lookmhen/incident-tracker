@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
       rootCause: searchParams.get('rootCause') || undefined,
       department: searchParams.get('department') || undefined,
       resolutionType: searchParams.get('resolutionType') || undefined,
+      resolvedByExternal: searchParams.get('resolvedByExternal') || undefined,
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
     });
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
       'Resolved By',
       'Closed At',
       'Related Tickets',
+      'External User',
     ];
 
     const rows = incidents.map((inc) => [
@@ -76,6 +78,7 @@ export async function GET(req: NextRequest) {
       inc.resolvedBy || '',
       inc.closedAt ? new Date(inc.closedAt).toLocaleString('th-TH') : '',
       parseRelatedTickets(inc.relatedTickets).join(', '),
+      inc.resolvedByExternal ? 'Yes' : 'No',
     ]);
 
     const csvContent =

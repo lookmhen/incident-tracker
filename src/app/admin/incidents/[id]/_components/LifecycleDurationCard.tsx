@@ -309,7 +309,7 @@ export default function LifecycleDurationCard({
               {incident.mttrExcluded ? 'timer_off' : 'timer'}
             </span>
             {incident.mttrExcluded
-              ? 'ไม่นำไปคำนวณค่าเฉลี่ย MTTR (เคย On Hold)'
+              ? `ไม่นำไปคำนวณค่าเฉลี่ย MTTR (${incident.resolvedByExternal ? 'External User' : 'เคย On Hold'})`
               : 'นับรวมในค่าเฉลี่ย MTTR'}
           </span>
           {(!isClosed || isManager) && (

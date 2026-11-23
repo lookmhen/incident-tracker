@@ -44,6 +44,7 @@ export default function IncidentDetailMcpHub({
   const [resolutionText, setResolutionText] = useState('');
   const [resolutionType, setResolutionType] = useState<'PERMANENT' | 'WORKAROUND'>('PERMANENT');
   const [workaroundNote, setWorkaroundNote] = useState('');
+  const [resolvedByExternal, setResolvedByExternal] = useState(false);
   const [managerComment, setManagerComment] = useState('');
   const [resolutionFeedback, setResolutionFeedback] = useState<ResolutionFeedback | null>(null);
 
@@ -102,6 +103,7 @@ export default function IncidentDetailMcpHub({
           setResolutionText(data.resolution || '');
           setResolutionType(data.resolutionType === 'WORKAROUND' ? 'WORKAROUND' : 'PERMANENT');
           setWorkaroundNote(data.workaroundNote || '');
+          setResolvedByExternal(Boolean(data.resolvedByExternal));
           setManagerComment(data.managerComment || '');
         }
       } catch (e) {
@@ -154,7 +156,9 @@ export default function IncidentDetailMcpHub({
 
   const validateReadyToClose = (inc: IncidentDetail) => {
     const missing: string[] = [];
-    if (!inc.assignedTo?.trim() || normStatus(inc.status) === 'OPEN') missing.push('กด Claim Ticket (รับเคส)');
+    if (!resolvedByExternal && (!inc.assignedTo?.trim() || normStatus(inc.status) === 'OPEN')) {
+      missing.push('กด Claim Ticket (รับเคส)');
+    }
     if (!inc.category?.trim()) missing.push('Category');
     if (!inc.rootCause?.trim()) missing.push('Root Cause');
     if (missing.length > 0) {
@@ -227,6 +231,7 @@ export default function IncidentDetailMcpHub({
       if (res.ok) {
         const updated = await res.json();
         setIncident(updated);
+        setResolvedByExternal(Boolean(updated.resolvedByExternal));
         setManagerComment(updated.managerComment || '');
         setResolutionFeedback(null);
         const successMsg =
@@ -268,6 +273,7 @@ export default function IncidentDetailMcpHub({
       resolution: resolutionText,
       resolutionType,
       workaroundNote: resolutionType === 'WORKAROUND' ? workaroundNote.trim() : '',
+      resolvedByExternal,
     };
     if (targetStatus) payload.status = targetStatus;
     if (targetStatus === 'RESOLVED') payload.managerComment = managerComment.trim();
@@ -282,6 +288,7 @@ export default function IncidentDetailMcpHub({
       if (res.ok) {
         const updated = await res.json();
         setIncident(updated);
+        setResolvedByExternal(Boolean(updated.resolvedByExternal));
         setManagerComment(updated.managerComment || '');
         if (targetStatus === 'RESOLVED') {
           const msg = `ปิดเคส ${incident.ticketNo} เป็น RESOLVED เรียบร้อยแล้ว`;
@@ -444,8 +451,9 @@ export default function IncidentDetailMcpHub({
   const resolutionAttachments = incident.attachments.filter((a) => a.kind === 'RESOLUTION');
 
   const isClaimed = Boolean(incident.assignedTo?.trim()) && statusKey !== 'OPEN';
+  const canSubmitWithoutClaim = isClaimed || resolvedByExternal;
   const missingToClose: string[] = [];
-  if (!isClaimed) missingToClose.push('รับเคส (Claim Ticket)');
+  if (!canSubmitWithoutClaim) missingToClose.push('รับเคส (Claim Ticket)');
   if (!incident.category?.trim()) missingToClose.push('Category');
   if (!incident.rootCause?.trim()) missingToClose.push('Root Cause');
   if (resolutionType === 'WORKAROUND' && !workaroundNote.trim()) missingToClose.push('เงื่อนไข Workaround');
@@ -494,6 +502,8 @@ export default function IncidentDetailMcpHub({
               setResolutionType={setResolutionType}
               workaroundNote={workaroundNote}
               setWorkaroundNote={setWorkaroundNote}
+              resolvedByExternal={resolvedByExternal}
+              setResolvedByExternal={setResolvedByExternal}
               managerComment={managerComment}
               setManagerComment={setManagerComment}
               resolutionFeedback={resolutionFeedback}

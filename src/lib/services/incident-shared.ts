@@ -58,6 +58,7 @@ export function buildFilterWhere(query: {
   rootCause?: string;
   department?: string;
   resolutionType?: string;
+  resolvedByExternal?: string;
   startDate?: string;
   endDate?: string;
 }) {
@@ -79,6 +80,14 @@ export function buildFilterWhere(query: {
   }
   if (query.resolutionType && query.resolutionType.trim() && query.resolutionType.trim().toUpperCase() !== 'ALL') {
     where.resolutionType = query.resolutionType.trim().toUpperCase();
+  }
+  if (query.resolvedByExternal && query.resolvedByExternal.trim() && query.resolvedByExternal.trim().toUpperCase() !== 'ALL') {
+    const ext = query.resolvedByExternal.trim().toLowerCase();
+    if (ext === 'true' || ext === 'yes' || ext === '1') {
+      where.resolvedByExternal = true;
+    } else if (ext === 'false' || ext === 'no' || ext === '0') {
+      where.resolvedByExternal = false;
+    }
   }
   if (query.search && query.search.trim()) {
     const s = query.search.trim();

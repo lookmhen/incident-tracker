@@ -18,6 +18,7 @@ interface IncidentRecord {
   assignedTo: string | null;
   resolutionType?: string | null;
   workaroundNote?: string | null;
+  resolvedByExternal?: boolean;
   createdAt: string;
 }
 
@@ -67,6 +68,7 @@ export default function AdminDashboardPage() {
   const [urgencyFilter, setUrgencyFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [deptFilter, setDeptFilter] = useState('ALL');
+  const [externalFilter, setExternalFilter] = useState('ALL');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -104,6 +106,7 @@ export default function AdminDashboardPage() {
       if (urgencyFilter !== 'ALL') params.set('urgency', urgencyFilter);
       if (categoryFilter !== 'ALL') params.set('category', categoryFilter);
       if (deptFilter !== 'ALL') params.set('department', deptFilter);
+      if (externalFilter !== 'ALL') params.set('resolvedByExternal', externalFilter);
       params.set('page', String(page));
       params.set('limit', '10');
 
@@ -156,7 +159,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchIncidents();
-  }, [search, statusFilter, urgencyFilter, categoryFilter, deptFilter, page]);
+  }, [search, statusFilter, urgencyFilter, categoryFilter, deptFilter, externalFilter, page]);
 
   // Create Category
   const handleCreateCategory = async (e: React.FormEvent) => {
@@ -243,6 +246,7 @@ export default function AdminDashboardPage() {
     setUrgencyFilter('ALL');
     setCategoryFilter('ALL');
     setDeptFilter('ALL');
+    setExternalFilter('ALL');
     setPage(1);
   };
 
@@ -504,6 +508,26 @@ export default function AdminDashboardPage() {
               </span>
             </div>
 
+            {/* External User Filter */}
+            <div className="relative">
+              <select
+                value={externalFilter}
+                onChange={(e) => {
+                  setExternalFilter(e.target.value);
+                  setPage(1);
+                }}
+                aria-label="Filter by solver"
+                className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+              >
+                <option value="ALL">Solver: All</option>
+                <option value="false">IT Team</option>
+                <option value="true">External User</option>
+              </select>
+              <span className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">
+                expand_more
+              </span>
+            </div>
+
             {/* Reset Button */}
             <button
               onClick={handleResetFilters}
@@ -656,6 +680,12 @@ export default function AdminDashboardPage() {
                                 Workaround
                               </span>
                             )}
+                            {inc.resolvedByExternal && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-50 text-teal-800 border border-teal-200 whitespace-nowrap">
+                                <span className="material-symbols-outlined text-[12px]">person_check</span>
+                                External User
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="py-3.5 px-4">
@@ -668,6 +698,11 @@ export default function AdminDashboardPage() {
                                 <div className="font-medium text-slate-800 text-[11px]">{inc.assignedTo}</div>
                                 <div className="text-[10px] text-slate-400">Responder</div>
                               </div>
+                            </div>
+                          ) : inc.resolvedByExternal ? (
+                            <div className="flex items-center gap-1.5 text-teal-700 font-medium text-[11px]">
+                              <span className="material-symbols-outlined text-[15px]">person_check</span>
+                              <span>External User</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 text-slate-400">

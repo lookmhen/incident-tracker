@@ -37,8 +37,9 @@ model Incident {
   resolution     String?       // Clean-text fix note for AI context & MCP
   resolutionType String?       // "PERMANENT" | "WORKAROUND"
   workaroundNote String?       // Optional condition / follow-up note when closed as WORKAROUND
-  resolvedBy     String?       // Manager name/username who confirmed closure
-  managerComment String?       // Internal Manager note on close / send-back (not exposed to MCP/KM)
+  resolvedBy         String?       // Manager name/username who confirmed closure
+  resolvedByExternal Boolean       @default(false) // Fixed off-hours by non-IT external personnel (skips Claim & MTTR)
+  managerComment     String?       // Internal Manager note on close / send-back (not exposed to MCP/KM)
   relatedTickets String?       // JSON array of referenced ticketNos e.g. ["INC-202611-001"]
   attachments    Attachment[]
   createdAt      DateTime      @default(now())

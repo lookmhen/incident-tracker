@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get('category') || undefined;
     const rootCause = searchParams.get('rootCause') || undefined;
     const department = searchParams.get('department') || undefined;
+    const resolvedByExternal = searchParams.get('resolvedByExternal') || undefined;
 
     const data = await IncidentAnalyticsService.getAnalyticsData({
       startDate,
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
       category,
       rootCause,
       department,
+      resolvedByExternal,
     });
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'no-store, max-age=0' },

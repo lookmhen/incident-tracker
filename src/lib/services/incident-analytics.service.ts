@@ -78,6 +78,7 @@ export class IncidentAnalyticsService {
     rootCause?: string;
     department?: string;
     resolutionType?: string;
+    resolvedByExternal?: string;
   }) {
     const where = buildFilterWhere(query);
     const [records, distinctFilterRows, excludedIds, configuredRootCauses] = await Promise.all([
@@ -103,6 +104,7 @@ export class IncidentAnalyticsService {
     const pendingConfirmCount = records.filter((r) => normStatus(r.status) === 'PENDING_CONFIRM').length;
     const onHoldCount = records.filter((r) => normStatus(r.status) === 'ON_HOLD').length;
     const criticalCount = records.filter((r) => normUrgency(r.urgency) === 'HIGH').length;
+    const externalUserCount = records.filter((r) => Boolean(r.resolvedByExternal)).length;
     const resolutionRate = total > 0 ? Math.round((resolvedCount / total) * 100) : 0;
 
     // Avg resolution time in minutes (overall, by urgency, and by category; excludes ON_HOLD / mttrExcluded)
@@ -336,6 +338,7 @@ export class IncidentAnalyticsService {
         pendingConfirmCount,
         onHoldCount,
         criticalCount,
+        externalUserCount,
         resolutionRate,
         avgResolutionMins,
       },

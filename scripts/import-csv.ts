@@ -3,6 +3,7 @@ import path from 'path';
 import prisma from '../src/lib/prisma';
 import { parseCsvContent, parseThaiDate } from '../src/lib/csv-parser';
 import { McpService } from '../src/lib/services/mcp.service';
+import { IncidentAnalyticsService } from '../src/lib/services/incident-analytics.service';
 
 /**
  * Category mapping from legacy system to IncidentHub categories
@@ -71,6 +72,7 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
   const contactIdx = findCol(['Contact Info', 'ContactInfo', 'Contact', 'Email', 'เบอร์ติดต่อ']);
   const assignedToIdx = findCol(['Assigned To', 'AssignedTo', 'ผู้รับผิดชอบ']);
   const relatedTicketsIdx = findCol(['Related Tickets', 'RelatedTickets', 'ตั๋วที่เกี่ยวข้อง']);
+  const externalUserIdx = findCol(['External User', 'ExternalUser', 'Resolved By External']);
 
   if (detailIdx === -1 && titleIdx === -1) {
     throw new Error('CSV is missing required description or title header');
@@ -126,6 +128,16 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
 
     const workaroundNote = workaroundIdx !== -1 ? row[workaroundIdx]?.trim() || null : undefined;
     const resolvedBy = resolvedByIdx !== -1 ? row[resolvedByIdx]?.trim() || null : undefined;
+
+    let resolvedByExternal: boolean | undefined = undefined;
+    if (externalUserIdx !== -1) {
+      const rawExt = (row[externalUserIdx] || '').trim().toLowerCase();
+      if (['yes', 'true', '1', 'external'].includes(rawExt)) {
+        resolvedByExternal = true;
+      } else if (['no', 'false', '0', ''].includes(rawExt)) {
+        resolvedByExternal = false;
+      }
+    }
 
     const rawAssigned = assignedToIdx !== -1 ? row[assignedToIdx]?.trim() : '';
     const assignedTo = rawAssigned && rawAssigned !== 'Unassigned'
@@ -246,14 +258,20 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
           workaroundNote: workaroundNote !== undefined ? workaroundNote : existing.workaroundNote,
           assignedTo: assignedTo !== undefined ? assignedTo : existing.assignedTo,
           resolvedBy: resolvedBy !== undefined ? resolvedBy : existing.resolvedBy,
+          resolvedByExternal: resolvedByExternal !== undefined ? resolvedByExternal : existing.resolvedByExternal,
           relatedTickets: relatedTickets !== undefined ? relatedTickets : existing.relatedTickets,
           createdAt: createdAt || existing.createdAt,
           closedAt: closedAt !== undefined ? closedAt : existing.closedAt,
         },
       });
+      if (resolvedByExternal === true || status === 'ON_HOLD') {
+        await IncidentAnalyticsService.setMttrExcluded(existing.id, true);
+      } else if (resolvedByExternal === false && existing.resolvedByExternal && status !== 'ON_HOLD') {
+        await IncidentAnalyticsService.setMttrExcluded(existing.id, false);
+      }
       updated++;
     } else {
-      await prisma.incident.create({
+      const created = await prisma.incident.create({
         data: {
           ticketNo,
           title: cleanTitle,
@@ -271,11 +289,15 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
           workaroundNote: workaroundNote || null,
           assignedTo: assignedTo || null,
           resolvedBy: resolvedBy || null,
+          resolvedByExternal: resolvedByExternal ?? false,
           relatedTickets: relatedTickets || null,
           createdAt: createdAt || new Date(),
           closedAt: closedAt || null,
         },
       });
+      if (created.resolvedByExternal || status === 'ON_HOLD') {
+        await IncidentAnalyticsService.setMttrExcluded(created.id, true);
+      }
       imported++;
     }
   }

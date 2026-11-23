@@ -181,6 +181,13 @@ export default function IncidentHeaderCard({
               </span>
             )}
 
+            {incident.resolvedByExternal && (
+              <span className="px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-300 font-semibold flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">person_check</span>
+                External User
+              </span>
+            )}
+
             <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
               {incident.category || 'Uncategorized'}
             </span>

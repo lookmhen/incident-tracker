@@ -39,6 +39,7 @@ export interface IncidentDetail {
   resolutionType?: string | null;
   workaroundNote?: string | null;
   resolvedBy?: string | null;
+  resolvedByExternal?: boolean;
   managerComment?: string | null;
   createdAt: string;
   updatedAt: string;

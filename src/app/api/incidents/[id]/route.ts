@@ -58,6 +58,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    if (body.resolvedByExternal !== undefined && typeof body.resolvedByExternal !== 'boolean') {
+      return NextResponse.json(
+        { error: 'Invalid resolvedByExternal: expected boolean' },
+        { status: 400 }
+      );
+    }
+
     const updated = await IncidentService.updateIncident(id, {
       reporterName: body.reporterName,
       department: body.department,
@@ -76,6 +83,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       resolvedBy:
         (typeof body.resolvedBy === 'string' ? body.resolvedBy.trim() : body.resolvedBy) ||
         (isClosing && session ? session.name : body.resolvedBy),
+      resolvedByExternal: body.resolvedByExternal,
       managerComment: session?.role === 'MANAGER' ? body.managerComment : undefined,
       portalBaseUrl: EmailService.resolvePortalUrl(req),
       createdAt: body.createdAt,

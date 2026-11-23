@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     const urgency = searchParams.get('urgency') || undefined;
     const category = searchParams.get('category') || undefined;
     const department = searchParams.get('department') || undefined;
+    const resolvedByExternal = searchParams.get('resolvedByExternal') || undefined;
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
 
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
       urgency,
       category,
       department,
+      resolvedByExternal,
       page,
       limit,
     });

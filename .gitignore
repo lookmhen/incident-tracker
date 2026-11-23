@@ -48,3 +48,6 @@ next-env.d.ts
 # Superpowers / Git Worktrees
 /.worktrees/
 /.superpowers/
+
+# Script build outputs
+/scripts/dist/

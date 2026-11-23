@@ -57,10 +57,10 @@ export async function backupDatabase(options: BackupOptions): Promise<BackupResu
 
 // CLI Execution
 const isMain =
-  process.argv[1] &&
-  (process.argv[1] === fileURLToPath(import.meta.url) ||
-    process.argv[1].endsWith('backup-db.ts') ||
-    process.argv[1].endsWith('backup-db.js'));
+  (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) ||
+  (process.argv[1] &&
+    (process.argv[1].endsWith('backup-db.ts') ||
+      process.argv[1].endsWith('backup-db.js')));
 
 if (isMain) {
   const args = process.argv.slice(2);

@@ -23,7 +23,7 @@ const CATEGORY_MAP: Record<string, string> = {
 };
 
 /**
- * CLI Script to import historical Incident Report CSV files into SQLite database
+ * CLI Script to import historical Incident Report CSV files or re-import exported CSV files
  * Usage:
  *   npx tsx scripts/import-csv.ts [filePath] [--dry-run]
  */
@@ -53,20 +53,27 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
     return header.findIndex((h) => lowerCandidates.includes(h.toLowerCase()));
   };
 
-  const idIdx = findCol(['ID', 'Ticket ID', 'TicketId', 'TicketNo', 'No']);
-  const senderIdx = findCol(['Sender Name', 'Sender', 'Reporter', 'Reporter Name', 'ผู้แจ้ง', 'Name']);
-  const dateIdx = findCol(['IncidentDate', 'Incident Date', 'Date', 'วันที่']);
-  const typeIdx = findCol(['Incident Type', 'Type', 'Category', 'หมวดหมู่']);
-  const severityIdx = findCol(['Severity', 'Urgency', 'ความเร่งด่วน']);
+  const idIdx = findCol(['Ticket No', 'TicketNo', 'Ticket ID', 'TicketId', 'ID', 'No']);
+  const senderIdx = findCol(['Reporter Name', 'Reporter', 'Sender Name', 'Sender', 'ผู้แจ้ง', 'Name']);
+  const dateIdx = findCol(['Created At', 'CreatedAt', 'IncidentDate', 'Incident Date', 'Date', 'วันที่']);
+  const typeIdx = findCol(['Category', 'Incident Type', 'Type', 'หมวดหมู่']);
+  const severityIdx = findCol(['Urgency', 'Severity', 'ความเร่งด่วน']);
   const statusIdx = findCol(['Status', 'สถานะ']);
-  const detailIdx = findCol(['Detail', 'Details', 'Description', 'รายละเอียด', 'Problem', 'Summary']);
-  const rootCauseIdx = findCol(['Root Cause', 'RootCause', 'Resolution', 'Solution', 'วิธีแก้ไข', 'สาเหตุ']);
-  const resDateIdx = findCol(['ResolutionDate', 'Resolution Date', 'Resolved Date', 'Closed Date', 'วันที่แก้ไข']);
+  const titleIdx = findCol(['Title', 'หัวข้อ', 'เรื่อง']);
+  const detailIdx = findCol(['Description', 'Detail', 'Details', 'รายละเอียด', 'Problem', 'Summary']);
+  const rootCauseIdx = findCol(['Root Cause', 'RootCause', 'สาเหตุ']);
+  const resolutionIdx = findCol(['Resolution Notes', 'ResolutionNotes', 'Resolution', 'Solution', 'วิธีแก้ไข']);
+  const resTypeIdx = findCol(['Resolution Type', 'ResolutionType', 'ประเภทการแก้ไข']);
+  const workaroundIdx = findCol(['Workaround Note', 'WorkaroundNote']);
+  const resolvedByIdx = findCol(['Resolved By', 'ResolvedBy', 'ผู้ปิดงาน']);
+  const resDateIdx = findCol(['Closed At', 'ClosedAt', 'ResolutionDate', 'Resolution Date', 'Resolved Date', 'Closed Date', 'วันที่แก้ไข', 'วันที่ปิด']);
   const deptIdx = findCol(['Department', 'Dept', 'แผนก']);
-  const contactIdx = findCol(['Contact', 'ContactInfo', 'Email', 'เบอร์ติดต่อ']);
+  const contactIdx = findCol(['Contact Info', 'ContactInfo', 'Contact', 'Email', 'เบอร์ติดต่อ']);
+  const assignedToIdx = findCol(['Assigned To', 'AssignedTo', 'ผู้รับผิดชอบ']);
+  const relatedTicketsIdx = findCol(['Related Tickets', 'RelatedTickets', 'ตั๋วที่เกี่ยวข้อง']);
 
-  if (detailIdx === -1 || dateIdx === -1) {
-    throw new Error('CSV is missing required headers: "Detail" (or Description) or "IncidentDate" (or Date)');
+  if (detailIdx === -1 && titleIdx === -1) {
+    throw new Error('CSV is missing required description or title header');
   }
 
   // Pre-load or ensure categories in database
@@ -89,29 +96,73 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
       continue;
     }
 
-    const legacyId = idIdx !== -1 ? row[idIdx]?.trim() : String(i);
+    const rawId = idIdx !== -1 ? row[idIdx]?.trim() : '';
+    const detail = detailIdx !== -1 ? row[detailIdx]?.trim() : '';
+    const rawTitle = titleIdx !== -1 ? row[titleIdx]?.trim() : '';
+
+    if (!detail && !rawTitle) {
+      skipped++;
+      continue;
+    }
+
+    const cleanDetail = detail ? McpService.cleanText(detail) : McpService.cleanText(rawTitle);
+    const cleanTitle = rawTitle
+      ? McpService.cleanText(rawTitle)
+      : (cleanDetail.length > 90 ? cleanDetail.slice(0, 90) + '...' : cleanDetail);
+
     const sender = senderIdx !== -1 && row[senderIdx]?.trim() ? row[senderIdx].trim() : 'Unspecified User';
     const incidentDateStr = dateIdx !== -1 ? row[dateIdx] : null;
     const rawType = typeIdx !== -1 ? row[typeIdx]?.trim() : 'General';
     const rawSeverity = severityIdx !== -1 ? row[severityIdx]?.trim().toUpperCase() : 'MEDIUM';
     const rawStatus = statusIdx !== -1 ? row[statusIdx]?.trim().toUpperCase() : 'OPEN';
-    const detail = detailIdx !== -1 ? row[detailIdx]?.trim() : '';
-    const rootCause = rootCauseIdx !== -1 ? row[rootCauseIdx]?.trim() : '';
+    const rootCause = rootCauseIdx !== -1 ? row[rootCauseIdx]?.trim() || null : undefined;
+    const rawResolution = resolutionIdx !== -1 ? row[resolutionIdx]?.trim() : '';
+    const cleanResolution = rawResolution ? McpService.cleanText(rawResolution) : (resolutionIdx !== -1 ? null : undefined);
+
+    const rawResType = resTypeIdx !== -1 ? row[resTypeIdx]?.trim().toUpperCase() : '';
+    const resolutionType = ['PERMANENT', 'WORKAROUND'].includes(rawResType)
+      ? rawResType
+      : (resTypeIdx !== -1 ? null : undefined);
+
+    const workaroundNote = workaroundIdx !== -1 ? row[workaroundIdx]?.trim() || null : undefined;
+    const resolvedBy = resolvedByIdx !== -1 ? row[resolvedByIdx]?.trim() || null : undefined;
+
+    const rawAssigned = assignedToIdx !== -1 ? row[assignedToIdx]?.trim() : '';
+    const assignedTo = rawAssigned && rawAssigned !== 'Unassigned'
+      ? rawAssigned
+      : (assignedToIdx !== -1 ? null : undefined);
+
+    const rawDept = deptIdx !== -1 ? row[deptIdx]?.trim() : '';
+    const department = rawDept && rawDept !== '-'
+      ? rawDept
+      : (deptIdx !== -1 ? null : 'General');
+
+    const rawContact = contactIdx !== -1 ? row[contactIdx]?.trim() : '';
+    const contactInfo = rawContact || (contactIdx !== -1 ? '' : 'legacy-import@internal.local');
+
     const resDateStr = resDateIdx !== -1 ? row[resDateIdx] : null;
+    const createdAt = parseThaiDate(incidentDateStr) || (dateIdx === -1 ? null : new Date());
+    const closedAt = resDateStr ? parseThaiDate(resDateStr) : (resDateIdx !== -1 ? null : undefined);
 
-    if (!detail) {
-      skipped++;
-      continue;
+    let relatedTickets: string | null | undefined = undefined;
+    if (relatedTicketsIdx !== -1) {
+      const rawRel = row[relatedTicketsIdx]?.trim();
+      if (!rawRel) {
+        relatedTickets = null;
+      } else {
+        const tickets = rawRel
+          .split(',')
+          .map((t) => t.trim().toUpperCase())
+          .filter((t) => /^INC-\d{6}-\d+$/i.test(t));
+        relatedTickets = tickets.length > 0 ? JSON.stringify(tickets) : null;
+      }
     }
-
-    const createdAt = parseThaiDate(incidentDateStr) || new Date();
-    const closedAt = parseThaiDate(resDateStr);
 
     // Map Category
     const mappedCategoryName = CATEGORY_MAP[rawType] || rawType || 'General';
     let catEntry = categoryCache.get(mappedCategoryName.toLowerCase());
 
-    if (!catEntry && !options.dryRun) {
+    if (!catEntry && !options.dryRun && mappedCategoryName && mappedCategoryName !== 'Uncategorized') {
       const rawSlug = mappedCategoryName.toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g, '-').replace(/^-+|-+$/g, '');
       const slug = rawSlug || `cat-${Date.now()}`;
       const createdCat = await prisma.category.upsert({
@@ -136,28 +187,40 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
 
     // Map Status
     let status = 'OPEN';
-    if (rawStatus === 'RESOLVED' || closedAt) status = 'RESOLVED';
-    if (rawStatus === 'CLOSED') status = 'CLOSED';
-    if (rawStatus === 'IN_PROGRESS' || rawStatus === 'IN PROGRESS') status = 'IN_PROGRESS';
-
-    // Generate Standard IncidentHub Ticket Number
-    const yyyy = createdAt.getUTCFullYear();
-    const mm = String(createdAt.getUTCMonth() + 1).padStart(2, '0');
-    const paddedId = legacyId ? legacyId.padStart(4, '0') : String(i).padStart(4, '0');
-    const ticketNo = `INC-${yyyy}${mm}-${paddedId}`;
-
-    // Clean title (first sentence or 100 chars)
-    const cleanDetail = McpService.cleanText(detail);
-    const title = cleanDetail.length > 90 ? cleanDetail.slice(0, 90) + '...' : cleanDetail;
-    const cleanResolution = rootCause ? McpService.cleanText(rootCause) : null;
-
-    if (options.dryRun) {
-      imported++;
-      continue;
+    const VALID_STATUSES = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'PENDING_CONFIRM', 'RESOLVED', 'CLOSED'];
+    if (VALID_STATUSES.includes(rawStatus)) {
+      status = rawStatus;
+    } else if (rawStatus === 'IN PROGRESS') {
+      status = 'IN_PROGRESS';
+    } else if (rawStatus === 'PENDING CONFIRM') {
+      status = 'PENDING_CONFIRM';
+    } else if (rawStatus === 'ON HOLD') {
+      status = 'ON_HOLD';
+    } else if (closedAt) {
+      status = 'RESOLVED';
     }
 
-    const department = deptIdx !== -1 && row[deptIdx]?.trim() ? row[deptIdx].trim() : 'General';
-    const contactInfo = contactIdx !== -1 && row[contactIdx]?.trim() ? row[contactIdx].trim() : 'legacy-import@internal.local';
+    // Determine Ticket Number
+    let ticketNo: string;
+    if (rawId && /^INC-\d{6}-\d+$/i.test(rawId)) {
+      ticketNo = rawId.toUpperCase();
+    } else {
+      const d = createdAt || new Date();
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const paddedId = rawId ? rawId.padStart(4, '0') : String(i).padStart(4, '0');
+      ticketNo = `INC-${yyyy}${mm}-${paddedId}`;
+    }
+
+    if (options.dryRun) {
+      const existing = await prisma.incident.findUnique({ where: { ticketNo } });
+      if (existing) {
+        updated++;
+      } else {
+        imported++;
+      }
+      continue;
+    }
 
     // Check if ticket already exists
     const existing = await prisma.incident.findUnique({
@@ -168,18 +231,24 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
       await prisma.incident.update({
         where: { ticketNo },
         data: {
-          title,
+          title: cleanTitle,
           description: cleanDetail,
-          reporterName: sender,
-          department: department !== 'General' ? department : existing.department,
-          contactInfo: contactInfo !== 'legacy-import@internal.local' ? contactInfo : existing.contactInfo,
-          category: catEntry?.name || mappedCategoryName,
-          categoryId: catEntry?.id,
+          reporterName: sender !== 'Unspecified User' ? sender : existing.reporterName,
+          department: department !== undefined ? department : existing.department,
+          contactInfo: contactInfo !== undefined ? contactInfo : existing.contactInfo,
+          category: catEntry?.name || (mappedCategoryName !== 'Uncategorized' ? mappedCategoryName : null) || existing.category,
+          categoryId: catEntry?.id ?? existing.categoryId,
           urgency,
           status,
-          resolution: cleanResolution,
-          createdAt,
-          closedAt,
+          rootCause: rootCause !== undefined ? rootCause : existing.rootCause,
+          resolution: cleanResolution !== undefined ? cleanResolution : existing.resolution,
+          resolutionType: resolutionType !== undefined ? resolutionType : existing.resolutionType,
+          workaroundNote: workaroundNote !== undefined ? workaroundNote : existing.workaroundNote,
+          assignedTo: assignedTo !== undefined ? assignedTo : existing.assignedTo,
+          resolvedBy: resolvedBy !== undefined ? resolvedBy : existing.resolvedBy,
+          relatedTickets: relatedTickets !== undefined ? relatedTickets : existing.relatedTickets,
+          createdAt: createdAt || existing.createdAt,
+          closedAt: closedAt !== undefined ? closedAt : existing.closedAt,
         },
       });
       updated++;
@@ -187,18 +256,24 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
       await prisma.incident.create({
         data: {
           ticketNo,
-          title,
+          title: cleanTitle,
           description: cleanDetail,
           reporterName: sender,
-          contactInfo,
-          department,
-          category: catEntry?.name || mappedCategoryName,
+          contactInfo: contactInfo || 'legacy-import@internal.local',
+          department: department || 'General',
+          category: catEntry?.name || (mappedCategoryName !== 'Uncategorized' ? mappedCategoryName : null),
           categoryId: catEntry?.id,
           urgency,
           status,
-          resolution: cleanResolution,
-          createdAt,
-          closedAt,
+          rootCause: rootCause || null,
+          resolution: cleanResolution || null,
+          resolutionType: resolutionType || null,
+          workaroundNote: workaroundNote || null,
+          assignedTo: assignedTo || null,
+          resolvedBy: resolvedBy || null,
+          relatedTickets: relatedTickets || null,
+          createdAt: createdAt || new Date(),
+          closedAt: closedAt || null,
         },
       });
       imported++;

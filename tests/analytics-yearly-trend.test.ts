@@ -58,6 +58,18 @@ describe('10. CSV Parser & Yearly Monthly Trend Analytics', () => {
     // We know August (2026-08) has imported data from Incident Report.csv
     const aug = data.trend.find((t) => t.date === '2026-08');
     assert.ok(aug && aug.total > 0, 'August 2026 should contain imported incidents');
+
+    // Yearly grouping pre-fills empty years across range and aggregates 2026
+    const yearly = await IncidentService.getAnalyticsData({
+      startDate: '2025-01-01',
+      endDate: '2026-12-31',
+      groupBy: 'year',
+    });
+    assert.equal(yearly.groupBy, 'year');
+    assert.equal(yearly.trend.length, 2);
+    assert.equal(yearly.trend[0].date, '2025');
+    assert.equal(yearly.trend[1].date, '2026');
+    assert.ok(yearly.trend[1].total >= aug.total);
   });
 
   it('re-imports exported CSV format and updates existing incidents cleanly', async () => {

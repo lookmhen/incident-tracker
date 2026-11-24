@@ -782,7 +782,7 @@ export class IncidentService {
   public static async getAnalyticsData(query: {
     startDate?: string;
     endDate?: string;
-    groupBy?: 'auto' | 'day' | 'month';
+    groupBy?: 'auto' | 'day' | 'month' | 'year';
     urgency?: string;
     category?: string;
     rootCause?: string;

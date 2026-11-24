@@ -527,7 +527,7 @@ export default function AdminDashboardPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Status: All</option>
                 <option value="ACTIVE">Active (Open + In Progress + Pending Confirm)</option>
@@ -548,7 +548,7 @@ export default function AdminDashboardPage() {
               <select
                 value={urgencyFilter}
                 onChange={(e) => setUrgencyFilter(e.target.value)}
-                className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Urgency: All</option>
                 <option value="HIGH">P1 - Blocker / High</option>
@@ -565,7 +565,7 @@ export default function AdminDashboardPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Domain: All Categories</option>
                 {categories.map((c) => (
@@ -587,7 +587,7 @@ export default function AdminDashboardPage() {
                   setDeptFilter(e.target.value);
                   setPage(1);
                 }}
-                className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Dept: All Units</option>
                 {departments.map((dept) => (
@@ -610,7 +610,7 @@ export default function AdminDashboardPage() {
                   setPage(1);
                 }}
                 aria-label="Filter by solver"
-                className="appearance-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Solver: All</option>
                 <option value="false">IT Team</option>
@@ -890,7 +890,7 @@ export default function AdminDashboardPage() {
                       setPage(1);
                     }}
                     aria-label="Records per page"
-                    className="appearance-none bg-white border border-slate-200 rounded-md py-1 pl-2.5 pr-7 text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none focus:border-sky-500"
+                    className="appearance-none bg-none bg-white border border-slate-200 rounded-md py-1 pl-2.5 pr-7 text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none focus:border-sky-500"
                   >
                     {[10, 25, 50, 100].map((size) => (
                       <option key={size} value={size}>

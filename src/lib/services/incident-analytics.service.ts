@@ -72,7 +72,7 @@ export class IncidentAnalyticsService {
   public static async getAnalyticsData(query: {
     startDate?: string;
     endDate?: string;
-    groupBy?: 'auto' | 'day' | 'month';
+    groupBy?: 'auto' | 'day' | 'month' | 'year';
     urgency?: string;
     category?: string;
     rootCause?: string;
@@ -230,9 +230,11 @@ export class IncidentAnalyticsService {
         .sort((a, b) => a.localeCompare(b)),
     };
 
-    // Determine Grouping: 'day' vs 'month'
-    let effectiveGroupBy: 'day' | 'month' = 'day';
-    if (query.groupBy === 'month') {
+    // Determine Grouping: 'day' | 'month' | 'year'
+    let effectiveGroupBy: 'day' | 'month' | 'year' = 'day';
+    if (query.groupBy === 'year') {
+      effectiveGroupBy = 'year';
+    } else if (query.groupBy === 'month') {
       effectiveGroupBy = 'month';
     } else if (query.groupBy === 'day') {
       effectiveGroupBy = 'day';
@@ -260,7 +262,27 @@ export class IncidentAnalyticsService {
 
     const trendMap = new Map<string, TrendItem>();
 
-    if (effectiveGroupBy === 'month') {
+    if (effectiveGroupBy === 'year') {
+      if (query.startDate && query.endDate) {
+        const startYear = new Date(query.startDate).getUTCFullYear();
+        const endYear = new Date(query.endDate).getUTCFullYear();
+        if (!Number.isNaN(startYear) && !Number.isNaN(endYear) && endYear >= startYear && endYear - startYear <= 20) {
+          for (let y = startYear; y <= endYear; y++) {
+            const yKey = String(y);
+            trendMap.set(yKey, { date: yKey, label: yKey, total: 0, high: 0, resolved: 0 });
+          }
+        }
+      }
+
+      for (const r of records) {
+        const yKey = String(new Date(r.createdAt).getUTCFullYear());
+        const entry = trendMap.get(yKey) || { date: yKey, label: yKey, total: 0, high: 0, resolved: 0 };
+        entry.total++;
+        if (normUrgency(r.urgency) === 'HIGH') entry.high++;
+        if (['RESOLVED', 'CLOSED'].includes(normStatus(r.status))) entry.resolved++;
+        trendMap.set(yKey, entry);
+      }
+    } else if (effectiveGroupBy === 'month') {
       // If a full year or date range is requested, pre-fill months with 0
       if (query.startDate && query.endDate) {
         const startYear = new Date(query.startDate).getUTCFullYear();

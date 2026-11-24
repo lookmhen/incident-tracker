@@ -14,7 +14,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
-    const groupBy = (searchParams.get('groupBy') as 'auto' | 'day' | 'month') || undefined;
+    const rawGroupBy = searchParams.get('groupBy');
+    const groupBy =
+      rawGroupBy === 'auto' || rawGroupBy === 'day' || rawGroupBy === 'month' || rawGroupBy === 'year'
+        ? rawGroupBy
+        : undefined;
     const urgency = searchParams.get('urgency') || undefined;
     const category = searchParams.get('category') || undefined;
     const rootCause = searchParams.get('rootCause') || undefined;

@@ -22,7 +22,7 @@ interface AnalyticsData {
     resolutionRate: number;
     avgResolutionMins: number;
   };
-  groupBy?: 'day' | 'month';
+  groupBy?: 'day' | 'month' | 'year';
   trend: Array<{ date: string; label?: string; total: number; high: number; resolved: number }>;
   byCategory: Array<{ name: string; count: number; percentage: number; color?: string }>;
   byRootCause?: Array<{ rootCause: string; count: number; percentage: number }>;
@@ -59,7 +59,8 @@ export default function AnalyticsDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [groupBy, setGroupBy] = useState<'auto' | 'day' | 'month'>('auto');
+  const [groupBy, setGroupBy] = useState<'auto' | 'day' | 'month' | 'year'>('auto');
+  const [showAllDepts, setShowAllDepts] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [rootCauseParentFilter, setRootCauseParentFilter] = useState('ALL');
@@ -78,7 +79,7 @@ export default function AnalyticsDashboardPage() {
   const fetchAnalytics = async (overrides?: {
     startDate?: string;
     endDate?: string;
-    groupBy?: 'auto' | 'day' | 'month';
+    groupBy?: 'auto' | 'day' | 'month' | 'year';
     urgency?: string;
     category?: string;
     rootCause?: string;
@@ -447,345 +448,367 @@ export default function AnalyticsDashboardPage() {
           </div>
         </div>
 
-        {/* 4 Main Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Chart 1: Trend Over Time */}
-          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  1. แนวโน้มเข้าใหม่ vs ปิดแล้ว ({data?.groupBy === 'month' ? 'รายเดือน' : 'รายวัน'})
-                </h2>
-                <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-xs bg-sky-500 inline-block"></span>
-                    เข้าใหม่ (Created)
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 inline-block"></span>
-                    ปิดแล้ว (Resolved)
-                  </span>
-                </div>
+        {/* Chart 1: Full-width Trend Over Time */}
+        <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                1. แนวโน้มเข้าใหม่ vs ปิดแล้ว ({data?.groupBy === 'year' ? 'รายปี' : data?.groupBy === 'month' ? 'รายเดือน' : 'รายวัน'})
+              </h2>
+              <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-sky-500 inline-block"></span>
+                  เข้าใหม่ (Created)
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 inline-block"></span>
+                  ปิดแล้ว (Resolved)
+                </span>
               </div>
-              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs self-start sm:self-auto">
+            </div>
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs self-start sm:self-auto">
+              {(
+                [
+                  { key: 'year', label: 'รายปี' },
+                  { key: 'month', label: 'รายเดือน' },
+                  { key: 'day', label: 'รายวัน' },
+                ] as const
+              ).map((opt) => (
                 <button
+                  key={opt.key}
                   type="button"
                   onClick={() => {
-                    setGroupBy('month');
-                    fetchAnalytics({ groupBy: 'month' });
+                    setGroupBy(opt.key);
+                    fetchAnalytics({ groupBy: opt.key });
                   }}
                   className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                    data?.groupBy === 'month'
+                    data?.groupBy === opt.key
                       ? 'bg-white text-sky-700 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  รายเดือน
+                  {opt.label}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGroupBy('day');
-                    fetchAnalytics({ groupBy: 'day' });
-                  }}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                    data?.groupBy === 'day'
-                      ? 'bg-white text-sky-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  รายวัน
-                </button>
-              </div>
-            </div>
-
-            {!data || data.trend.length === 0 ? (
-              <div className="h-52 flex items-center justify-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
-            ) : (
-              <div className="h-56 flex items-end gap-2.5 pt-6 pb-2 px-2 border-b border-slate-100 overflow-x-auto">
-                {data.trend.map((item) => {
-                  const totalPct = item.total > 0 ? Math.max(Math.round((item.total / maxTrend) * 100), 10) : 0;
-                  const resolvedPct = item.resolved > 0 ? Math.max(Math.round((item.resolved / maxTrend) * 100), 10) : 0;
-                  return (
-                    <div key={item.date} className="flex-1 min-w-[42px] flex flex-col items-center gap-1.5">
-                      <span
-                        className={`text-[10px] font-mono font-bold ${
-                          item.total > 0 ? 'text-slate-700' : 'text-slate-300'
-                        }`}
-                      >
-                        {item.total}/{item.resolved}
-                      </span>
-                      <div className="w-full max-w-[38px] bg-slate-100/80 rounded-t-lg h-36 flex items-end justify-center gap-0.5 px-0.5 overflow-hidden">
-                        {item.total > 0 || item.resolved > 0 ? (
-                          <>
-                            <div
-                              className="flex-1 bg-gradient-to-t from-sky-600 to-sky-400 rounded-t-sm transition-all"
-                              style={{ height: `${totalPct}%` }}
-                              title={`${item.date}: เข้าใหม่ ${item.total} (${item.high} High)`}
-                            />
-                            <div
-                              className="flex-1 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-sm transition-all"
-                              style={{ height: `${resolvedPct}%` }}
-                              title={`${item.date}: ปิดแล้ว ${item.resolved}`}
-                            />
-                          </>
-                        ) : (
-                          <div className="w-full h-1 bg-slate-200" title={`${item.date}: 0 cases`} />
-                        )}
-                      </div>
-                      <span className="text-[10px] font-mono text-slate-500 truncate max-w-[44px] text-center" title={item.label || item.date}>
-                        {item.label || item.date.slice(5)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Chart 2: Category Distribution */}
-          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">2. สัดส่วนปัญหาแยกตามหมวดหมู่ (By Category)</h2>
-                <p className="text-[11px] text-slate-500">วิเคราะห์หมวดหมู่ระบบที่มีการแจ้งปัญหามากที่สุด</p>
-              </div>
-              <span className="material-symbols-outlined text-sky-600">pie_chart</span>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              {!data || data.byCategory.length === 0 ? (
-                <div className="py-10 text-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
-              ) : (
-                data.byCategory.map((cat, idx) => {
-                  const barColor = cat.color || COLORS[idx % COLORS.length];
-                  return (
-                    <div key={cat.name} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs gap-2">
-                        <span className="font-semibold text-slate-800 flex items-center gap-2 min-w-0">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: barColor }}
-                          />
-                          <span className="truncate">{cat.name}</span>
-                        </span>
-                        <span className="font-mono text-slate-600 shrink-0">
-                          <strong>{cat.count}</strong> เคส ({cat.percentage}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${Math.max(cat.percentage, 4)}%`,
-                            backgroundColor: barColor,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Chart 3: Top Departments */}
-          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  3. อันดับแผนกที่แจ้งปัญหามากที่สุด (Top Departments)
-                </h2>
-                <p className="text-[11px] text-slate-500">จัดอันดับตามจำนวนครั้งที่ส่งฟอร์มแจ้งปัญหา</p>
-              </div>
-              <span className="material-symbols-outlined text-sky-600">apartment</span>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              {!data || data.byDepartment.length === 0 ? (
-                <div className="py-10 text-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
-              ) : (
-                data.byDepartment.map((dept) => {
-                  const widthPct = Math.max(Math.round((dept.count / maxDept) * 100), 6);
-                  return (
-                    <div key={dept.department} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-800">{dept.department}</span>
-                        <span className="font-mono text-sky-700 font-bold">
-                          {dept.count} เคส ({dept.percentage}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-indigo-500 rounded-full transition-all"
-                          style={{ width: `${widthPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Chart 4: Resolution Efficiency & Status Breakdown */}
-          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-5 self-start">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  4. ประสิทธิภาพการแก้ไขและสถานะเคส (Resolution &amp; SLA Status)
-                </h2>
-                <p className="text-[11px] text-slate-500">สัดส่วนสถานะการดำเนินงานและระดับความรุนแรง</p>
-              </div>
-              <span className="material-symbols-outlined text-sky-600">task_alt</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {data?.byStatus.map((st) => (
-                <div key={st.status} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700">{st.status}</span>
-                  <span className="text-lg font-mono font-bold text-sky-700">{st.count}</span>
-                </div>
               ))}
             </div>
+          </div>
 
-            <div className="pt-2 border-t border-slate-100 space-y-2">
-              <div className="text-xs font-semibold text-slate-700">สัดส่วนตามระดับความเร่งด่วน (Urgency Mix)</div>
-              <div className="grid grid-cols-3 gap-2.5 text-center">
-                {data?.byUrgency.map((u) => (
-                  <div
-                    key={u.urgency}
-                    className={`p-2.5 rounded-xl border text-xs ${
-                      u.urgency === 'HIGH'
-                        ? 'bg-rose-50 border-rose-200 text-rose-700'
-                        : u.urgency === 'MEDIUM'
-                        ? 'bg-amber-50 border-amber-200 text-amber-700'
-                        : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                    }`}
+          {!data || data.trend.length === 0 ? (
+            <div className="h-52 flex items-center justify-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
+          ) : (
+            <div className="h-56 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-slate-100 overflow-x-auto">
+              {data.trend.map((item) => {
+                const totalPct = item.total > 0 ? Math.max(Math.round((item.total / maxTrend) * 100), 10) : 0;
+                const resolvedPct = item.resolved > 0 ? Math.max(Math.round((item.resolved / maxTrend) * 100), 10) : 0;
+                return (
+                  <div key={item.date} className="flex-1 min-w-[32px] flex flex-col items-center gap-1.5">
+                    <span
+                      className={`text-[10px] font-mono font-bold whitespace-nowrap ${
+                        item.total > 0 ? 'text-slate-700' : 'text-slate-300'
+                      }`}
+                    >
+                      {item.total}/{item.resolved}
+                    </span>
+                    <div className="w-full max-w-[52px] bg-slate-100/80 rounded-t-lg h-36 flex items-end justify-center gap-0.5 px-0.5 overflow-hidden">
+                      {item.total > 0 || item.resolved > 0 ? (
+                        <>
+                          <div
+                            className="flex-1 bg-gradient-to-t from-sky-600 to-sky-400 rounded-t-sm transition-all"
+                            style={{ height: `${totalPct}%` }}
+                            title={`${item.date}: เข้าใหม่ ${item.total} (${item.high} High)`}
+                          />
+                          <div
+                            className="flex-1 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-sm transition-all"
+                            style={{ height: `${resolvedPct}%` }}
+                            title={`${item.date}: ปิดแล้ว ${item.resolved}`}
+                          />
+                        </>
+                      ) : (
+                        <div className="w-full h-1 bg-slate-200" title={`${item.date}: 0 cases`} />
+                      )}
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500 truncate max-w-[56px] text-center" title={item.label || item.date}>
+                      {item.label || item.date.slice(5)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 2-Column Stacked Masonry Grid (prevents empty gap under compact cards like Chart 4) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Left Column: Chart 2, Chart 3 (collapsible), Chart 6 */}
+          <div className="space-y-6">
+            {/* Chart 2: Category Distribution */}
+            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">2. สัดส่วนปัญหาแยกตามหมวดหมู่ (By Category)</h2>
+                  <p className="text-[11px] text-slate-500">วิเคราะห์หมวดหมู่ระบบที่มีการแจ้งปัญหามากที่สุด</p>
+                </div>
+                <span className="material-symbols-outlined text-sky-600">pie_chart</span>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                {!data || data.byCategory.length === 0 ? (
+                  <div className="py-10 text-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
+                ) : (
+                  data.byCategory.map((cat, idx) => {
+                    const barColor = cat.color || COLORS[idx % COLORS.length];
+                    return (
+                      <div key={cat.name} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <span className="font-semibold text-slate-800 flex items-center gap-2 min-w-0">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: barColor }}
+                            />
+                            <span className="truncate">{cat.name}</span>
+                          </span>
+                          <span className="font-mono text-slate-600 shrink-0">
+                            <strong>{cat.count}</strong> เคส ({cat.percentage}%)
+                          </span>
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.max(cat.percentage, 4)}%`,
+                              backgroundColor: barColor,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Chart 3: Top Departments (Expand / Collapse) */}
+            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    3. อันดับแผนกที่แจ้งปัญหามากที่สุด (Top Departments)
+                  </h2>
+                  <p className="text-[11px] text-slate-500">
+                    จัดอันดับตามจำนวนครั้งที่ส่งฟอร์มแจ้งปัญหา
+                    {data && data.byDepartment.length > 5 && !showAllDepts ? ` (แสดง 5 จาก ${data.byDepartment.length} แผนก)` : ''}
+                  </p>
+                </div>
+                <span className="material-symbols-outlined text-sky-600 shrink-0">apartment</span>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                {!data || data.byDepartment.length === 0 ? (
+                  <div className="py-10 text-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
+                ) : (
+                  (showAllDepts ? data.byDepartment : data.byDepartment.slice(0, 5)).map((dept) => {
+                    const widthPct = Math.max(Math.round((dept.count / maxDept) * 100), 6);
+                    return (
+                      <div key={dept.department} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-800">{dept.department}</span>
+                          <span className="font-mono text-sky-700 font-bold">
+                            {dept.count} เคส ({dept.percentage}%)
+                          </span>
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-indigo-500 rounded-full transition-all"
+                            style={{ width: `${widthPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {data && data.byDepartment.length > 5 && (
+                <div className="pt-2 border-t border-slate-100 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllDepts((prev) => !prev)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-xs font-semibold text-slate-700 hover:text-sky-700 transition-colors cursor-pointer"
                   >
-                    <div className="font-bold">{u.urgency}</div>
-                    <div className="text-base font-mono font-bold mt-0.5">{u.count}</div>
+                    <span className="material-symbols-outlined text-[16px]">
+                      {showAllDepts ? 'expand_less' : 'expand_more'}
+                    </span>
+                    <span>
+                      {showAllDepts ? 'ย่อเหลือ 5 อันดับแรก' : `แสดงทั้งหมด (${data.byDepartment.length} แผนก)`}
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Chart 6: Backlog Aging */}
+            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    6. อายุเคสที่ยังค้างอยู่ (Backlog Aging)
+                  </h2>
+                  <p className="text-[11px] text-slate-500">ติดตามระยะเวลาค้างของเคส OPEN และ IN_PROGRESS เพื่อกันเคสตกหล่น</p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-mono font-bold">
+                  ค้าง {totalBacklogAging} เคส
+                </span>
+              </div>
+
+              {(data?.summary.onHoldCount || 0) > 0 && (
+                <div className="px-3 py-2 rounded-xl bg-violet-50 border border-violet-200 text-[11px] text-violet-800 flex items-center justify-between">
+                  <span>พักรอ Solution (On Hold — แยกออกจากคิวค้าง &amp; MTTR):</span>
+                  <strong className="font-mono">{data?.summary.onHoldCount} เคส</strong>
+                </div>
+              )}
+
+              {totalBacklogAging === 0 ? (
+                <div className="py-12 text-center text-xs text-emerald-600 font-medium bg-emerald-50/50 rounded-xl border border-emerald-100">
+                  ไม่มีเคสเปิดค้างในช่วงตัวกรองที่เลือก
+                </div>
+              ) : (
+                <div className="space-y-3 pt-2">
+                  {(data?.backlogAging || []).map((b) => {
+                    const pct = totalBacklogAging > 0 ? Math.round((b.count / totalBacklogAging) * 100) : 0;
+                    const isOverdue = b.key === 'over_7d' && b.count > 0;
+                    return (
+                      <div key={b.key} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className={`font-semibold ${isOverdue ? 'text-rose-700' : 'text-slate-700'}`}>
+                            {b.label}
+                          </span>
+                          <span className={`font-mono font-bold ${isOverdue ? 'text-rose-600' : 'text-slate-700'}`}>
+                            {b.count} เคส ({pct}%)
+                          </span>
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              isOverdue ? 'bg-rose-500' : b.key === '4_7d' ? 'bg-amber-500' : 'bg-sky-500'
+                            }`}
+                            style={{ width: `${b.count > 0 ? Math.max(pct, 6) : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Chart 4, Chart 5 (moves directly up under Chart 4) */}
+          <div className="space-y-6">
+            {/* Chart 4: Resolution Efficiency & Status Breakdown */}
+            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    4. ประสิทธิภาพการแก้ไขและสถานะเคส (Resolution &amp; SLA Status)
+                  </h2>
+                  <p className="text-[11px] text-slate-500">สัดส่วนสถานะการดำเนินงานและระดับความรุนแรง</p>
+                </div>
+                <span className="material-symbols-outlined text-sky-600">task_alt</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {data?.byStatus.map((st) => (
+                  <div key={st.status} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700">{st.status}</span>
+                    <span className="text-lg font-mono font-bold text-sky-700">{st.count}</span>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
 
-          {/* Chart 5: MTTR Breakdown by Urgency & Category */}
-          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  5. ความเร็วแก้ไขเฉลี่ยแยกมิติ (MTTR Breakdown)
-                </h2>
-                <p className="text-[11px] text-slate-500">เวลาเฉลี่ยตั้งแต่เปิดเคสจนปิดแยกตามความเร่งด่วนและหมวดหมู่</p>
-              </div>
-              <span className="material-symbols-outlined text-sky-600">speed</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2.5 text-center">
-              {(data?.mttrByUrgency || []).map((m) => (
-                <div
-                  key={m.urgency}
-                  className={`p-3 rounded-xl border text-xs ${
-                    m.urgency === 'HIGH'
-                      ? 'bg-rose-50/70 border-rose-200 text-rose-800'
-                      : m.urgency === 'MEDIUM'
-                      ? 'bg-amber-50/70 border-amber-200 text-amber-800'
-                      : 'bg-slate-50 border-slate-200 text-slate-700'
-                  }`}
-                >
-                  <div className="font-bold text-[11px]">{m.urgency}</div>
-                  <div className="text-sm font-mono font-bold mt-1">
-                    {m.count > 0 ? formatMins(m.avgMins) : '-'}
-                  </div>
-                  <div className="text-[10px] opacity-75 mt-0.5">{m.count} เคส</div>
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="text-xs font-semibold text-slate-700">สัดส่วนตามระดับความเร่งด่วน (Urgency Mix)</div>
+                <div className="grid grid-cols-3 gap-2.5 text-center">
+                  {data?.byUrgency.map((u) => (
+                    <div
+                      key={u.urgency}
+                      className={`p-2.5 rounded-xl border text-xs ${
+                        u.urgency === 'HIGH'
+                          ? 'bg-rose-50 border-rose-200 text-rose-700'
+                          : u.urgency === 'MEDIUM'
+                          ? 'bg-amber-50 border-amber-200 text-amber-700'
+                          : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                      }`}
+                    >
+                      <div className="font-bold">{u.urgency}</div>
+                      <div className="text-base font-mono font-bold mt-0.5">{u.count}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
 
-            <div className="space-y-2.5 pt-2 border-t border-slate-100">
-              <div className="text-xs font-semibold text-slate-700">MTTR รายหมวดหมู่ (เรียงจากช้าสุด)</div>
-              {!data || data.mttrByCategory.length === 0 ? (
-                <div className="py-6 text-center text-xs text-slate-400">ยังไม่มีข้อมูลปิดเคสที่มีเวลาอ้างอิง</div>
-              ) : (
-                data.mttrByCategory.map((c) => {
-                  const pct = c.avgMins > 0 ? Math.max(Math.round((c.avgMins / maxMttrCat) * 100), 6) : 4;
-                  return (
-                    <div key={c.category} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium text-slate-800">{c.category}</span>
-                        <span className="font-mono text-sky-700 font-semibold">
-                          {formatMins(c.avgMins)} <span className="text-slate-400 font-normal">({c.count})</span>
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-sky-500 rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
+            {/* Chart 5: MTTR Breakdown by Urgency & Category */}
+            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    5. ความเร็วแก้ไขเฉลี่ยแยกมิติ (MTTR Breakdown)
+                  </h2>
+                  <p className="text-[11px] text-slate-500">เวลาเฉลี่ยตั้งแต่เปิดเคสจนปิดแยกตามความเร่งด่วนและหมวดหมู่</p>
+                </div>
+                <span className="material-symbols-outlined text-sky-600">speed</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2.5 text-center">
+                {(data?.mttrByUrgency || []).map((m) => (
+                  <div
+                    key={m.urgency}
+                    className={`p-3 rounded-xl border text-xs ${
+                      m.urgency === 'HIGH'
+                        ? 'bg-rose-50/70 border-rose-200 text-rose-800'
+                        : m.urgency === 'MEDIUM'
+                        ? 'bg-amber-50/70 border-amber-200 text-amber-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <div className="font-bold text-[11px]">{m.urgency}</div>
+                    <div className="text-sm font-mono font-bold mt-1">
+                      {m.count > 0 ? formatMins(m.avgMins) : '-'}
                     </div>
-                  );
-                })
-              )}
+                    <div className="text-[10px] opacity-75 mt-0.5">{m.count} เคส</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                <div className="text-xs font-semibold text-slate-700">MTTR รายหมวดหมู่ (เรียงจากช้าสุด)</div>
+                {!data || data.mttrByCategory.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-400">ยังไม่มีข้อมูลปิดเคสที่มีเวลาอ้างอิง</div>
+                ) : (
+                  data.mttrByCategory.map((c) => {
+                    const pct = c.avgMins > 0 ? Math.max(Math.round((c.avgMins / maxMttrCat) * 100), 6) : 4;
+                    return (
+                      <div key={c.category} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium text-slate-800">{c.category}</span>
+                          <span className="font-mono text-sky-700 font-semibold">
+                            {formatMins(c.avgMins)} <span className="text-slate-400 font-normal">({c.count})</span>
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-sky-500 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Chart 6: Backlog Aging */}
-          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  6. อายุเคสที่ยังค้างอยู่ (Backlog Aging)
-                </h2>
-                <p className="text-[11px] text-slate-500">ติดตามระยะเวลาค้างของเคส OPEN และ IN_PROGRESS เพื่อกันเคสตกหล่น</p>
-              </div>
-              <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-mono font-bold">
-                ค้าง {totalBacklogAging} เคส
-              </span>
-            </div>
-
-            {(data?.summary.onHoldCount || 0) > 0 && (
-              <div className="px-3 py-2 rounded-xl bg-violet-50 border border-violet-200 text-[11px] text-violet-800 flex items-center justify-between">
-                <span>พักรอ Solution (On Hold — แยกออกจากคิวค้าง &amp; MTTR):</span>
-                <strong className="font-mono">{data?.summary.onHoldCount} เคส</strong>
-              </div>
-            )}
-
-            {totalBacklogAging === 0 ? (
-              <div className="py-12 text-center text-xs text-emerald-600 font-medium bg-emerald-50/50 rounded-xl border border-emerald-100">
-                ไม่มีเคสเปิดค้างในช่วงตัวกรองที่เลือก
-              </div>
-            ) : (
-              <div className="space-y-3 pt-2">
-                {(data?.backlogAging || []).map((b) => {
-                  const pct = totalBacklogAging > 0 ? Math.round((b.count / totalBacklogAging) * 100) : 0;
-                  const isOverdue = b.key === 'over_7d' && b.count > 0;
-                  return (
-                    <div key={b.key} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className={`font-semibold ${isOverdue ? 'text-rose-700' : 'text-slate-700'}`}>
-                          {b.label}
-                        </span>
-                        <span className={`font-mono font-bold ${isOverdue ? 'text-rose-600' : 'text-slate-700'}`}>
-                          {b.count} เคส ({pct}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            isOverdue ? 'bg-rose-500' : b.key === '4_7d' ? 'bg-amber-500' : 'bg-sky-500'
-                          }`}
-                          style={{ width: `${b.count > 0 ? Math.max(pct, 6) : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Chart 7: Root Cause Analysis */}
-          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4 lg:col-span-2">
+        {/* Chart 7: Full-width Root Cause Analysis */}
+        <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">
@@ -875,7 +898,6 @@ export default function AnalyticsDashboardPage() {
               )}
             </div>
           </div>
-        </div>
       </div>
     </div>
   );

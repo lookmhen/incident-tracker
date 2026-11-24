@@ -629,7 +629,7 @@ export default function AnalyticsDashboardPage() {
           </div>
 
           {/* Chart 4: Resolution Efficiency & Status Breakdown */}
-          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-5">
+          <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-5 self-start">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">

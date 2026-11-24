@@ -8,7 +8,9 @@ export const revalidate = 0;
 export async function GET() {
   try {
     const categories = await CategoryService.getAllCategories();
-    return NextResponse.json(categories);
+    return NextResponse.json(categories, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }

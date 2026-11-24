@@ -147,7 +147,7 @@ export default function AdminDashboardPage() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch('/api/categories');
+      const res = await fetch('/api/categories', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setCategories(data || []);
@@ -189,6 +189,20 @@ export default function AdminDashboardPage() {
         }
       })
       .catch(() => {});
+  }, []);
+
+  const latestRefreshRef = useRef<() => void>(() => {});
+  latestRefreshRef.current = () => {
+    fetchIncidents();
+    fetchCategories();
+  };
+
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) latestRefreshRef.current();
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
   }, []);
 
   useEffect(() => {
@@ -334,15 +348,15 @@ export default function AdminDashboardPage() {
     <div className="w-full bg-gradient-to-b from-[#f0f7fe] via-[#f8fafc] to-[#f0f7fd] min-h-[calc(100vh-4rem)]">
       <div className="w-full px-6 lg:px-10 py-8 max-w-[1680px] mx-auto space-y-7">
         {/* Top Bar: Title & Controls */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-1">
-            <h1 className="text-2xl lg:text-3xl font-headline font-bold text-slate-900 tracking-tight">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div className="space-y-1 shrink-0">
+            <h1 className="text-2xl font-headline font-bold text-slate-900 tracking-tight whitespace-nowrap">
               IT Operations &amp; Incident Dashboard
             </h1>
           </div>
 
           {/* Quick Action Pipeline Controls */}
-          <div className="flex items-center flex-wrap gap-2.5">
+          <div className="flex items-center flex-wrap xl:flex-nowrap gap-2">
             <a
               href={`/api/incidents/export?${new URLSearchParams({
                 ...(search ? { search } : {}),
@@ -352,7 +366,7 @@ export default function AdminDashboardPage() {
                 ...(deptFilter !== 'ALL' ? { department: deptFilter } : {}),
                 ...(externalFilter !== 'ALL' ? { resolvedByExternal: externalFilter } : {}),
               }).toString()}`}
-              className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white flex items-center gap-2 shadow-xs transition-all duration-200"
+              className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0"
               title="Export filtered incidents to Excel (.CSV UTF-8 with BOM)"
             >
               <span className="material-symbols-outlined text-[17px]">table_view</span>
@@ -361,7 +375,7 @@ export default function AdminDashboardPage() {
 
             <Link
               href="/admin/analytics"
-              className="px-3.5 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-2 shadow-xs transition-all duration-200"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0"
             >
               <span className="material-symbols-outlined text-[17px] text-sky-600">bar_chart</span>
               <span>Analytics &amp; Graphs</span>
@@ -369,7 +383,7 @@ export default function AdminDashboardPage() {
 
             <Link
               href="/admin/integrations"
-              className="px-3.5 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-2 shadow-xs transition-all duration-200"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0"
             >
               <span className="material-symbols-outlined text-[17px] text-sky-600">hub</span>
               <span>Integrations &amp; API</span>
@@ -378,7 +392,7 @@ export default function AdminDashboardPage() {
             {/* Manage Categories Modal Trigger (Requirement: Add categories later) */}
             <button
               onClick={() => setShowCatModal(true)}
-              className="px-3.5 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-2 shadow-xs transition-all duration-200"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer"
               title="Manage and add custom ticket categories"
             >
               <span className="material-symbols-outlined text-[17px] text-sky-600">category</span>
@@ -388,7 +402,7 @@ export default function AdminDashboardPage() {
             <button
               type="button"
               onClick={() => setShowRootCauseModal(true)}
-              className="px-3.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-indigo-200 flex items-center gap-2 shadow-xs transition-all duration-200 cursor-pointer"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-indigo-200 flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer"
               title="Manage hierarchical root cause groups and sub-branches"
             >
               <span className="material-symbols-outlined text-[17px] text-indigo-600">troubleshoot</span>
@@ -685,17 +699,18 @@ export default function AdminDashboardPage() {
                         <td className="py-3.5 px-3 whitespace-nowrap">
                           <div className="flex flex-col items-start gap-1">
                             {(() => {
+                              const catName = inc.categoryRel?.name || inc.category;
                               const catColor =
                                 inc.categoryRel?.color ||
                                 categories.find(
                                   (c) =>
                                     c.id === inc.categoryId ||
-                                    c.name.toLowerCase() === (inc.category || '').toLowerCase()
+                                    c.name.toLowerCase() === (catName || '').toLowerCase()
                                 )?.color ||
                                 null;
                               return (
                                 <span
-                                  title={inc.category || 'General'}
+                                  title={catName || 'Uncategorized'}
                                   style={
                                     catColor
                                       ? {
@@ -716,7 +731,7 @@ export default function AdminDashboardPage() {
                                       style={{ backgroundColor: catColor }}
                                     />
                                   )}
-                                  <span className="truncate">{inc.category || 'General'}</span>
+                                  <span className="truncate">{catName || 'Uncategorized'}</span>
                                 </span>
                               );
                             })()}
@@ -746,7 +761,7 @@ export default function AdminDashboardPage() {
                               <span className="material-symbols-outlined text-[13px] text-slate-400">person</span>
                               <span>{inc.reporterName}</span>
                               <span className="text-slate-300">•</span>
-                              <span>{inc.department || 'General'}</span>
+                              <span>{inc.department || '-'}</span>
                             </div>
                           </div>
                         </td>

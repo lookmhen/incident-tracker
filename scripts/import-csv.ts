@@ -114,7 +114,7 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
 
     const sender = senderIdx !== -1 && row[senderIdx]?.trim() ? row[senderIdx].trim() : 'Unspecified User';
     const incidentDateStr = dateIdx !== -1 ? row[dateIdx] : null;
-    const rawType = typeIdx !== -1 ? row[typeIdx]?.trim() : 'General';
+    const rawType = typeIdx !== -1 ? row[typeIdx]?.trim() : '';
     const rawSeverity = severityIdx !== -1 ? row[severityIdx]?.trim().toUpperCase() : 'MEDIUM';
     const rawStatus = statusIdx !== -1 ? row[statusIdx]?.trim().toUpperCase() : 'OPEN';
     const rootCause = rootCauseIdx !== -1 ? row[rootCauseIdx]?.trim() || null : undefined;
@@ -147,7 +147,7 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
     const rawDept = deptIdx !== -1 ? row[deptIdx]?.trim() : '';
     const department = rawDept && rawDept !== '-'
       ? rawDept
-      : (deptIdx !== -1 ? null : 'General');
+      : (deptIdx !== -1 ? null : undefined);
 
     const rawContact = contactIdx !== -1 ? row[contactIdx]?.trim() : '';
     const contactInfo = rawContact || (contactIdx !== -1 ? '' : 'legacy-import@internal.local');
@@ -171,7 +171,7 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
     }
 
     // Map Category
-    const mappedCategoryName = CATEGORY_MAP[rawType] || rawType || 'General';
+    const mappedCategoryName = CATEGORY_MAP[rawType] || rawType || 'Uncategorized';
     let catEntry = categoryCache.get(mappedCategoryName.toLowerCase());
 
     if (!catEntry && !options.dryRun && mappedCategoryName && mappedCategoryName !== 'Uncategorized') {
@@ -278,7 +278,7 @@ export async function importIncidentsFromCsv(filePath: string, options: { dryRun
           description: cleanDetail,
           reporterName: sender,
           contactInfo: contactInfo || 'legacy-import@internal.local',
-          department: department || 'General',
+          department: department || null,
           category: catEntry?.name || (mappedCategoryName !== 'Uncategorized' ? mappedCategoryName : null),
           categoryId: catEntry?.id,
           urgency,

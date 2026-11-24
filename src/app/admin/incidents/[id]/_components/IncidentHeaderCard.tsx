@@ -206,7 +206,7 @@ export default function IncidentHeaderCard({
               {categoryColor && (
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: categoryColor }} />
               )}
-              {incident.category || 'Uncategorized'}
+              {incident.categoryRel?.name || incident.category || 'Uncategorized'}
             </span>
 
             {incident.rootCause && (
@@ -322,7 +322,7 @@ export default function IncidentHeaderCard({
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[15px] text-sky-600">corporate_fare</span>
                 <span className="text-slate-400 font-medium">Dept.:</span>
-                <span className="text-slate-800 font-semibold">{incident.department || 'General'}</span>
+                <span className="text-slate-800 font-semibold">{incident.department || '-'}</span>
               </div>
               <span className="hidden sm:inline text-slate-300">•</span>
               <div className="flex items-center gap-1.5">

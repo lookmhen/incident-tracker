@@ -499,16 +499,29 @@ export class IncidentService {
     if (data.title !== undefined) updatePayload.title = McpService.cleanText(data.title);
     if (data.description !== undefined) updatePayload.description = McpService.cleanText(data.description);
     if (data.category !== undefined) {
-      updatePayload.category = data.category;
-      if (data.categoryId === undefined && data.category) {
-        const matchedCat = await prisma.category.findFirst({
-          where: { name: data.category },
-          select: { id: true },
-        });
-        if (matchedCat) updatePayload.categoryId = matchedCat.id;
+      updatePayload.category = data.category?.trim() || null;
+      if (data.categoryId === undefined) {
+        if (updatePayload.category) {
+          const matchedCat = await prisma.category.findFirst({
+            where: { name: updatePayload.category },
+            select: { id: true },
+          });
+          if (matchedCat) updatePayload.categoryId = matchedCat.id;
+        } else {
+          updatePayload.categoryId = null;
+        }
       }
     }
-    if (data.categoryId !== undefined) updatePayload.categoryId = data.categoryId;
+    if (data.categoryId !== undefined) {
+      updatePayload.categoryId = data.categoryId || null;
+      if (data.category === undefined && data.categoryId) {
+        const matchedCat = await prisma.category.findUnique({
+          where: { id: data.categoryId },
+          select: { name: true },
+        });
+        if (matchedCat) updatePayload.category = matchedCat.name;
+      }
+    }
     if (data.rootCause !== undefined) {
       updatePayload.rootCause = data.rootCause ? data.rootCause.trim() : null;
     }

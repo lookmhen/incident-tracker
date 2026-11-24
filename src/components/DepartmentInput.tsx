@@ -31,7 +31,9 @@ export default function DepartmentInput({
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (alive && Array.isArray(data)) {
-          setDepartments(data.filter((d): d is string => typeof d === 'string'));
+          setDepartments(
+            data.filter((d): d is string => typeof d === 'string' && d.trim().toLowerCase() !== 'general')
+          );
         }
       })
       .catch(() => {});

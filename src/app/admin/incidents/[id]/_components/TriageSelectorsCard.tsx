@@ -127,7 +127,9 @@ export default function TriageSelectorsCard({
 
         <div className="grid grid-cols-2 gap-2.5">
           {categories.map((cat) => {
-            const isSelected = incident.category === cat.name;
+            const isSelected = incident.categoryId
+              ? incident.categoryId === cat.id
+              : incident.category === cat.name;
             const catColor = cat.color || '#0284c7';
             return (
               <button
@@ -169,7 +171,7 @@ export default function TriageSelectorsCard({
         <div className="p-3 rounded-xl bg-sky-50/70 border border-sky-200/80 text-[11px] text-slate-600 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
             <span className="material-symbols-outlined text-[14px] text-sky-600">verified_user</span>
-            Queue: <strong className="text-slate-900">{incident.category || 'ยังไม่ได้เลือก'}</strong>
+            Queue: <strong className="text-slate-900">{incident.categoryRel?.name || incident.category || 'ยังไม่ได้เลือก'}</strong>
           </span>
         </div>
       </div>

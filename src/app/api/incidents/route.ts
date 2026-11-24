@@ -40,7 +40,9 @@ export async function GET(req: NextRequest) {
       limit,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
   } catch (error: any) {
     console.error('Error fetching incidents:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });

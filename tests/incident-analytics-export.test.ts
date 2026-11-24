@@ -145,6 +145,25 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.equal(analytics.byCategory.length, 1);
     assert.equal(analytics.byCategory[0].name, renamedName);
     assert.equal((analytics.byCategory[0] as any).color, '#ec4899');
+
+    // Updating an incident with categoryId alone also syncs category text & list query (/admin)
+    const uncategorized = await IncidentService.createIncident({
+      reporterName: 'Null Cat User',
+      department: `CatDept-${suffix}`,
+      contactInfo: 'nc@test.local',
+      title: 'Uncategorized Incident',
+      description: 'Desc',
+      urgency: 'LOW',
+    });
+    testIncidentIds.push(uncategorized.id);
+    const updatedByCatId = await IncidentService.updateIncident(uncategorized.ticketNo, { categoryId: cat.id });
+    assert.equal(updatedByCatId.category, renamedName);
+    assert.equal(updatedByCatId.categoryId, cat.id);
+
+    const listed = await IncidentService.getIncidents({ search: uncategorized.ticketNo });
+    assert.equal(listed.incidents.length, 1);
+    assert.equal(listed.incidents[0].category, renamedName);
+    assert.equal(listed.incidents[0].categoryRel?.name, renamedName);
   });
 
   it('creates, filters, updates, and resolves an incident with automatic closedAt timestamp', async () => {

@@ -116,7 +116,7 @@ export default function IncidentDetailMcpHub({
 
     const loadCategories = async () => {
       try {
-        const res = await fetch('/api/categories');
+        const res = await fetch('/api/categories', { cache: 'no-store' });
         if (!cancelled && res.ok) {
           const data = await res.json();
           setCategories(data || []);

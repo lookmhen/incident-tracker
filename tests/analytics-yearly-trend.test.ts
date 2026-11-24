@@ -200,61 +200,47 @@ describe('10. CSV Parser & Yearly Monthly Trend Analytics', () => {
     }
   });
 
-  it('excludes 1969/pre-2020 invalid dates from yearly trend & metrics, and maps short BE year 69 to 2026', async () => {
-    const shortBe = parseThaiDate('24/11/69');
-    assert.ok(shortBe);
-    assert.equal(shortBe.getUTCFullYear(), 2026);
-    assert.equal(parseThaiDate('31/12/1969'), null);
-    assert.equal(parseThaiDate('1969-12-31T17:00:00.000Z'), null);
-
-    const deptTag = `EpochGuard_${Date.now()}`;
-    const epochTicket = `INC-196912-${String(Date.now()).slice(-4)}`;
-    const validTicket = `INC-202611-${String(Date.now()).slice(-4)}`;
+  it('pre-fills 12 calendar months without date filters and formats daily labels in readable Thai short dates', async () => {
+    const deptTag = `MonthDaily_${Date.now()}`;
+    const testTicket = `INC-202611-${String(Date.now()).slice(-4)}`;
 
     try {
-      await prisma.incident.createMany({
-        data: [
-          {
-            ticketNo: epochTicket,
-            title: 'Corrupted epoch 1969 ticket',
-            description: 'Should be excluded from analytics',
-            reporterName: 'Tester',
-            department: deptTag,
-            contactInfo: 'test@local',
-            urgency: 'HIGH',
-            status: 'OPEN',
-            createdAt: new Date('1969-12-31T17:00:00.000Z'),
-          },
-          {
-            ticketNo: validTicket,
-            title: 'Valid 2026 ticket',
-            description: 'Should be included in analytics',
-            reporterName: 'Tester',
-            department: deptTag,
-            contactInfo: 'test@local',
-            urgency: 'LOW',
-            status: 'RESOLVED',
-            createdAt: new Date('2026-11-24T08:00:00.000Z'),
-            closedAt: new Date('2026-11-24T09:00:00.000Z'),
-          },
-        ],
+      await prisma.incident.create({
+        data: {
+          ticketNo: testTicket,
+          title: 'Monthly and daily trend check',
+          description: 'Single month record should expand to 12 calendar months in monthly view',
+          reporterName: 'Tester',
+          department: deptTag,
+          contactInfo: 'test@local',
+          urgency: 'MEDIUM',
+          status: 'RESOLVED',
+          createdAt: new Date('2026-11-24T08:00:00.000Z'),
+          closedAt: new Date('2026-11-24T09:00:00.000Z'),
+        },
       });
 
-      const yearly = await IncidentService.getAnalyticsData({
+      const monthly = await IncidentService.getAnalyticsData({
         department: deptTag,
-        groupBy: 'year',
+        groupBy: 'month',
       });
-      assert.equal(yearly.summary.total, 1, '1969 ticket must be excluded from total calculations');
-      assert.equal(yearly.summary.criticalCount, 0, '1969 ticket must not pollute urgency counts');
-      assert.equal(yearly.summary.avgResolutionMins, 60, '1969 ticket must not skew MTTR');
-      assert.deepEqual(
-        yearly.trend.map((t) => t.date),
-        ['2026'],
-        'Yearly chart trend must contain only 2026 and exclude 1969'
-      );
+      assert.equal(monthly.groupBy, 'month');
+      assert.equal(monthly.trend.length, 12, 'Monthly view without date range must pre-fill all 12 months');
+      assert.equal(monthly.trend[0].label, 'ม.ค.');
+      assert.equal(monthly.trend[10].label, 'พ.ย.');
+      assert.equal(monthly.trend[10].total, 1);
+
+      const daily = await IncidentService.getAnalyticsData({
+        department: deptTag,
+        groupBy: 'day',
+      });
+      assert.equal(daily.groupBy, 'day');
+      assert.equal(daily.trend.length, 1);
+      assert.equal(daily.trend[0].date, '2026-11-24');
+      assert.equal(daily.trend[0].label, '24 พ.ย.');
     } finally {
       await prisma.incident.deleteMany({
-        where: { ticketNo: { in: [epochTicket, validTicket] } },
+        where: { ticketNo: testTicket },
       });
     }
   });

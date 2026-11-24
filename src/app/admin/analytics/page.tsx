@@ -503,7 +503,7 @@ export default function AnalyticsDashboardPage() {
                     const totalPct = item.total > 0 ? Math.max(Math.round((item.total / maxTrend) * 100), 10) : 0;
                     const resolvedPct = item.resolved > 0 ? Math.max(Math.round((item.resolved / maxTrend) * 100), 10) : 0;
                     return (
-                      <div key={item.date} className="flex-1 min-w-[32px] flex flex-col items-center gap-1.5">
+                      <div key={item.date} className="flex-1 min-w-[44px] flex flex-col items-center gap-1.5">
                         <span
                           className={`text-[10px] font-mono font-semibold tabular-nums whitespace-nowrap ${
                             item.total > 0 ? 'text-slate-700' : 'text-slate-300'
@@ -529,8 +529,8 @@ export default function AnalyticsDashboardPage() {
                             <div className="w-full h-1 bg-slate-200" title={`${item.date}: 0 cases`} />
                           )}
                         </div>
-                        <span className="text-[10px] font-mono tabular-nums text-slate-500 truncate max-w-[56px] text-center" title={item.label || item.date}>
-                          {item.label || item.date.slice(5)}
+                        <span className="text-[10px] font-mono tabular-nums text-slate-500 whitespace-nowrap max-w-[64px] text-center" title={item.label || item.date}>
+                          {item.label || item.date}
                         </span>
                       </div>
                     );

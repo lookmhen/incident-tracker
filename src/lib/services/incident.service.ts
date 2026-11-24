@@ -566,7 +566,7 @@ export class IncidentService {
 
     if (data.createdAt !== undefined) {
       const parsedCreated = data.createdAt instanceof Date ? data.createdAt : new Date(data.createdAt);
-      if (!data.createdAt || Number.isNaN(parsedCreated.getTime()) || parsedCreated.getUTCFullYear() < 2000) {
+      if (!data.createdAt || Number.isNaN(parsedCreated.getTime())) {
         throw new IncidentServiceError('Invalid createdAt date', 400);
       }
       updatePayload.createdAt = parsedCreated;

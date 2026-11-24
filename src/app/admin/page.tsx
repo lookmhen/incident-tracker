@@ -624,7 +624,7 @@ export default function AdminDashboardPage() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-label tracking-wider uppercase text-[11px]">
-                  <th className="py-3.5 px-4 font-semibold">Ticket ID</th>
+                  <th className="py-3.5 px-4 font-semibold whitespace-nowrap">Ticket ID</th>
                   <th className="py-3.5 px-3 font-semibold">Age</th>
                   <th className="py-3.5 px-3 font-semibold whitespace-nowrap">Urgency</th>
                   <th className="py-3.5 px-3 font-semibold whitespace-nowrap">Category</th>
@@ -654,12 +654,12 @@ export default function AdminDashboardPage() {
                           isResolved ? 'bg-white/60' : 'bg-white'
                         }`}
                       >
-                        <td className="py-3.5 px-4 font-mono font-semibold text-sky-700">
+                        <td className="py-3.5 px-4 font-mono font-semibold text-sky-700 whitespace-nowrap">
                           <Link
                             href={`/admin/incidents/${inc.ticketNo}`}
-                            className="flex items-center gap-2 hover:underline"
+                            className="inline-flex items-center gap-2 hover:underline whitespace-nowrap"
                           >
-                            <span className="material-symbols-outlined text-[14px] text-sky-600">
+                            <span className="material-symbols-outlined text-[14px] text-sky-600 shrink-0">
                               {isHigh ? 'shield_lock' : isResolved ? 'check_circle' : 'receipt_long'}
                             </span>
                             <span>{inc.ticketNo}</span>

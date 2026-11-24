@@ -1,6 +1,6 @@
 # 📑 System Requirement Specification (SRS)
 ## Project: IT Incident Management System (MCP & AI Ready)
-**Version:** 1.2  
+**Version:** 1.3  
 **Status:** Production Implemented  
 
 ---
@@ -58,22 +58,25 @@
     * 🟢 Low: ขอสิทธิ์ / สอบถาม / งานคำขอทั่วไป (Default)
     * 🟡 Medium: ทำงานติดขัด / พอมีทางเลี่ยง
     * 🔴 High: ระบบหลักล่ม / งานหลักหยุดชะงัก
-* **Public Ticket Tracking:** ตรวจสอบสถานะผ่านหน้า `/track` ด้วย Ticket ID แสดง 3-step timeline (ปิดบังข้อมูลส่วนบุคคลของผู้แจ้งและคอมเมนต์ภายใน)
+* **Public Ticket Tracking:** ตรวจสอบสถานะผ่านหน้า `/track` ด้วย Ticket ID แสดง 3-step timeline (ใช้ไอคอนถูกเดี่ยวใน Step 3; กรณี `PENDING_CONFIRM` แสดงเป็น "เสร็จสิ้น" พร้อมบันทึกวิธีแก้/Workaround ให้ผู้ใช้ทำงานต่อได้ทันที ขณะที่ปิดบังข้อมูลส่วนบุคคลและคอมเมนต์ภายใน `managerComment` เสมอ, fallback หมวดหมู่เป็น `Uncategorized`)
 * **Output:** แสดง Ticket ID หลังบันทึกสำเร็จ (เช่น INC-202610-001) พร้อมปุ่มติดตามสถานะ และสถานะส่ง Teams/Email SLA Tracker
 
 ### 4.2 ฝั่ง Teams / Email Integration & Admin Workflow
 * **Teams & Email Notification:** ยิง Adaptive Card / Power Automate JSON เข้า Microsoft Teams และส่งอีเมลผ่าน SMTP Relay (`nodemailer`) ทันทีที่มีเคสใหม่ พร้อมลิงก์ดูรูปแนบและปุ่มเปิดเคสตาม URL จริงของเซิร์ฟเวอร์ (`APP_URL` หรือ request host)
 * **Admin Dashboard (Web UI):**
   * จัดลำดับคิวอัตโนมัติ: `OPEN` ➔ `IN_PROGRESS` ➔ `PENDING_CONFIRM` ➔ `ON_HOLD` ➔ `RESOLVED`/`CLOSED` (เรียงตาม Urgency และเวลาล่าสุด)
-  * แสดงตาราง Incident พร้อม Filter (Status รวมถึง `ACTIVE` และ `ON_HOLD`, Category, Urgency, Department, Solver: `All / IT Team / External User`), Precision Search (`/` เพื่อ Focus), และ Dropdown เลือกจำนวนแถวต่อหน้า (`10 / 25 / 50 / 100`)
-* **Dynamic Category, Root Cause & Triage:**
-  * Staff สามารถเพิ่ม/แก้ไขหมวดหมู่ปัญหา (`Category`) และตัวเลือกต้นตอปัญหา (`Root Cause` ค่าเริ่มต้น `Human`, `System`, `Data` และเพิ่มเองได้) รวมถึงเลือก mark **`External User`** สำหรับเคสที่ผู้ใช้นอกฝ่าย IT แก้ไขเองช่วงวันหยุด (ข้ามการ Claim และ auto-exclude จาก MTTR)
+  * แสดงตาราง Incident พร้อม Badge สีตาม Category (`Uncategorized` เมื่อยังไม่ระบุ, `-` เมื่อแผนกว่าง — ไม่มี fallback `General`), Filter (Status รวมถึง `ACTIVE` และ `ON_HOLD`, Category, Urgency, Department, Solver: `All / IT Team / External User`), Precision Search (`/` เพื่อ Focus), และ Dropdown เลือกจำนวนแถวต่อหน้า (`10 / 25 / 50 / 100`)
+* **Dynamic Category, Hierarchical Root Cause Tree & Triage:**
+  * Staff สามารถสร้างและแก้ไขหมวดหมู่ (`Category`: ชื่อ, คำอธิบาย, สี Hex) ย้อนหลังโดยซิงก์เคสเดิมและกราฟอัตโนมัติ และจัดการ **Root Cause Tree 2 ระดับ (`Parent > Sub-branch`)** (ห้ามใส่ ` > ` ในชื่อกลุ่ม/สาขาย่อย) ผ่าน Modal `Manage Categories` และ `Manage Root Causes` รวมถึงเลือก mark **`External User`** สำหรับเคสที่ผู้ใช้นอกฝ่าย IT แก้ไขเองช่วงวันหยุด (ข้ามการ Claim และ auto-exclude จาก MTTR)
+  * ในหน้า Incident Detail (`/admin/incidents/[id]`): การ์ด **Related Incidents** วางใต้ `Incident Details` เหนือกล่องแก้ไขวิธีแก้ ค้นหาได้ทั้งเลขเคส, หัวข้อ, รายละเอียดปัญหา (`description`), วิธีแก้ (`resolution`) และชื่อผู้แจ้ง พร้อมตัวอย่างรายละเอียดและปุ่ม **Open (`open_in_new`)** เปิดดูในแท็บใหม่
   * สถานะ `ON_HOLD` ใช้พักเคสที่ยังไม่มี Solution โดยแยกออกจากคิวค้าง (`Backlog Aging`) และยกเว้นจากการคำนวณ `MTTR` อัตโนมัติ (สลับคืนได้)
   * รองรับการแก้ไขเวลาเปิดเคส (`createdAt`) สำหรับ Staff ก่อนปิดเคส พร้อมตรวจขอบเขตเวลา
 * **One-Way Workflow & Resolution (Clean Text for MCP):**
-  * **Staff** เป็นผู้ Claim, Triage, แนบไฟล์, บันทึก Clean-Text Resolution (`PERMANENT`/`WORKAROUND`), และส่งขออนุมัติปิดเคส (`PENDING_CONFIRM`, บังคับ Category + Root Cause)
+  * **Staff** เป็นผู้ Claim, Triage, แนบไฟล์, บันทึก Clean-Text Resolution (`PERMANENT`/`WORKAROUND`), และส่งขออนุมัติปิดเคส (`PENDING_CONFIRM`, บังคับ Claim/`External User` + Category + Root Cause ระดับ Sub-branch + Resolution details และ Workaround note ถ้าเลือก Workaround)
   * **Manager** ทำหน้าที่ One-Way Reviewer (Read-Only ทุกฟิลด์ของเคส): ตรวจสอบและกด `Confirm & Mark Resolved` หรือ `ตีกลับแก้ไข (Reject)` กลับเป็น `IN_PROGRESS` ได้เฉพาะตอน `PENDING_CONFIRM` รวมถึงกด `Reopen` เคสที่ปิดแล้วกลับให้ Staff แก้ไขได้
   * ข้อความ Resolution ถูก Sanitize เป็น Clean Text ปราศจาก HTML/Markdown เพื่อส่งเข้า MCP Context และ AI KM
+* **Analytics & SLA Dashboard (`/admin/analytics`):**
+  * กราฟ 1 เต็มความกว้างพร้อมสลับ **`รายปี | รายเดือน | รายวัน`**, กราฟ 3 `Top Departments` ย่อ/ขยายได้ (Top 5), กรอง Root Cause 2 ระดับ (Parent ➔ Sub-branch), และแยกกลุ่มสถิติ `byRootCauseGrouped` พร้อมปุ่ม Export `.CSV` ตามตัวกรองเดียวกับหน้าจอ
 
 ---
 

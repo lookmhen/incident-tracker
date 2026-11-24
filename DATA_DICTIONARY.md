@@ -1,6 +1,6 @@
 # 📚 Data Dictionary & Schema Specification
 ## Project: IT Incident Management System (MCP & AI Ready)
-**Version:** 1.4  
+**Version:** 1.5  
 **Updated:** November 2026  
 **Storage Engine:** SQLite 3 (WAL Mode) via Prisma ORM  
 **Location:** `./data/incident.db` (Mapped to `/app/data/incident.db` in Docker)
@@ -36,7 +36,7 @@ erDiagram
         string urgency "LOW | MEDIUM | HIGH"
         string categoryId FK "References Category(id)"
         string category "Denormalized category name"
-        string rootCause "Root cause e.g. Human | System | Data"
+        string rootCause "Hierarchical RCA: Parent > Sub-branch"
         string status "OPEN | IN_PROGRESS | ON_HOLD | PENDING_CONFIRM | RESOLVED | CLOSED"
         string assignedTo "Responder name / SME"
         string resolution "Clean-text fix & root cause notes"
@@ -132,8 +132,8 @@ erDiagram
 | `urgency` | String | NO | `LOW` | Indexed | ระดับความเร่งด่วนของเคส มี 3 ค่า:<br>• `HIGH`: งานหยุดชะงัก / ระบบหลักล่ม (SLA: 15-30 นาที)<br>• `MEDIUM`: งานติดขัดแต่พอมีทางเลี่ยง<br>• `LOW`: งานคำขอทั่วไป / สอบถาม / ขอสิทธิ์ (Default)<br>*Admin สามารถปรับเปลี่ยนระดับความสำคัญของเคสที่เปิดอยู่ได้ และจะถูกล็อคอัตโนมัติเมื่อปิดเคส* |
 | `categoryId` | String | YES | `NULL` | Foreign Key | อ้างอิงถึง `Category(id)` สำหรับการ Triage เชิงโครงสร้าง |
 | `category` | String | YES | `NULL` | Indexed | Denormalized Category Name เก็บเป็นข้อความไว้เพื่อความรวดเร็วในการ Query และ Filter |
-| `rootCause` | String | YES | `NULL` | - | สาเหตุต้นตอของปัญหา (Root Cause Category) เช่น `Human`, `System`, `Data` หรือค่าที่ Admin เพิ่มเอง (**บังคับระบุคู่กับ `category` ก่อนปิดเคส**) |
-| `status` | String | NO | `OPEN` | Indexed | สถานะการดำเนินงานของ Ticket (Workflow-Driven ใน UI) มี 6 ค่า:<br>• `OPEN`: เคสใหม่ ยังไม่มีผู้รับผิดชอบ (กด `Claim Ticket` เพื่อเริ่มงาน)<br>• `IN_PROGRESS`: กำลังดำเนินการแก้ไข<br>• `ON_HOLD`: พักรอ Solution (ยกเว้นจากคิวค้าง Backlog Aging และ auto-exclude จาก MTTR)<br>• `PENDING_CONFIRM`: Staff ส่งให้ Manager ตรวจสอบยืนยันปิดเคส (บังคับ Claim + Category + Root Cause)<br>• `RESOLVED`: Manager ยืนยันปิดเคสแล้ว (ล็อกการแก้ไขหัวข้อ/รายละเอียด; เฉพาะ Manager กด `Reopen` ได้)<br>• `CLOSED`: สถานะปิดเคสเดิม (รองรับย้อนหลังเทียบเท่า `RESOLVED`) |
+| `rootCause` | String | YES | `NULL` | - | สาเหตุต้นตอแบบ 2 ระดับ `<Parent> > <Sub-branch>` เช่น `Human > User Knowledge Gap`, `System > Program Defect` (**บังคับเลือกครบถึง Sub-branch คู่กับ `category` และ `resolution` ก่อนส่ง/ปิดเคส**) |
+| `status` | String | NO | `OPEN` | Indexed | สถานะการดำเนินงานของ Ticket (Workflow-Driven ใน UI) มี 6 ค่า:<br>• `OPEN`: เคสใหม่ ยังไม่มีผู้รับผิดชอบ (กด `Claim Ticket` เพื่อเริ่มงาน)<br>• `IN_PROGRESS`: กำลังดำเนินการแก้ไข<br>• `ON_HOLD`: พักรอ Solution (ยกเว้นจากคิวค้าง Backlog Aging และ auto-exclude จาก MTTR)<br>• `PENDING_CONFIRM`: Staff ส่งให้ Manager ตรวจสอบยืนยันปิดเคส (บังคับ Claim/External + Category + 2-level Root Cause + Resolution; หน้า `/track` แสดงเป็น "เสร็จสิ้น" เพื่อให้ผู้ใช้ทำงานต่อได้ทันที)<br>• `RESOLVED`: Manager ยืนยันปิดเคสแล้ว (ล็อกการแก้ไขหัวข้อ/รายละเอียด; เฉพาะ Manager กด `Reopen` ได้)<br>• `CLOSED`: สถานะปิดเคสเดิม (รองรับย้อนหลังเทียบเท่า `RESOLVED`) |
 | `assignedTo` | String | YES | `NULL` | - | ชื่อเจ้าหน้าที่ IT หรือระบบอัตโนมัติที่รับผิดชอบเคส เช่น `K. Anan`, `MCP Bot (Auto)` |
 | `resolution` | String | YES | `NULL` | - | **บันทึกขั้นตอนและวิธีการแก้ไขปัญหา (Root Cause & Fix)**<br>⚠️ สำคัญมากสำหรับ MCP AI ต้องเป็น **Clean Text** (ห้ามใส่สัญลักษณ์ Markdown ซับซ้อน หรือ HTML tags) |
 | `resolutionType` | String | YES | `NULL` | - | ประเภทการปิดเคส: `PERMANENT` (แก้ไขถาวร) หรือ `WORKAROUND` (แก้ไขชั่วคราว/มีเงื่อนไข — หยุดเวลา MTTR พร้อมแสดง Badge) |
@@ -187,7 +187,7 @@ erDiagram
 | Field Name | Type | Nullable | Default | Constraints | Description |
 | :--- | :--- | :---: | :---: | :--- | :--- |
 | `id` | String | NO | `cuid()` | Primary Key | รหัสเฉพาะของรายการตั้งค่า |
-| `key` | String | NO | - | Unique | ชื่อหมวดการตั้งค่า/ออบเจกต์ระบบ: `teams`, `smtp`, `mcp_security`, `mttr_excluded_tickets`, `root_cause_options` |
+| `key` | String | NO | - | Unique | ชื่อหมวดการตั้งค่า/ออบเจกต์ระบบ: `teams`, `smtp`, `mcp_security`, `mttr_excluded_tickets`, `root_cause_options` (เก็บโครงสร้าง Tree `[{ name, children[] }]` รองรับย้อนหลังแบบ flat string array) |
 | `value` | String | NO | - | JSON String | ข้อมูลคอนฟิกแบบ JSON ที่เข้ารหัสฟิลด์ความลับด้วย AES-256-GCM |
 | `isEnabled` | Boolean| NO | `true` | - | สวิตช์เปิด/ปิดการทำงานของโมดูลนั้นๆ |
 | `updatedAt` | DateTime| NO | - | Auto-update | วันเวลาที่แก้ไขล่าสุด |
@@ -237,9 +237,9 @@ stateDiagram-v2
 | `OPEN → IN_PROGRESS` | `Claim Ticket (รับเคส)` | **Staff เท่านั้น** (`403` ถ้า Manager) | - | ตั้ง `assignedTo = currentUser`, เริ่มทำงาน |
 | `IN_PROGRESS → ON_HOLD` | `พักเคส (On Hold)` | **Staff เท่านั้น** (`403` ถ้า Manager) | - | Auto-set `mttrExcluded = true`, ยกเว้นจาก Backlog Aging |
 | `ON_HOLD → IN_PROGRESS` | `กลับมาทำต่อ (Resume)` | **Staff เท่านั้น** (`403` ถ้า Manager) | - | กลับเข้าคิว Active (`mttrExcluded` คงค่าเดิมจนกว่าจะสลับเอง) |
-| `OPEN / IN_PROGRESS / ON_HOLD → PENDING_CONFIRM` | `ส่งให้ Manager ยืนยันปิดเคส` | **Staff เท่านั้น** | ต้อง Claim แล้ว หรือติ๊ก `External User` + มี `category`, `rootCause` (และ `workaroundNote` ถ้าเลือก Workaround) | ส่ง Email แจ้ง Manager (เฉพาะครั้งแรกที่เข้า `PENDING_CONFIRM`), ปุ่มสีเทากันส่งซ้ำ; หาก `resolvedByExternal = true` จะ auto-set `mttrExcluded = true` |
+| `OPEN / IN_PROGRESS / ON_HOLD → PENDING_CONFIRM` | `ส่งให้ Manager ยืนยันปิดเคส` | **Staff เท่านั้น** | ต้อง Claim แล้ว หรือติ๊ก `External User` + มี `category`, `rootCause` ระดับ Sub-branch (`Parent > Child`), `resolution` (ห้ามว่าง) และ `workaroundNote` (ถ้าเลือก Workaround) | ส่ง Email แจ้ง Manager (เฉพาะครั้งแรกที่เข้า `PENDING_CONFIRM`), ปุ่มสีเทากันส่งซ้ำ; หาก `resolvedByExternal = true` จะ auto-set `mttrExcluded = true`; หน้า `/track` แสดงผลเป็น "เสร็จสิ้น" พร้อมวิธีแก้ทันที |
 | `PENDING_CONFIRM → IN_PROGRESS` | `ตีกลับแก้ไข (Reject)` | **Manager เท่านั้น** | ส่งได้เฉพาะ `status` + `managerComment` | ส่งเคสกลับให้ Staff แก้ไขต่อ พร้อมโน้ตภายในของ Manager |
-| `PENDING_CONFIRM → RESOLVED` | `Confirm & Mark Resolved` | **Manager เท่านั้น** (`403` ถ้า Staff หรือยังไม่ `PENDING_CONFIRM`) | ส่งได้เฉพาะ `status` + `managerComment`; `category` & `rootCause` ครบ | ตั้ง `closedAt = now` (หยุด MTTR), บันทึก `resolvedBy`, **ล็อกการแก้ไขข้อมูล/รูปแนบทั้งหมดแบบ One-way ทั้ง Staff และ Manager** |
+| `PENDING_CONFIRM → RESOLVED` | `Confirm & Mark Resolved` | **Manager เท่านั้น** (`403` ถ้า Staff หรือยังไม่ `PENDING_CONFIRM`) | ส่งได้เฉพาะ `status` + `managerComment`; `category`, 2-level `rootCause` และ `resolution` ครบ | ตั้ง `closedAt = now` (หยุด MTTR), บันทึก `resolvedBy`, **ล็อกการแก้ไขข้อมูล/รูปแนบทั้งหมดแบบ One-way ทั้ง Staff และ Manager** |
 | `RESOLVED / CLOSED → IN_PROGRESS` | `เปิดเคสใหม่ (Reopen)` | **Manager เท่านั้น** (`403` ถ้า Staff) | `window.confirm` ใน UI | ล้าง `closedAt = null`, ปลดล็อกให้ Staff กลับมาแก้ไขข้อมูลเคสและรูปแนบได้ |
 
 > **หมายเหตุเพิ่มเติม:**
@@ -247,7 +247,7 @@ stateDiagram-v2
 > - **One-way Closed Lock:** เมื่อเคสเป็น `RESOLVED`/`CLOSED` จะล็อกการแก้ไขข้อมูลเนื้อหาเคสทั้งหมดสำหรับ Staff เช่นกัน (ยกเว้น **`Name / Dept. / Contact`** ที่ Staff ยังแก้ได้โดยไม่กระทบ `closedAt`) — Manager ต้องกด **`เปิดเคสใหม่ (Reopen)`** กลับเป็น `IN_PROGRESS` ก่อน Staff จึงจะแก้ได้
 > - **Re-assign (`Assigned: ...`)** บนเคสที่ยังไม่ปิด (`IN_PROGRESS`, `ON_HOLD`, `PENDING_CONFIRM`) สำหรับ Staff จะอัปเดตเฉพาะ `assignedTo` โดย **ไม่เปลี่ยน `status` เดิม**
 > - **Legacy `CLOSED`:** UI ใหม่ปิดเคสเป็น `RESOLVED` เสมอ แต่ Backend, Analytics และ Export ยังคงรองรับเคสเก่าที่เป็น `CLOSED` เทียบเท่า `RESOLVED` และ Manager สามารถกด `Reopen` ได้เช่นเดียวกัน
-> - **Specs อ้างอิง:** [`2026-11-20-workflow-driven-status-design.md`](docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md), [`2026-11-23-external-user-mark-design.md`](docs/superpowers/specs/2026-11-23-external-user-mark-design.md), [`2026-11-24-manager-oneway-and-pagination-design.md`](docs/superpowers/specs/2026-11-24-manager-oneway-and-pagination-design.md)
+> - **Specs อ้างอิง:** [`2026-11-20-workflow-driven-status-design.md`](docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md), [`2026-11-23-external-user-mark-design.md`](docs/superpowers/specs/2026-11-23-external-user-mark-design.md), [`2026-11-24-manager-oneway-and-pagination-design.md`](docs/superpowers/specs/2026-11-24-manager-oneway-and-pagination-design.md), [`2026-11-24-category-edit-and-colors-design.md`](docs/superpowers/specs/2026-11-24-category-edit-and-colors-design.md), [`2026-11-24-root-cause-tree-design.md`](docs/superpowers/specs/2026-11-24-root-cause-tree-design.md), [`2026-11-24-track-pending-confirm-complete-design.md`](docs/superpowers/specs/2026-11-24-track-pending-confirm-complete-design.md), [`2026-11-24-track-check-and-related-incidents-ui-design.md`](docs/superpowers/specs/2026-11-24-track-check-and-related-incidents-ui-design.md)
 
 ---
 
@@ -285,18 +285,20 @@ stateDiagram-v2
 
 | Method | Endpoint | Request Payload / Params | Response Summary |
 | :--- | :--- | :--- | :--- |
-| **GET** | `/api/incidents` | `search`, `status`, `urgency`, `category`, `department`, `page`, `limit` | รายการเคสแบบ Paginated พร้อมสถิติ KPI รวม |
+| **GET** | `/api/incidents` | `search` (ค้นจาก `ticketNo`, `title`, `description`, `resolution`, `reporterName`), `status`, `urgency`, `category`, `department`, `resolvedByExternal`, `page`, `limit` | รายการเคสแบบ Paginated พร้อม `categoryRel`, KPI รวม และ `Cache-Control: no-store` |
 | **POST** | `/api/incidents` | `multipart/form-data` หรือ JSON: `reporterName`, `department`, `contactInfo`, `title`, `description`, `urgency`, `attachment` | Incident Object ที่ถูกสร้างใหม่พร้อม Ticket ID |
-| **GET** | `/api/incidents/[id]` | `id` หรือ `ticketNo` | รายละเอียดเคสพร้อม Attachments และ Category Relation |
-| **PATCH** | `/api/incidents/[id]` | JSON: `{ reporterName?, department?, contactInfo?, status?, category?, rootCause?, urgency?, assignedTo?, resolution?, resolutionType?, workaroundNote?, relatedTickets?, createdAt?, closedAt?, mttrExcluded? }` (รองรับ `x-api-key`) | Incident Object ที่อัปเดตแล้ว (บังคับ Claim ก่อน `PENDING_CONFIRM`, บังคับ `category`+`rootCause` ก่อนส่ง/ปิดเคส, และจำกัดสิทธิ์ปิด/Reopen เฉพาะ `MANAGER`) |
+| **GET** | `/api/incidents/[id]` | `id` หรือ `ticketNo` | รายละเอียดเคสพร้อม Attachments, `categoryRel`, `relatedIncidents`, `referencedBy` และ `Cache-Control: no-store` |
+| **PATCH** | `/api/incidents/[id]` | JSON: `{ reporterName?, department?, contactInfo?, status?, category?, categoryId?, rootCause?, urgency?, assignedTo?, resolution?, resolutionType?, workaroundNote?, resolvedByExternal?, managerComment?, relatedTickets?, createdAt?, closedAt?, mttrExcluded? }` (รองรับ `x-api-key`) | Incident Object ที่อัปเดตแล้ว (ซิงก์ `category`↔`categoryId`; บังคับ Claim/`External User` + `category` + 2-level `rootCause` + `resolution` ก่อนส่ง/ปิดเคส; จำกัด Approve/Reject/Reopen เฉพาะ `MANAGER`) |
 | **POST/DELETE** | `/api/incidents/[id]/attachments` | `multipart/form-data` (`file`, `kind: REPORT\|RESOLUTION`) หรือ `?attachmentId=` | อัปโหลด/ลบรูปแนบแยกฝั่งผู้แจ้งและหลักฐานปิดงาน |
-| **GET** | `/api/incidents/export` | `search`, `status`, `urgency`, `category`, `rootCause`, `department`, `startDate`, `endDate` | ไฟล์ `.csv` เข้ารหัส UTF-8 with BOM สำหรับเปิดใน Excel |
-| **GET** | `/api/incidents/analytics` | `startDate`, `endDate`, `groupBy`, `urgency`, `category`, `rootCause`, `department` | ข้อมูลสรุป Analytics (Created vs Resolved, Category, Root Cause, Department, Status/SLA, MTTR Breakdown, Backlog Aging) |
-| **GET** | `/api/categories` | - | รายชื่อ Categories ทั้งหมด เรียงตามชื่อ |
+| **GET** | `/api/track/[id]` | `ticketNo` หรือเลขท้าย 4 หลัก (Public, no-store) | ข้อมูลสาธารณะแบบ Sanitized (`category` fallback `Uncategorized`, `resolution`, `resolutionType`, `workaroundNote`) โดยตัด `managerComment`, `contactInfo`, `assignedTo` ออก |
+| **GET** | `/api/incidents/export` | `search`, `status`, `urgency`, `category`, `rootCause`, `department`, `resolvedByExternal`, `startDate`, `endDate` | ไฟล์ `.csv` เข้ารหัส UTF-8 with BOM สำหรับเปิดใน Excel |
+| **GET** | `/api/incidents/analytics` | `startDate`, `endDate`, `groupBy` (`auto\|day\|month\|year`), `urgency`, `category`, `rootCause` (Parent หรือ `Parent > Sub-branch`), `department`, `resolvedByExternal` | ข้อมูลสรุป Analytics (`trend`, `byCategory` พร้อม `color`, `byRootCauseGrouped`, `byDepartment`, `byStatus`, `mttrByUrgency/Category`, `backlogAging`, `filterOptions.rootCauseTree`) |
+| **GET** | `/api/categories` | - | รายชื่อ Categories ทั้งหมด เรียงตามชื่อ (`Cache-Control: no-store`) |
 | **POST** | `/api/categories` | JSON: `{ name, description?, color?, slug? }` | Category Object ที่สร้างใหม่ |
+| **PATCH** | `/api/categories/[id]` | JSON: `{ name?, description?, color?, isActive? }` | แก้ไขชื่อ/คำอธิบาย/สี Category ย้อนหลังแบบ Atomic Transaction พร้อมซิงก์ `Incident.category` & `categoryId` เดิมทั้งหมด |
 | **DELETE**| `/api/categories/[id]` | `id` | `{ success: true }` |
-| **GET/POST/DELETE** | `/api/root-causes` | JSON `{ name }` (POST) หรือ `?name=` (DELETE) | จัดการตัวเลือก Root Cause (`Human`, `System`, `Data` และรายการที่เพิ่มเอง) |
-| **GET** | `/api/departments` | `?q=` (optional, public) | รายชื่อแผนกทั้งหมดที่มีในระบบแบบ deduplicate (ไม่สนตัวพิมพ์เล็ก-ใหญ่) สำหรับ autocomplete |
+| **GET/POST/PATCH/DELETE** | `/api/root-causes` | `GET ?format=tree`, `POST { action: 'add_parent'\|'add_child', ... }`, `PATCH { action: 'rename_parent'\|'rename_child', ... }` (propagate ชื่อไปยังเคสเดิม), `DELETE ?parent=&child=` (ห้ามมี ` > ` ในชื่อ) | จัดการ Root Cause Tree 2 ระดับ (`Parent > Sub-branch`) ใน `IntegrationConfig` |
+| **GET** | `/api/departments` | `?q=` (optional, public) | รายชื่อแผนกทั้งหมดที่มีในระบบแบบ deduplicate (ไม่สนตัวพิมพ์เล็ก-ใหญ่) สำหรับ autocomplete (ฝั่ง UI กรอง `General` ออกจากคำแนะนำ) |
 | **GET** | `/api/uploads/[...path]` | `path` (rewrite จาก `/uploads/:path*`) | อ่านไฟล์แนบจาก `public/uploads` (รองรับทั้ง flat legacy และ `YYYY/MM/<ticketNo>/`) ในโหมด standalone พร้อมตรวจ path traversal |
 | **GET** | `/api/mcp/v1/context` | `?ticketNo=INC-XXX` (รองรับ Header `x-api-key`) | Clean MCP Schema JSON สำหรับ External MCP Client |
 | **GET** | `/api/mcp/v1/insights` | รองรับ Header `x-api-key` | ข้อมูลสรุปภาพรวม KPI, MTTA, MTTR และ Category Load |

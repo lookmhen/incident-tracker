@@ -12,27 +12,28 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 * **Default Urgency Level:** Defaults to `LOW` (🟢 ทั่วไป) to encourage balanced incident reporting.
 * **Clipboard Diagnostic Capture:** Paste screenshots directly anywhere using `Ctrl+V` or drag-and-drop up to 5MB.
 * **Instant Ticket Generation:** Generates sequential IDs (`INC-YYYYMM-XXX`).
-* **Public Ticket Tracking (`/track`):** Dedicated privacy-preserving tracking page searching by Ticket ID only (e.g. `INC-202611-0001` or 4-digit sequence). Displays 3-step visual status stepper (`แจ้งเรื่องแล้ว` ➔ `กำลังดำเนินการ` ➔ `เสร็จสิ้น`) and public resolution notes while strictly concealing internal comments (`managerComment`), reporter contact info, and internal triage details.
+* **Public Ticket Tracking (`/track`):** Dedicated privacy-preserving tracking page searching by Ticket ID only (e.g. `INC-202611-0001` or 4-digit sequence). Displays a crisp 3-step visual status stepper (`แจ้งเรื่องแล้ว` ➔ `กำลังดำเนินการ` ➔ `เสร็จสิ้น`) where `PENDING_CONFIRM` already shows as completed (`เสร็จสิ้น`) alongside public `resolution`/`Workaround` notes so end users can resume work without waiting on Manager sign-off, while strictly concealing internal comments (`managerComment`), reporter contact info, and internal triage details (`Uncategorized` fallback when unassigned).
 * **Multi-Channel Dispatch:** Emits Microsoft Teams Adaptive Cards v1.4 and SMTP Email notifications immediately upon submission.
 
 ### 2. 📊 IT Operations Triage Matrix (`/admin`)
 * **Real-time Telemetry:** 3 core Glacier KPI cards (Active Incidents, Critical P1 Blockers, Avg Resolution Time / MTTR).
 * **Queue Priority Sorting:** Automatically prioritizes unresolved cases (`OPEN` ➔ `IN_PROGRESS` ➔ `PENDING_CONFIRM` ➔ `ON_HOLD` ➔ `RESOLVED` / `CLOSED`) sorted by urgency (`HIGH` ➔ `MEDIUM` ➔ `LOW`) and newest first.
-* **Precision Search & Filtering:** Instant filter with `/` keyboard focus shortcut; filter by status (`ALL`, `ACTIVE`, `OPEN`, `IN_PROGRESS`, `PENDING_CONFIRM`, `ON_HOLD`, `RESOLVED`, `CLOSED`), urgency, category, department, and solver (`All` / `IT Team` / `External User`), plus a configurable records-per-page dropdown (`10`, `25`, `50`, `100`).
-* **Dynamic Category & RCA Badges:** Admins can create/manage ticket categories on the fly and view `RCA` and `External User` badges directly in the queue.
+* **Precision Search & Filtering:** Instant filter with `/` keyboard focus shortcut; searches across `ticketNo`, `title`, `description`, `resolution`, and `reporterName`; filter by status (`ALL`, `ACTIVE`, `OPEN`, `IN_PROGRESS`, `PENDING_CONFIRM`, `ON_HOLD`, `RESOLVED`, `CLOSED`), urgency, category, department, and solver (`All` / `IT Team` / `External User`), plus a configurable records-per-page dropdown (`10`, `25`, `50`, `100`).
+* **Dynamic Category Colors & Root Cause Tree Management:** Admins can create and retroactively edit categories (name, description, hex color synced across existing tickets) and manage the 2-level **Root Cause Tree (`Parent > Sub-branch`)** via `Manage Categories` and `Manage Root Causes` modals (`>` delimiter protected); queue rows render Category color pills/dots, `RCA` badges, and `External User` tags (`Uncategorized` / `-` fallbacks with no `General` placeholder).
 * **Quick Single-Click Claim (Staff):** Instant ticket claiming and status transition to `IN_PROGRESS` for Staff (hidden for `MANAGER` in one-way review mode).
 * **Excel (.CSV UTF-8 BOM) Export:** Filtered incident export (including `Root Cause`, `Related Tickets`, and `External User`) with Thai language compatibility in Microsoft Excel.
 
 ### 3. 🧠 Incident Detail & Workflow-Driven Triage Hub (`/admin/incidents/[id]`)
 * **Workflow-Driven Status Transitions (One-Way Reviewer RBAC):** Free-form manual status switching is replaced with explicit stage actions:
-  * **Staff:** `OPEN` ➔ **`Claim Ticket (รับเคส)`** (`IN_PROGRESS`), `IN_PROGRESS` ⇄ **`พักเคส (On Hold)`** / **`กลับมาทำต่อ (Resume)`** (`ON_HOLD` auto-excludes from MTTR), Save Draft, edit details/triage/attachments/timestamps, mark **`External User`** (skips mandatory Claim and auto-excludes from MTTR for holiday/non-IT fixes), or **`ส่งให้ Manager ยืนยันปิดเคส`** (`PENDING_CONFIRM`, requires Category + Root Cause + Claim or `External User`; triggers Manager confirmation email).
+  * **Staff:** `OPEN` ➔ **`Claim Ticket (รับเคส)`** (`IN_PROGRESS`), `IN_PROGRESS` ⇄ **`พักเคส (On Hold)`** / **`กลับมาทำต่อ (Resume)`** (`ON_HOLD` auto-excludes from MTTR), Save Draft, edit details/triage/attachments/timestamps, mark **`External User`** (skips mandatory Claim and auto-excludes from MTTR for holiday/non-IT fixes), or **`ส่งให้ Manager ยืนยันปิดเคส`** (`PENDING_CONFIRM`, enforces Claim or `External User` + Category + 2-level Root Cause sub-branch + non-empty clean-text `resolution` + `workaroundNote` when `WORKAROUND`; triggers Manager confirmation email).
   * **Manager (One-Way Reviewer):** Read-only across incident details, triage, resolution, attachments, and timestamps (`403` on edits). Only acts on `PENDING_CONFIRM` (**`Confirm & Mark Resolved`** or **`ตีกลับแก้ไข (Reject)`** to `IN_PROGRESS` with optional internal `managerComment`) or closed tickets (**`เปิดเคสใหม่ (Reopen)`** to `IN_PROGRESS` with confirmation).
+  * **Hierarchical Root Cause & Colored Category Triage:** Hover/click a Root Cause parent group (`Human`, `System`, `Data`, etc.) to select its sub-branch (`Parent > Sub-branch`) with inline `Manage` tree editor modal and colored Category pills.
   * **Urgency Adjustment:** Staff can adjust incident urgency (`LOW` / `MEDIUM` / `HIGH`) on open tickets; locked automatically once closed (and read-only for `MANAGER`).
   * **Status-Preserving Re-assign:** Staff re-assigning a claimed ticket updates `assignedTo` without resetting its current workflow status.
   * **State Machine & Transition Reference:** Full Mermaid state diagram, role guards, and side effects documented in [`DATA_DICTIONARY.md#27-incident-status-state-machine--workflow-transitions`](DATA_DICTIONARY.md#27-incident-status-state-machine--workflow-transitions).
 * **Diagnostics & Resolution Attachments:** Separate upload/paste galleries for reporter evidence (`REPORT`) and closure proof (`RESOLUTION`) via `/api/uploads/[...path]` (standalone-compatible; Staff-only before closure).
 * **Inline Details & Lifecycle Editing:** Staff can edit incident title/description (locked once `RESOLVED`/`CLOSED`) as well as `createdAt` and `mttrExcluded` toggle.
-* **Multi-Incident Referencing (`Related Incidents`):** Staff can link multiple prior incidents, view reverse `Referenced by` links, and one-click copy previous resolutions into the current ticket.
+* **Multi-Incident Referencing (`Related Incidents`):** Positioned directly beneath `Incident Details` (above `Resolution & RCA`) for immediate reference; searches across `ticketNo`, `title`, `description`, `resolution`, and `reporterName` with description snippets, dedicated **Open in New Tab** (`open_in_new`) buttons on search results and linked items, reverse `Referenced by` links, and one-click resolution copying.
 * **Clean-Text Resolution Indexer & MCP Hub:** RCA documentation sanitizer and live JSON schema preview conforming to `mcp://incidenthub/incidents/[ticketNo]`.
 
 ### 4. 🔐 Role-Based Access & User Management (`/admin/users`, `/admin/invite`)
@@ -47,8 +48,15 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 * **Notification Audit Logs & Unresolved Failure Badges:** Filterable dispatch history by channel (`TEAMS`, `EMAIL`, `CUSTOM_API`) and delivery status with single-click Resend and unresolved failure acknowledgment.
 
 ### 6. 📈 Analytics & Operational Intelligence (`/admin/analytics`)
-* **Global Filtering & Synced Export:** Filter all KPIs and charts by Date Range (including "ปีนี้ (12 เดือน)" preset), `Urgency`, `Category`, `Root Cause`, `Department` (case-insensitive normalization), and `Solver` (`All` / `IT Team` / `External User`, with `externalUserCount` summary) with matching CSV export.
-* **7 Operational Views:** Created vs. Resolved paired bars, Category Share, Top Departments, Resolution & SLA Status (`OPEN`, `IN_PROGRESS`, `PENDING_CONFIRM`, `ON_HOLD`, `RESOLVED`, `CLOSED`), MTTR Breakdown by Urgency & Category, Backlog Aging (`<24h`, `1–3d`, `4–7d`, `>7d` excluding `ON_HOLD`), and Root Cause Breakdown (`Human`, `System`, `Data`, etc.).
+* **Global Filtering & Synced Export:** Filter all KPIs and charts by Date Range (including "ปีนี้ (12 เดือน)" preset), `Urgency`, `Category`, 2-level **`Root Cause` (Parent ➔ Sub-branch)**, `Department` (case-insensitive normalization), and `Solver` (`All` / `IT Team` / `External User`, with `externalUserCount` summary) with matching CSV export.
+* **7 Operational Views (Full-Width Trend + 2-Column Balanced Grid):**
+  1. Full-width **Created vs. Resolved** paired bars with **`รายปี | รายเดือน | รายวัน`** toggle (`groupBy=year|month|day`).
+  2. **By Category** rendered with each category's configured hex color.
+  3. **Top Departments** collapsible view (top 5 by default with expand/collapse toggle).
+  4. **Resolution & SLA Status** (`OPEN`, `IN_PROGRESS`, `PENDING_CONFIRM`, `ON_HOLD`, `RESOLVED`, `CLOSED` + Urgency Mix).
+  5. **MTTR Breakdown** by Urgency & Category.
+  6. **Backlog Aging** (`<24h`, `1–3d`, `4–7d`, `>7d` excluding `ON_HOLD`).
+  7. **Root Cause Breakdown** grouped by Parent category with nested Sub-branch bars (`byRootCauseGrouped`).
 
 ---
 
@@ -106,7 +114,7 @@ Run these scripts from the repository root:
 | **Development Server** | `npm run dev` | Start Next.js development server on port 3000 |
 | **Production Build** | `npm run build` | Compile Next.js production build with type checking |
 | **Start Production** | `npm start` | Run compiled Next.js production server |
-| **Unit & Integration Tests** | `npm test` | Run all automated tests across 12 test suites |
+| **Unit & Integration Tests** | `npm test` | Run all automated tests across 12 test files (25 suites) |
 | **MCP Server (Stdio)** | `npm run mcp` | Launch standalone Model Context Protocol server for Claude, Cursor, and AI Agents |
 | **Historical CSV Import** | `npm run import:csv [file]` | Import legacy incident CSV files into SQLite database with Thai Buddhist era parsing |
 | **Online Database Backup** | `npm run backup:db` | Snapshot live SQLite DB via `VACUUM INTO` and prune backups older than retention |

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { IncidentService } from '@/lib/services/incident.service';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -22,7 +25,7 @@ export async function GET(
       ticketNo: inc.ticketNo,
       title: inc.title,
       description: inc.description,
-      category: inc.categoryRel?.name || inc.category || 'General',
+      category: inc.categoryRel?.name || inc.category || 'Uncategorized',
       urgency: inc.urgency,
       status: inc.status,
       createdAt: inc.createdAt,
@@ -32,7 +35,9 @@ export async function GET(
       workaroundNote: inc.workaroundNote,
     };
 
-    return NextResponse.json(publicData);
+    return NextResponse.json(publicData, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
   } catch (error: any) {
     console.error('Error tracking incident:', error);
     return NextResponse.json(

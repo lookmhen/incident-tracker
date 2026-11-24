@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { getPublicTrackStage } from '@/lib/track-status';
 
 interface TrackedIncident {
   ticketNo: string;
@@ -35,7 +36,7 @@ function TrackContent() {
     setTicket(null);
 
     try {
-      const res = await fetch(`/api/track/${encodeURIComponent(clean)}`);
+      const res = await fetch(`/api/track/${encodeURIComponent(clean)}`, { cache: 'no-store' });
       if (res.status === 404) {
         setError(`ไม่พบหมายเลข Ticket "${clean}" ในระบบ`);
       } else if (!res.ok) {
@@ -63,9 +64,8 @@ function TrackContent() {
     fetchTicket(ticketInput);
   };
 
-  // Status mapping
-  const isResolvedOrClosed = ticket?.status === 'RESOLVED' || ticket?.status === 'CLOSED';
-  const isInProgress = ticket?.status === 'IN_PROGRESS' || ticket?.status === 'ON_HOLD' || ticket?.status === 'PENDING_CONFIRM';
+  // Status mapping (PENDING_CONFIRM shows as completed on public /track while internal workflow remains intact)
+  const { isCompletedForUser, isInProgress, progressWidth, step2Note } = getPublicTrackStage(ticket?.status);
 
   return (
     <div className="w-full min-h-[calc(100vh-4rem)] bg-gradient-to-b from-[#f0f7ff] via-slate-50 to-[#f0f7ff] py-10 px-4 sm:px-6">
@@ -162,7 +162,7 @@ function TrackContent() {
                   <div
                     className="h-full bg-emerald-500 transition-all duration-500"
                     style={{
-                      width: isResolvedOrClosed ? '100%' : isInProgress ? '50%' : '0%',
+                      width: progressWidth,
                     }}
                   />
                 </div>
@@ -182,12 +182,12 @@ function TrackContent() {
                 <div className="flex flex-col items-center text-center z-10">
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-xs ${
-                      isResolvedOrClosed || isInProgress
+                      isCompletedForUser || isInProgress
                         ? 'bg-emerald-500 text-white'
                         : 'bg-slate-200 text-slate-500'
                     }`}
                   >
-                    {isResolvedOrClosed ? (
+                    {isCompletedForUser ? (
                       <span className="material-symbols-outlined text-[16px]">check</span>
                     ) : isInProgress ? (
                       <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
@@ -197,24 +197,22 @@ function TrackContent() {
                   </div>
                   <span
                     className={`text-xs font-semibold mt-2 ${
-                      isResolvedOrClosed || isInProgress ? 'text-slate-800' : 'text-slate-400'
+                      isCompletedForUser || isInProgress ? 'text-slate-800' : 'text-slate-400'
                     }`}
                   >
                     กำลังดำเนินการ
                   </span>
-                  <span className="text-[10px] text-slate-400">
-                    {ticket.status === 'ON_HOLD' ? 'รอข้อมูลเพิ่มเติม' : ticket.status === 'PENDING_CONFIRM' ? 'รอตรวจสอบผล' : ''}
-                  </span>
+                  <span className="text-[10px] text-slate-400">{step2Note}</span>
                 </div>
 
                 {/* Step 3: แก้ไขเสร็จสิ้น */}
                 <div className="flex flex-col items-center text-center z-10">
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-xs ${
-                      isResolvedOrClosed ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'
+                      isCompletedForUser ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'
                     }`}
                   >
-                    {isResolvedOrClosed ? (
+                    {isCompletedForUser ? (
                       <span className="material-symbols-outlined text-[16px]">done_all</span>
                     ) : (
                       '3'
@@ -222,7 +220,7 @@ function TrackContent() {
                   </div>
                   <span
                     className={`text-xs font-semibold mt-2 ${
-                      isResolvedOrClosed ? 'text-emerald-700 font-bold' : 'text-slate-400'
+                      isCompletedForUser ? 'text-emerald-700 font-bold' : 'text-slate-400'
                     }`}
                   >
                     เสร็จสิ้น
@@ -242,8 +240,8 @@ function TrackContent() {
               </p>
             </div>
 
-            {/* Resolution info if closed */}
-            {isResolvedOrClosed && ticket.resolution && (
+            {/* Resolution info if completed for user */}
+            {isCompletedForUser && ticket.resolution && (
               <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 space-y-2">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
                   <span className="material-symbols-outlined text-[16px]">verified</span>

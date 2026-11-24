@@ -167,7 +167,7 @@ export default function IncidentDetailMcpHub({
     }
   };
 
-  const validateReadyToClose = (inc: IncidentDetail) => {
+  const validateReadyToClose = (inc: IncidentDetail, overrideResolution?: string) => {
     const missing: string[] = [];
     if (!resolvedByExternal && (!inc.assignedTo?.trim() || normStatus(inc.status) === 'OPEN')) {
       missing.push('กด Claim Ticket (รับเคส)');
@@ -177,6 +177,9 @@ export default function IncidentDetailMcpHub({
       missing.push('Root Cause');
     } else if (inc.rootCause.split(' > ').map((p) => p.trim()).filter(Boolean).length !== 2) {
       missing.push('Root Cause (เลือก Branch ย่อย)');
+    }
+    if (!(overrideResolution ?? resolutionText ?? inc.resolution ?? '').trim()) {
+      missing.push('บันทึกการแก้ไข (Resolution)');
     }
     if (missing.length > 0) {
       const msg = `กรุณา ${missing.join(' และ ')} ก่อนส่งหรือปิดเคส`;
@@ -288,7 +291,7 @@ export default function IncidentDetailMcpHub({
     }
 
     if (targetStatus) {
-      if (!validateReadyToClose(incident)) return;
+      if (!validateReadyToClose(incident, resolutionText)) return;
       if (resolutionType === 'WORKAROUND' && !workaroundNote.trim()) {
         const msg = 'กรุณาระบุเงื่อนไข Workaround ในช่องด้านบนก่อนปิดเคส';
         setResolutionFeedback({ type: 'error', text: msg });
@@ -493,6 +496,7 @@ export default function IncidentDetailMcpHub({
     missingToClose.push('Root Cause (เลือก Branch ย่อย)');
   }
   if (resolutionType === 'WORKAROUND' && !workaroundNote.trim()) missingToClose.push('เงื่อนไข Workaround');
+  if (!resolutionText.trim()) missingToClose.push('บันทึกการแก้ไข (Resolution)');
 
   return (
     <div className="w-full bg-[#f0f7ff] min-h-[calc(100vh-4rem)]">
@@ -523,6 +527,15 @@ export default function IncidentDetailMcpHub({
               isClosed={isClosed}
               isManager={isManager}
               onIncidentUpdated={setIncident}
+              showToast={showToast}
+            />
+
+            <RelatedIncidentsCard
+              incident={incident}
+              isClosed={isClosed}
+              isManager={isManager}
+              onIncidentUpdated={setIncident}
+              onAppendResolution={handleAppendResolution}
               showToast={showToast}
             />
 
@@ -596,15 +609,6 @@ export default function IncidentDetailMcpHub({
               onPaste={handlePasteImages}
               onPreview={setPreviewAtt}
               onDelete={handleDeleteAttachment}
-            />
-
-            <RelatedIncidentsCard
-              incident={incident}
-              isClosed={isClosed}
-              isManager={isManager}
-              onIncidentUpdated={setIncident}
-              onAppendResolution={handleAppendResolution}
-              showToast={showToast}
             />
 
             <McpPreviewAccordion

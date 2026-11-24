@@ -106,6 +106,7 @@ export function buildFilterWhere(query: {
       { ticketNo: { contains: s } },
       { title: { contains: s } },
       { description: { contains: s } },
+      { resolution: { contains: s } },
       { reporterName: { contains: s } },
     ];
   }

@@ -158,7 +158,7 @@ function TrackContent() {
             <div className="py-2">
               <div className="grid grid-cols-3 relative">
                 {/* Connecting track */}
-                <div className="absolute top-1/2 left-[16.6%] right-[16.6%] h-1 -translate-y-1/2 bg-slate-100 -z-0">
+                <div className="absolute top-1/2 left-[16.6%] right-[16.6%] h-1 -translate-y-1/2 bg-slate-100 z-0">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-500"
                     style={{
@@ -213,7 +213,7 @@ function TrackContent() {
                     }`}
                   >
                     {isCompletedForUser ? (
-                      <span className="material-symbols-outlined text-[16px]">done_all</span>
+                      <span className="material-symbols-outlined text-[16px]">check</span>
                     ) : (
                       '3'
                     )}

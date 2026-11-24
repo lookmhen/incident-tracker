@@ -72,6 +72,8 @@ export interface RelatedSearchResult {
   id: string;
   ticketNo: string;
   title: string;
+  description?: string | null;
+  resolution?: string | null;
   status: string;
   resolutionType?: string | null;
   category?: string | null;

@@ -604,6 +604,17 @@ export class IncidentService {
             400
           );
         }
+        const effResolution = (
+          data.resolution !== undefined ? McpService.cleanText(data.resolution) : target.resolution
+        )?.trim();
+        if (!effResolution) {
+          throw new IncidentServiceError(
+            updatePayload.status === 'PENDING_CONFIRM'
+              ? 'Resolution details are required before requesting confirmation'
+              : 'Resolution details are required before closing an incident',
+            400
+          );
+        }
       }
 
       if (['RESOLVED', 'CLOSED'].includes(updatePayload.status)) {

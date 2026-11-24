@@ -354,7 +354,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const updatedCreated = await validCreatedRes.json();
     assert.equal(new Date(updatedCreated.createdAt).toISOString(), customCreatedAt);
 
-    await IncidentService.updateIncident(ticketNo, { status: 'RESOLVED', closedAt: customClosedAt });
+    await IncidentService.updateIncident(ticketNo, { status: 'RESOLVED', resolution: 'Resolved VPN latency', closedAt: customClosedAt });
     const afterClosedIso = new Date(new Date(customClosedAt).getTime() + 60 * 1000).toISOString();
     await assert.rejects(
       () => IncidentService.updateIncident(ticketNo, { createdAt: afterClosedIso }),
@@ -416,6 +416,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
           status,
           category: 'Helpdesk',
           rootCause: 'Human > User Knowledge Gap',
+          resolution: status === 'RESOLVED' ? 'Resolved queue item' : undefined,
         });
       }
       return inc.ticketNo;
@@ -534,6 +535,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       status: 'RESOLVED',
       category: 'Helpdesk',
       rootCause: 'Human > User Knowledge Gap',
+      resolution: 'Resolved quickly',
       closedAt: new Date(fast.createdAt.getTime() + 30 * 60 * 1000),
     });
 
@@ -559,6 +561,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       status: 'RESOLVED',
       category: 'Interface',
       rootCause: 'Data > Master Data Quality',
+      resolution: 'Applied vendor fix after hold',
       closedAt: new Date(held.createdAt.getTime() + 10 * 24 * 60 * 60 * 1000),
     });
     assert.equal(resolvedAfterHold.mttrExcluded, true);
@@ -649,12 +652,29 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     );
     assert.equal(failNoRootCause.status, 400);
 
-    // 3. Succeeds when Staff submits PENDING_CONFIRM with both category and rootCause, then Manager approves RESOLVED
-    const okPending = await incidentPatchHandler(
+    // Reject submitting without resolution details
+    const failNoResolution = await incidentPatchHandler(
       new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${staffToken}` },
         body: JSON.stringify({ status: 'PENDING_CONFIRM', assignedTo: 'QA Staff', category: 'SAP Basis', rootCause: customName }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(failNoResolution.status, 400);
+
+    // 3. Succeeds when Staff submits PENDING_CONFIRM with category, rootCause, and resolution, then Manager approves RESOLVED
+    const okPending = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${staffToken}` },
+        body: JSON.stringify({
+          status: 'PENDING_CONFIRM',
+          assignedTo: 'QA Staff',
+          category: 'SAP Basis',
+          rootCause: customName,
+          resolution: 'Cleaned stale SAP buffer entries',
+        }),
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
     );
@@ -935,6 +955,13 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const csvText = await exportRes.text();
     assert.ok(csvText.includes('Related Tickets'));
     assert.ok(csvText.includes(`${oldB.ticketNo}, ${oldA.ticketNo}`));
+
+    // 5b. Search filter matches both description and resolution text for related incident lookup
+    const descMatch = await IncidentService.getIncidents({ search: 'First historical case' });
+    assert.ok(descMatch.incidents.some((i) => i.ticketNo === oldA.ticketNo));
+    await IncidentService.updateIncident(oldA.ticketNo, { resolution: 'Clear browser SSO token cache' });
+    const resMatch = await IncidentService.getIncidents({ search: 'Clear browser SSO token cache' });
+    assert.ok(resMatch.incidents.some((i) => i.ticketNo === oldA.ticketNo));
 
     // 6. Unlink all references clears relatedTickets to null
     const clearRes = await incidentPatchHandler(
@@ -1252,6 +1279,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       status: 'RESOLVED',
       category: 'Helpdesk',
       rootCause: 'System > Program Defect',
+      resolution: 'Patched error handling regression',
     });
 
     await assert.rejects(

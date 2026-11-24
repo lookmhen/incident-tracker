@@ -240,6 +240,7 @@ describe('13. External User Resolution Mark Workflow', () => {
     await IncidentService.updateIncident(extInc.id, {
       status: 'RESOLVED',
       rootCause: 'System > Program Defect',
+      resolution: 'External vendor restarted line controller',
       resolvedByExternal: true,
       createdAt: baseCreated,
       closedAt: new Date(baseCreated.getTime() + 240 * 60000),
@@ -248,6 +249,7 @@ describe('13. External User Resolution Mark Workflow', () => {
       status: 'RESOLVED',
       assignedTo: 'IT Support',
       rootCause: 'System > Program Defect',
+      resolution: 'IT Support applied network patch',
       resolvedByExternal: false,
       createdAt: baseCreated,
       closedAt: new Date(baseCreated.getTime() + 30 * 60000),

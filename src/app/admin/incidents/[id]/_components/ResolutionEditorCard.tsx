@@ -165,7 +165,9 @@ export default function ResolutionEditorCard({
           value={resolutionText}
           onChange={(e) => setResolutionText(e.target.value)}
           placeholder="Enter root cause, mitigation, and preventive actions in clean text format..."
-          className="w-full bg-slate-50 text-slate-900 border border-slate-200 text-xs font-mono rounded-xl p-4 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white resize-y transition-all read-only:bg-slate-100/80 read-only:text-slate-600 read-only:cursor-not-allowed"
+          className={`w-full bg-slate-50 text-slate-900 border text-xs font-mono rounded-xl p-4 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white resize-y transition-all read-only:bg-slate-100/80 read-only:text-slate-600 read-only:cursor-not-allowed ${
+            !isReadOnlyFields && !resolutionText.trim() ? 'border-amber-300' : 'border-slate-200'
+          }`}
         />
         <div className="absolute bottom-3 right-3 text-[10px] font-mono text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded shadow-xs">
           <span>{charCount}</span> characters • {wordCount} words

@@ -45,7 +45,7 @@ export default function RelatedIncidentsCard({
     setSearchingRelated(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/incidents?search=${encodeURIComponent(q)}&limit=6`, {
+        const res = await fetch(`/api/incidents?search=${encodeURIComponent(q)}&limit=10`, {
           cache: 'no-store',
           signal: controller.signal,
         });
@@ -139,7 +139,7 @@ export default function RelatedIncidentsCard({
               value={relatedQuery}
               disabled={savingRelated}
               onChange={(e) => setRelatedQuery(e.target.value)}
-              placeholder="ค้นหาเลข Ticket หรือหัวข้อเคสเพื่ออ้างอิง..."
+              placeholder="ค้นหาเลขเคส (INC-*), หัวข้อ หรือรายละเอียดปัญหา..."
               className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 disabled:opacity-60"
             />
             {relatedQuery && (
@@ -169,43 +169,61 @@ export default function RelatedIncidentsCard({
               ) : (
                 <div className="divide-y divide-slate-100">
                   {filteredRelatedResults.map((item) => (
-                    <button
+                    <div
                       key={item.id}
-                      type="button"
-                      disabled={savingRelated}
-                      onClick={async () => {
-                        const ok = await handleUpdateRelatedTickets(
-                          [...currentRelatedNos, item.ticketNo],
-                          `เชื่อมโยงเคส ${item.ticketNo} แล้ว`
-                        );
-                        if (ok) {
-                          setRelatedQuery('');
-                          setRelatedSearchResults([]);
-                        }
-                      }}
-                      className="w-full px-3 py-2 text-left hover:bg-sky-50/80 transition-colors flex items-center justify-between gap-2 cursor-pointer disabled:opacity-50"
+                      className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-sky-50/80 transition-colors"
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] font-mono font-bold text-sky-700 shrink-0">
-                            {item.ticketNo}
-                          </span>
-                          <span className="text-xs text-slate-800 truncate">{item.title}</span>
+                      <button
+                        type="button"
+                        disabled={savingRelated}
+                        onClick={async () => {
+                          const ok = await handleUpdateRelatedTickets(
+                            [...currentRelatedNos, item.ticketNo],
+                            `เชื่อมโยงเคส ${item.ticketNo} แล้ว`
+                          );
+                          if (ok) {
+                            setRelatedQuery('');
+                            setRelatedSearchResults([]);
+                          }
+                        }}
+                        className="flex-1 min-w-0 text-left flex items-start justify-between gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-mono font-bold text-sky-700 shrink-0">
+                              {item.ticketNo}
+                            </span>
+                            <span className="text-xs text-slate-800 truncate">{item.title}</span>
+                          </div>
+                          {item.description && (
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">{item.description}</p>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {item.resolutionType === 'WORKAROUND' && (
-                          <span className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-semibold">
-                            Workaround
+                        <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                          {item.resolutionType === 'WORKAROUND' && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-semibold">
+                              Workaround
+                            </span>
+                          )}
+                          <span
+                            className={`px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-semibold ${statusPillClass(item.status)}`}
+                          >
+                            {item.status}
                           </span>
-                        )}
-                        <span
-                          className={`px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-semibold ${statusPillClass(item.status)}`}
-                        >
-                          {item.status}
-                        </span>
-                      </div>
-                    </button>
+                        </div>
+                      </button>
+                      <a
+                        href={`/admin/incidents/${item.ticketNo}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`เปิดดู ${item.ticketNo} ในแท็บใหม่`}
+                        aria-label={`Open ${item.ticketNo} in new tab`}
+                        className="shrink-0 px-2 py-1 rounded-lg bg-white hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 text-[10px] font-semibold inline-flex items-center gap-1 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                        <span>Open</span>
+                      </a>
+                    </div>
                   ))}
                 </div>
               )}
@@ -224,11 +242,15 @@ export default function RelatedIncidentsCard({
               <div className="flex items-start justify-between gap-2">
                 <Link
                   href={`/admin/incidents/${rel.ticketNo}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`เปิดดู ${rel.ticketNo} ในแท็บใหม่`}
                   className="min-w-0 flex-1 group"
                 >
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-mono font-bold text-sky-700 group-hover:underline">
-                      {rel.ticketNo}
+                    <span className="text-xs font-mono font-bold text-sky-700 group-hover:underline inline-flex items-center gap-1">
+                      <span>{rel.ticketNo}</span>
+                      <span className="material-symbols-outlined text-[12px]">open_in_new</span>
                     </span>
                     <span
                       className={`px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-semibold ${statusPillClass(rel.status)}`}
@@ -297,6 +319,8 @@ export default function RelatedIncidentsCard({
               <Link
                 key={ref.ticketNo}
                 href={`/admin/incidents/${ref.ticketNo}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 max-w-full px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 text-[11px] transition-colors"
               >
                 <span className="font-mono font-bold text-sky-700 shrink-0">{ref.ticketNo}</span>
@@ -306,6 +330,7 @@ export default function RelatedIncidentsCard({
                 >
                   {ref.status}
                 </span>
+                <span className="material-symbols-outlined text-[12px] text-sky-600 shrink-0">open_in_new</span>
               </Link>
             ))}
           </div>

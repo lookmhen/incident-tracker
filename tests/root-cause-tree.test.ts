@@ -286,7 +286,7 @@ describe('14. Hierarchical Root Cause Tree (Parent > Sub-branch)', () => {
       );
     }
 
-    // Valid Parent > Sub-branch succeeds
+    // Valid Parent > Sub-branch with resolution succeeds
     const validRes = await incidentPatch(
       new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
@@ -294,6 +294,7 @@ describe('14. Hierarchical Root Cause Tree (Parent > Sub-branch)', () => {
         body: JSON.stringify({
           status: 'PENDING_CONFIRM',
           rootCause: 'Human > User Knowledge Gap',
+          resolution: 'Guided user through correct workflow',
         }),
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }

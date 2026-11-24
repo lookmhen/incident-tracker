@@ -39,6 +39,15 @@ describe('10. CSV Parser & Yearly Monthly Trend Analytics', () => {
     assert.equal(parsedIso.getUTCMonth(), 9); // October
     assert.equal(parsedIso.getUTCDate(), 15);
     assert.equal(parsedIso.getUTCHours(), 8);
+
+    // 2-digit Thai BE short year from Excel export (e.g. 24-11-69 3:35 -> 24 Nov 2026)
+    const parsedShortBe = parseThaiDate('24-11-69 3:35');
+    assert.ok(parsedShortBe);
+    assert.equal(parsedShortBe.getUTCFullYear(), 2026);
+    assert.equal(parsedShortBe.getUTCMonth(), 10);
+    assert.equal(parsedShortBe.getUTCDate(), 24);
+    assert.equal(parsedShortBe.getUTCHours(), 3);
+    assert.equal(parsedShortBe.getUTCMinutes(), 35);
   });
 
   it('computes 12-month full-year trend with zero-filled empty months', async () => {

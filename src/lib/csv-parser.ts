@@ -65,7 +65,7 @@ export function parseThaiDate(dateStr?: string | null): Date | null {
   }
 
   const parts = str.split(/\s+/);
-  const datePart = parts[0];
+  const datePart = parts[0].replace(/,$/, '');
   const timePart = parts[1] || '00:00:00';
 
   // Support both '/' and '-' separators
@@ -87,8 +87,10 @@ export function parseThaiDate(dateStr?: string | null): Date | null {
     [d, m, y] = segments;
   }
 
+  // Expand 2-digit Thai BE (43..99 -> 2543..2599) or AD (< 43 -> 20xx) so Date.UTC does not treat 69 as 1969
+  const expandedYear = y >= 0 && y < 100 ? (y >= 43 ? 2500 + y : 2000 + y) : y;
   // Convert Buddhist Era to Gregorian if year > 2400
-  const gregorianYear = y > 2400 ? y - 543 : y;
+  const gregorianYear = expandedYear > 2400 ? expandedYear - 543 : expandedYear;
   const [hh, mm, ss] = timePart.split(':').map(Number);
 
   return new Date(Date.UTC(gregorianYear, m - 1, d, hh || 0, mm || 0, ss || 0));

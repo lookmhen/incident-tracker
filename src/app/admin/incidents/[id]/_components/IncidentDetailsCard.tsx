@@ -6,6 +6,7 @@ import type { IncidentDetail } from './types';
 interface IncidentDetailsCardProps {
   incident: IncidentDetail;
   isClosed: boolean;
+  isManager: boolean;
   onIncidentUpdated: (updated: IncidentDetail) => void;
   showToast: (msg: string, type?: 'success' | 'error') => void;
 }
@@ -13,20 +14,22 @@ interface IncidentDetailsCardProps {
 export default function IncidentDetailsCard({
   incident,
   isClosed,
+  isManager,
   onIncidentUpdated,
   showToast,
 }: IncidentDetailsCardProps) {
+  const isReadOnly = isClosed || isManager;
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [savingDetails, setSavingDetails] = useState(false);
 
   const [prevTicketNo, setPrevTicketNo] = useState(incident.ticketNo);
-  const [prevIsClosed, setPrevIsClosed] = useState(isClosed);
-  if (prevTicketNo !== incident.ticketNo || prevIsClosed !== isClosed) {
+  const [prevIsClosed, setPrevIsClosed] = useState(isReadOnly);
+  if (prevTicketNo !== incident.ticketNo || prevIsClosed !== isReadOnly) {
     setPrevTicketNo(incident.ticketNo);
-    setPrevIsClosed(isClosed);
-    if (prevTicketNo !== incident.ticketNo || isClosed) {
+    setPrevIsClosed(isReadOnly);
+    if (prevTicketNo !== incident.ticketNo || isReadOnly) {
       setIsEditingDetails(false);
     }
   }
@@ -76,6 +79,10 @@ export default function IncidentDetailsCard({
             <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-600 flex items-center gap-1">
               🔒 Locked หลังปิดเคส
             </span>
+          ) : isManager ? (
+            <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+              👁️ Read-Only (Manager)
+            </span>
           ) : (
             <button
               type="button"
@@ -104,7 +111,7 @@ export default function IncidentDetailsCard({
         </div>
       </div>
 
-      {isEditingDetails && !isClosed ? (
+      {isEditingDetails && !isReadOnly ? (
         /* Edit Mode */
         <div className="space-y-3.5 bg-sky-50/40 p-4 rounded-xl border border-sky-200">
           <div className="space-y-1">

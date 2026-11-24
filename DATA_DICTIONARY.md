@@ -43,6 +43,7 @@ erDiagram
         string resolutionType "PERMANENT | WORKAROUND"
         string workaroundNote "Condition / follow-up note for WORKAROUND"
         string resolvedBy "Manager who confirmed closure"
+        boolean resolvedByExternal "Fixed off-hours by non-IT external personnel"
         string managerComment "Internal Manager note on close / send-back"
         string relatedTickets "JSON array of referenced ticketNos"
         datetime createdAt "Created timestamp"
@@ -138,6 +139,7 @@ erDiagram
 | `resolutionType` | String | YES | `NULL` | - | ประเภทการปิดเคส: `PERMANENT` (แก้ไขถาวร) หรือ `WORKAROUND` (แก้ไขชั่วคราว/มีเงื่อนไข — หยุดเวลา MTTR พร้อมแสดง Badge) |
 | `workaroundNote` | String | YES | `NULL` | - | เงื่อนไขหรือแผนติดตามผลเมื่อปิดเคสแบบ `WORKAROUND` (ล้างเป็น `NULL` เมื่อเปลี่ยนเป็น `PERMANENT`) |
 | `resolvedBy` | String | YES | `NULL` | - | ชื่อ Manager ที่ยืนยันปิดเคส |
+| `resolvedByExternal` | Boolean | NO | `false` | - | ระบุว่าเคสนี้ได้รับการแก้ไขโดย External User นอกฝ่าย IT (ข้ามการบังคับ Claim Ticket และตัดออกจาก MTTR อัตโนมัติ) |
 | `managerComment` | String | YES | `NULL` | - | ข้อคิดเห็น/โน้ตภายในของ Manager ตอนปิดเคสหรือตอนตีกลับเคส (บันทึกเฉพาะภายในทีม IT ไม่ถูกเปิดเผยออกไปยัง MCP, AI KM หรือหน้า Public Tracking) |
 | `relatedTickets` | String | YES | `NULL` | - | JSON Array ของเลข Ticket เก่าที่อ้างอิง เช่น `["INC-202611-001","INC-202611-005"]` (รองรับหลายเคสและแสดงลิงก์ย้อนกลับ `referencedBy`) |
 | `createdAt` | DateTime| NO | `now()` | Indexed | วันที่และเวลาที่เปิดเคส (ใช้คำนวณ Ticket Age และ MTTA) |
@@ -217,15 +219,14 @@ erDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> OPEN: User Report / Inbound API
-    OPEN --> IN_PROGRESS: Claim Ticket (Staff / Manager)
-    IN_PROGRESS --> ON_HOLD: พักเคส On Hold (Staff / Manager)
-    ON_HOLD --> IN_PROGRESS: กลับมาทำต่อ Resume (Staff / Manager)
+    OPEN --> IN_PROGRESS: Claim Ticket (Staff)
+    OPEN --> PENDING_CONFIRM: External User Mark (Staff)
+    IN_PROGRESS --> ON_HOLD: พักเคส On Hold (Staff)
+    ON_HOLD --> IN_PROGRESS: กลับมาทำต่อ Resume (Staff)
     IN_PROGRESS --> PENDING_CONFIRM: ส่งให้ Manager ยืนยัน (Staff)
     ON_HOLD --> PENDING_CONFIRM: ส่งให้ Manager ยืนยัน (Staff)
-    PENDING_CONFIRM --> IN_PROGRESS: ตีกลับแก้ไข (Manager)
+    PENDING_CONFIRM --> IN_PROGRESS: ตีกลับแก้ไข Reject (Manager)
     PENDING_CONFIRM --> RESOLVED: Confirm & Mark Resolved (Manager)
-    IN_PROGRESS --> RESOLVED: Confirm & Mark Resolved (Manager)
-    ON_HOLD --> RESOLVED: Confirm & Mark Resolved (Manager)
     RESOLVED --> IN_PROGRESS: เปิดเคสใหม่ Reopen (Manager)
     CLOSED --> IN_PROGRESS: เปิดเคสใหม่ Reopen (Manager, Legacy)
 ```
@@ -233,19 +234,20 @@ stateDiagram-v2
 | From → To | UI Action | Role | Guards / Validation | Side Effects |
 | :--- | :--- | :--- | :--- | :--- |
 | `[*] → OPEN` | User Portal / Inbound API | Public / API Key | Required fields | ออกเลข `ticketNo` (retry P2002), ส่ง Teams + Email |
-| `OPEN → IN_PROGRESS` | `Claim Ticket (รับเคส)` | Staff, Manager | - | ตั้ง `assignedTo = currentUser`, เริ่มทำงาน |
-| `IN_PROGRESS → ON_HOLD` | `พักเคส (On Hold)` | Staff, Manager | - | Auto-set `mttrExcluded = true`, ยกเว้นจาก Backlog Aging |
-| `ON_HOLD → IN_PROGRESS` | `กลับมาทำต่อ (Resume)` | Staff, Manager | - | กลับเข้าคิว Active (`mttrExcluded` คงค่าเดิมจนกว่าจะสลับเอง) |
-| `IN_PROGRESS / ON_HOLD → PENDING_CONFIRM` | `ส่งให้ Manager ยืนยันปิดเคส` | Staff | ต้อง Claim แล้ว (`assignedTo` ไม่ว่างและไม่ใช่ `OPEN`) + มี `category`, `rootCause` (และ `workaroundNote` ถ้าเลือก Workaround) | ส่ง Email แจ้ง Manager (เฉพาะครั้งแรกที่เข้า `PENDING_CONFIRM`), ปุ่มสีเทากันส่งซ้ำ |
-| `PENDING_CONFIRM → IN_PROGRESS` | `ตีกลับแก้ไข (In Progress)` | Manager | - | ส่งเคสกลับให้ทีมแก้ไขต่อ |
-| `IN_PROGRESS / ON_HOLD / PENDING_CONFIRM → RESOLVED` | `Confirm & Mark Resolved` | **Manager เท่านั้น** (`403` ถ้า Staff) | Claim แล้ว (UI) + `category`, `rootCause` (และ `workaroundNote` ถ้าเลือก Workaround) | ตั้ง `closedAt = now` (หยุด MTTR), บันทึก `resolvedBy`, ตั้ง `resolutionType` (`PERMANENT`/`WORKAROUND`), **ล็อกการแก้ไขข้อมูล/รูปแนบทั้งหมดแบบ One-way ทั้ง Staff และ Manager** (ยกเว้น Manager ปรับ `closedAt` / `mttrExcluded` หรือกด `Reopen`) |
-| `RESOLVED / CLOSED → IN_PROGRESS` | `เปิดเคสใหม่ (Reopen)` | **Manager เท่านั้น** (`403` ถ้า Staff) | `window.confirm` ใน UI | ล้าง `closedAt = null`, ปลดล็อกให้กลับมาแก้ไขข้อมูลเคสและรูปแนบได้ |
+| `OPEN → IN_PROGRESS` | `Claim Ticket (รับเคส)` | **Staff เท่านั้น** (`403` ถ้า Manager) | - | ตั้ง `assignedTo = currentUser`, เริ่มทำงาน |
+| `IN_PROGRESS → ON_HOLD` | `พักเคส (On Hold)` | **Staff เท่านั้น** (`403` ถ้า Manager) | - | Auto-set `mttrExcluded = true`, ยกเว้นจาก Backlog Aging |
+| `ON_HOLD → IN_PROGRESS` | `กลับมาทำต่อ (Resume)` | **Staff เท่านั้น** (`403` ถ้า Manager) | - | กลับเข้าคิว Active (`mttrExcluded` คงค่าเดิมจนกว่าจะสลับเอง) |
+| `OPEN / IN_PROGRESS / ON_HOLD → PENDING_CONFIRM` | `ส่งให้ Manager ยืนยันปิดเคส` | **Staff เท่านั้น** | ต้อง Claim แล้ว หรือติ๊ก `External User` + มี `category`, `rootCause` (และ `workaroundNote` ถ้าเลือก Workaround) | ส่ง Email แจ้ง Manager (เฉพาะครั้งแรกที่เข้า `PENDING_CONFIRM`), ปุ่มสีเทากันส่งซ้ำ; หาก `resolvedByExternal = true` จะ auto-set `mttrExcluded = true` |
+| `PENDING_CONFIRM → IN_PROGRESS` | `ตีกลับแก้ไข (Reject)` | **Manager เท่านั้น** | ส่งได้เฉพาะ `status` + `managerComment` | ส่งเคสกลับให้ Staff แก้ไขต่อ พร้อมโน้ตภายในของ Manager |
+| `PENDING_CONFIRM → RESOLVED` | `Confirm & Mark Resolved` | **Manager เท่านั้น** (`403` ถ้า Staff หรือยังไม่ `PENDING_CONFIRM`) | ส่งได้เฉพาะ `status` + `managerComment`; `category` & `rootCause` ครบ | ตั้ง `closedAt = now` (หยุด MTTR), บันทึก `resolvedBy`, **ล็อกการแก้ไขข้อมูล/รูปแนบทั้งหมดแบบ One-way ทั้ง Staff และ Manager** |
+| `RESOLVED / CLOSED → IN_PROGRESS` | `เปิดเคสใหม่ (Reopen)` | **Manager เท่านั้น** (`403` ถ้า Staff) | `window.confirm` ใน UI | ล้าง `closedAt = null`, ปลดล็อกให้ Staff กลับมาแก้ไขข้อมูลเคสและรูปแนบได้ |
 
 > **หมายเหตุเพิ่มเติม:**
-> - **One-way Closed Lock:** เมื่อเคสเป็น `RESOLVED`/`CLOSED` จะล็อกการแก้ไขข้อมูลเนื้อหาเคสทั้งหมด (หัวข้อ/รายละเอียด, Resolution, Category, Root Cause, Re-assign, รูปแนบ, Related Incidents) สำหรับทั้ง Staff และ Manager (Backend ปฏิเสธด้วย `400`/`403`) — Manager ต้องกด **`เปิดเคสใหม่ (Reopen)`** กลับเป็น `IN_PROGRESS` ก่อนจึงจะแก้ได้ ยกเว้น **`Name / Dept. / Contact`** ที่แก้ไขได้ทั้ง Staff และ Manager (ไม่กระทบ `closedAt`) และ **`closedAt` / `mttrExcluded`** ที่ Manager ยังปรับหลังปิดเคสได้
-> - **Re-assign (`Assigned: ...`)** บนเคสที่ยังไม่ปิด (`IN_PROGRESS`, `ON_HOLD`, `PENDING_CONFIRM`) จะอัปเดตเฉพาะ `assignedTo` โดย **ไม่เปลี่ยน `status` เดิม**
+> - **Manager One-Way Reviewer Lock:** Manager **ไม่สามารถแก้ไขข้อมูลเนื้อหาเคส, Triage, Resolution, รูปแนบ, วันเวลา, MTTR หรือกด Claim/On Hold เองได้** (UI แสดงแบบ Read-Only และ Backend `PATCH /api/incidents/[id]` รวมถึง `POST`/`DELETE /api/incidents/[id]/attachments` ปฏิเสธด้วย `403`) — มีหน้าที่ตรวจสอบตอน `PENDING_CONFIRM` เพื่อ Approve (`RESOLVED`) หรือ Reject (`IN_PROGRESS`) และสามารถกด `Reopen` เมื่อเคสถูกปิดไปแล้วเท่านั้น
+> - **One-way Closed Lock:** เมื่อเคสเป็น `RESOLVED`/`CLOSED` จะล็อกการแก้ไขข้อมูลเนื้อหาเคสทั้งหมดสำหรับ Staff เช่นกัน (ยกเว้น **`Name / Dept. / Contact`** ที่ Staff ยังแก้ได้โดยไม่กระทบ `closedAt`) — Manager ต้องกด **`เปิดเคสใหม่ (Reopen)`** กลับเป็น `IN_PROGRESS` ก่อน Staff จึงจะแก้ได้
+> - **Re-assign (`Assigned: ...`)** บนเคสที่ยังไม่ปิด (`IN_PROGRESS`, `ON_HOLD`, `PENDING_CONFIRM`) สำหรับ Staff จะอัปเดตเฉพาะ `assignedTo` โดย **ไม่เปลี่ยน `status` เดิม**
 > - **Legacy `CLOSED`:** UI ใหม่ปิดเคสเป็น `RESOLVED` เสมอ แต่ Backend, Analytics และ Export ยังคงรองรับเคสเก่าที่เป็น `CLOSED` เทียบเท่า `RESOLVED` และ Manager สามารถกด `Reopen` ได้เช่นเดียวกัน
-> - **Spec อ้างอิง:** [`docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md`](docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md)
+> - **Specs อ้างอิง:** [`2026-11-20-workflow-driven-status-design.md`](docs/superpowers/specs/2026-11-20-workflow-driven-status-design.md), [`2026-11-23-external-user-mark-design.md`](docs/superpowers/specs/2026-11-23-external-user-mark-design.md), [`2026-11-24-manager-oneway-and-pagination-design.md`](docs/superpowers/specs/2026-11-24-manager-oneway-and-pagination-design.md)
 
 ---
 

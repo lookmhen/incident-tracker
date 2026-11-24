@@ -64,14 +64,15 @@
 ### 4.2 ฝั่ง Teams / Email Integration & Admin Workflow
 * **Teams & Email Notification:** ยิง Adaptive Card / Power Automate JSON เข้า Microsoft Teams และส่งอีเมลผ่าน SMTP Relay (`nodemailer`) ทันทีที่มีเคสใหม่ พร้อมลิงก์ดูรูปแนบและปุ่มเปิดเคสตาม URL จริงของเซิร์ฟเวอร์ (`APP_URL` หรือ request host)
 * **Admin Dashboard (Web UI):**
-  * จัดลำดับคิวอัตโนมัติ: `OPEN` ➔ `IN_PROGRESS` ➔ `ON_HOLD` ➔ `RESOLVED`/`CLOSED` (เรียงตาม Urgency และเวลาล่าสุด)
-  * แสดงตาราง Incident พร้อม Filter (Status รวมถึง `ACTIVE` และ `ON_HOLD`, Category, Urgency, Department) และ Precision Search (`/` เพื่อ Focus)
+  * จัดลำดับคิวอัตโนมัติ: `OPEN` ➔ `IN_PROGRESS` ➔ `PENDING_CONFIRM` ➔ `ON_HOLD` ➔ `RESOLVED`/`CLOSED` (เรียงตาม Urgency และเวลาล่าสุด)
+  * แสดงตาราง Incident พร้อม Filter (Status รวมถึง `ACTIVE` และ `ON_HOLD`, Category, Urgency, Department, Solver: `All / IT Team / External User`), Precision Search (`/` เพื่อ Focus), และ Dropdown เลือกจำนวนแถวต่อหน้า (`10 / 25 / 50 / 100`)
 * **Dynamic Category, Root Cause & Triage:**
-  * แอดมินสามารถเพิ่ม/แก้ไขหมวดหมู่ปัญหา (`Category`) และตัวเลือกต้นตอปัญหา (`Root Cause` ค่าเริ่มต้น `Human`, `System`, `Data` และเพิ่มเองได้)
+  * Staff สามารถเพิ่ม/แก้ไขหมวดหมู่ปัญหา (`Category`) และตัวเลือกต้นตอปัญหา (`Root Cause` ค่าเริ่มต้น `Human`, `System`, `Data` และเพิ่มเองได้) รวมถึงเลือก mark **`External User`** สำหรับเคสที่ผู้ใช้นอกฝ่าย IT แก้ไขเองช่วงวันหยุด (ข้ามการ Claim และ auto-exclude จาก MTTR)
   * สถานะ `ON_HOLD` ใช้พักเคสที่ยังไม่มี Solution โดยแยกออกจากคิวค้าง (`Backlog Aging`) และยกเว้นจากการคำนวณ `MTTR` อัตโนมัติ (สลับคืนได้)
-  * รองรับการแก้ไขเวลาเปิดเคส (`createdAt`) และปิดเคส (`closedAt`) พร้อมตรวจขอบเขตเวลา
-* **Resolution & Close (Clean Text for MCP):**
-  * **บังคับเลือกทั้ง Category และ Root Cause ก่อนปิดเคส (`RESOLVED` / `CLOSED`)**
+  * รองรับการแก้ไขเวลาเปิดเคส (`createdAt`) สำหรับ Staff ก่อนปิดเคส พร้อมตรวจขอบเขตเวลา
+* **One-Way Workflow & Resolution (Clean Text for MCP):**
+  * **Staff** เป็นผู้ Claim, Triage, แนบไฟล์, บันทึก Clean-Text Resolution (`PERMANENT`/`WORKAROUND`), และส่งขออนุมัติปิดเคส (`PENDING_CONFIRM`, บังคับ Category + Root Cause)
+  * **Manager** ทำหน้าที่ One-Way Reviewer (Read-Only ทุกฟิลด์ของเคส): ตรวจสอบและกด `Confirm & Mark Resolved` หรือ `ตีกลับแก้ไข (Reject)` กลับเป็น `IN_PROGRESS` ได้เฉพาะตอน `PENDING_CONFIRM` รวมถึงกด `Reopen` เคสที่ปิดแล้วกลับให้ Staff แก้ไขได้
   * ข้อความ Resolution ถูก Sanitize เป็น Clean Text ปราศจาก HTML/Markdown เพื่อส่งเข้า MCP Context และ AI KM
 
 ---
@@ -115,13 +116,19 @@ model Incident {
   categoryRel  Category?     @relation(fields: [categoryId], references: [id])
   category     String?       // เก็บชื่อหมวดหมู่สำหรับ query ไว (e.g. HELPDESK, NETWORK, INTERFACE, SAP)
   rootCause    String?       // สาเหตุต้นตอของปัญหา (e.g. Human, System, Data)
-  status       String        @default("OPEN")   // OPEN, IN_PROGRESS, ON_HOLD, RESOLVED, CLOSED
-  assignedTo   String?
-  resolution   String?       // บันทึกวิธีแก้ปัญหา (Clean Text สำคัญสำหรับ AI Context)
-  attachments  Attachment[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  closedAt     DateTime?
+  status             String        @default("OPEN")   // OPEN, IN_PROGRESS, ON_HOLD, PENDING_CONFIRM, RESOLVED, CLOSED
+  assignedTo         String?
+  resolution         String?       // บันทึกวิธีแก้ปัญหา (Clean Text สำคัญสำหรับ AI Context)
+  resolutionType     String?       // "PERMANENT" | "WORKAROUND"
+  workaroundNote     String?
+  resolvedBy         String?
+  resolvedByExternal Boolean       @default(false)
+  managerComment     String?
+  relatedTickets     String?
+  attachments        Attachment[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  closedAt           DateTime?
 }
 
 model Attachment {
@@ -132,6 +139,7 @@ model Attachment {
   fileType   String
   fileName   String?
   fileSize   Int?
+  kind       String   @default("REPORT") // "REPORT" | "RESOLUTION"
   createdAt  DateTime @default(now())
 }
 ```

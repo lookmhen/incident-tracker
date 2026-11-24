@@ -379,6 +379,24 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     const unclaimedErr = await unclaimedPendingRes.json();
     assert.match(unclaimedErr.error || '', /must be claimed/i);
 
+    // 2c. MANAGER is strict one-way: cannot edit details, claim, hold, or close directly from OPEN (403)
+    for (const forbiddenBody of [
+      { title: 'Manager hijack' },
+      { category: 'Network' },
+      { assignedTo: managerUser.name, status: 'IN_PROGRESS' },
+      { status: 'RESOLVED' },
+    ]) {
+      const mgrBlockedRes = await incidentPatch(
+        new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json', cookie: mgrCookie },
+          body: JSON.stringify(forbiddenBody),
+        }),
+        { params: Promise.resolve({ id: inc.ticketNo }) }
+      );
+      assert.equal(mgrBlockedRes.status, 403);
+    }
+
     // 3. STAFF claims ticket, then submits PENDING_CONFIRM
     const claimRes = await incidentPatch(
       new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
@@ -401,7 +419,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
           status: 'PENDING_CONFIRM',
           resolution: 'Restarted worker process temporarily',
           resolutionType: 'WORKAROUND',
-          workaroundNote: 'Wait for vendor patch next week',
+          workaroundNote: 'Monitor memory daily until patch applied',
           managerComment: 'staff should not write this',
         }),
       }),
@@ -418,15 +436,48 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     const statusSum = analyticsMid.byStatus.reduce((s, b) => s + b.count, 0);
     assert.equal(statusSum, analyticsMid.summary.total);
 
-    // 4. MANAGER confirms RESOLVED with WORKAROUND -> stops MTTR and records resolvedBy
+    // 3c. Even in PENDING_CONFIRM, MANAGER cannot modify Staff fields (403); can only Reject or Approve
+    const mgrMutateOnConfirmRes = await incidentPatch(
+      new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: mgrCookie },
+        body: JSON.stringify({ status: 'RESOLVED', resolutionType: 'PERMANENT' }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(mgrMutateOnConfirmRes.status, 403);
+
+    // MANAGER rejects PENDING_CONFIRM -> IN_PROGRESS with comment, then STAFF re-submits
+    const rejectRes = await incidentPatch(
+      new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: mgrCookie },
+        body: JSON.stringify({ status: 'IN_PROGRESS', managerComment: 'Please attach vendor ticket' }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(rejectRes.status, 200);
+    const rejected = await rejectRes.json();
+    assert.equal(rejected.status, 'IN_PROGRESS');
+    assert.equal(rejected.managerComment, 'Please attach vendor ticket');
+
+    const resubmitRes = await incidentPatch(
+      new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: staffCookie },
+        body: JSON.stringify({ status: 'PENDING_CONFIRM' }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(resubmitRes.status, 200);
+
+    // 4. MANAGER confirms RESOLVED (Approve only) -> stops MTTR and records resolvedBy
     const confirmRes = await incidentPatch(
       new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json', cookie: mgrCookie },
         body: JSON.stringify({
           status: 'RESOLVED',
-          resolutionType: 'WORKAROUND',
-          workaroundNote: 'Monitor memory daily until patch applied',
           managerComment: '  Good fix, follow up with vendor  ',
         }),
       }),
@@ -475,7 +526,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     );
     assert.equal(staffReopenRes.status, 403);
 
-    // 5. After RESOLVED, editing title or description is locked (400) even for MANAGER
+    // 5. After RESOLVED, editing title or description is locked (400 for service / 403 for MANAGER one-way)
     const lockedEditRes = await incidentPatch(
       new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
@@ -484,7 +535,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
     );
-    assert.equal(lockedEditRes.status, 400);
+    assert.equal(lockedEditRes.status, 403);
   });
 
   it('supports On Hold/Resume, status-preserving re-assign, and Manager-only Reopen', async () => {
@@ -622,16 +673,19 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
       const staffClosedCatRes = await patch(staffCookie, { category: 'Network' });
       assert.equal(staffClosedCatRes.status, 403);
 
-      // Manager CAN fix department on closed ticket (200), but still cannot edit content fields (category, assignedTo)
-      const mgrEditClosedDeptRes = await patch(mgrCookie, { department: 'Finance' });
-      assert.equal(mgrEditClosedDeptRes.status, 200);
-      assert.equal((await mgrEditClosedDeptRes.json()).department, 'Finance');
-      const mgrEditClosedCatRes = await patch(mgrCookie, { category: 'Network' });
-      assert.equal(mgrEditClosedCatRes.status, 400);
-      const mgrReassignClosedRes = await patch(mgrCookie, { assignedTo: managerUser.name });
-      assert.equal(mgrReassignClosedRes.status, 400);
+      // Manager is read-only one-way reviewer: blocked (403) on editing department/category/assignedTo/closedAt/mttrExcluded or uploading attachments
+      for (const forbidden of [
+        { department: 'Finance' },
+        { category: 'Network' },
+        { assignedTo: managerUser.name },
+        { closedAt: new Date(new Date(resolved.createdAt).getTime() + 15 * 60 * 1000).toISOString() },
+        { mttrExcluded: false },
+      ]) {
+        const res = await patch(mgrCookie, forbidden);
+        assert.equal(res.status, 403);
+      }
 
-      // Manager cannot upload attachments while closed (400)
+      // Manager cannot upload attachments (403)
       const fd = new FormData();
       fd.append('file', new File([Buffer.from('PNGDATA')], 'locked.png', { type: 'image/png' }));
       fd.append('kind', 'RESOLUTION');
@@ -643,20 +697,12 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
         }),
         { params: Promise.resolve({ id: inc.ticketNo }) }
       );
-      assert.equal(mgrAttClosedRes.status, 400);
-
-      // Manager CAN still adjust closedAt and mttrExcluded while closed
-      const customClosedAt = new Date(new Date(resolved.createdAt).getTime() + 15 * 60 * 1000).toISOString();
-      const mgrClosedAtRes = await patch(mgrCookie, { closedAt: customClosedAt, mttrExcluded: false });
-      assert.equal(mgrClosedAtRes.status, 200);
-      const adjusted = await mgrClosedAtRes.json();
-      assert.equal(new Date(adjusted.closedAt).toISOString(), customClosedAt);
-      assert.equal(adjusted.mttrExcluded, false);
+      assert.equal(mgrAttClosedRes.status, 403);
 
       const staffReopenRes = await patch(staffCookie, { status: 'IN_PROGRESS' });
       assert.equal(staffReopenRes.status, 403);
 
-      // Manager Reopen clears closedAt and unlocks content edits
+      // Manager Reopen clears closedAt and unlocks content edits for Staff (Manager remains read-only)
       const mgrReopenRes = await patch(mgrCookie, { status: 'IN_PROGRESS' });
       assert.equal(mgrReopenRes.status, 200);
       const reopened = await mgrReopenRes.json();
@@ -664,8 +710,11 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
       assert.equal(reopened.closedAt, null);
 
       const mgrEditAfterReopenRes = await patch(mgrCookie, { category: 'Network' });
-      assert.equal(mgrEditAfterReopenRes.status, 200);
-      assert.equal((await mgrEditAfterReopenRes.json()).category, 'Network');
+      assert.equal(mgrEditAfterReopenRes.status, 403);
+
+      const staffEditAfterReopenRes = await patch(staffCookie, { category: 'Network' });
+      assert.equal(staffEditAfterReopenRes.status, 200);
+      assert.equal((await staffEditAfterReopenRes.json()).category, 'Network');
     } finally {
       if (localIncidentId) {
         await IncidentService.setMttrExcluded(localIncidentId, false);

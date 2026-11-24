@@ -171,7 +171,7 @@ export default function LifecycleDurationCard({
             <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
               เปิดเคสเมื่อ (Created)
             </span>
-            {!isClosed && editingTimeField !== 'createdAt' && (
+            {!isClosed && !isManager && editingTimeField !== 'createdAt' && (
               <button
                 type="button"
                 onClick={() => {
@@ -217,20 +217,6 @@ export default function LifecycleDurationCard({
             <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
               {isClosed ? 'ปิดเคสเมื่อ (Closed)' : 'สถานะเวลาปัจจุบัน'}
             </span>
-            {isClosed && isManager && editingTimeField !== 'closedAt' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditTimeValue(toLocalDateTimeInput(incident.closedAt || new Date().toISOString()));
-                  setEditingTimeField('closedAt');
-                }}
-                className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
-                title="แก้ไขวันเวลาปิดเคส"
-              >
-                <span className="material-symbols-outlined text-[13px]">edit</span>
-                <span>แก้ไข</span>
-              </button>
-            )}
           </div>
           {isClosed ? (
             editingTimeField === 'closedAt' ? (
@@ -312,7 +298,7 @@ export default function LifecycleDurationCard({
               ? `ไม่นำไปคำนวณค่าเฉลี่ย MTTR (${incident.resolvedByExternal ? 'External User' : 'เคย On Hold'})`
               : 'นับรวมในค่าเฉลี่ย MTTR'}
           </span>
-          {(!isClosed || isManager) && (
+          {!isClosed && !isManager && (
             <button
               type="button"
               onClick={handleToggleMttrExcluded}

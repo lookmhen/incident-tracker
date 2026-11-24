@@ -37,7 +37,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const nextStatus = (typeof body.status === 'string' ? body.status : '').trim().toUpperCase();
     const isClosing = ['RESOLVED', 'CLOSED'].includes(nextStatus);
 
-    if (session && session.role !== 'MANAGER') {
+    if (session && session.role === 'MANAGER') {
+      const sentKeys = Object.keys(body || {}).filter((k) => body[k] !== undefined);
+      const allowedManagerKeys = new Set(['status', 'managerComment']);
+      if (sentKeys.length === 0 || !sentKeys.every((k) => allowedManagerKeys.has(k))) {
+        return NextResponse.json(
+          { error: 'Managers cannot edit incident details; reject back to Staff instead' },
+          { status: 403 }
+        );
+      }
+
+      const existing = await IncidentService.getIncidentById(id);
+      if (!existing) {
+        return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
+      }
+      const currentStatus = (existing.status || '').trim().toUpperCase();
+      const canApproveOrReject =
+        currentStatus === 'PENDING_CONFIRM' && (nextStatus === 'RESOLVED' || nextStatus === 'IN_PROGRESS');
+      const canReopen = ['RESOLVED', 'CLOSED'].includes(currentStatus) && nextStatus === 'IN_PROGRESS';
+
+      if (!canApproveOrReject && !canReopen) {
+        return NextResponse.json(
+          {
+            error:
+              currentStatus === 'PENDING_CONFIRM'
+                ? 'Manager can only approve (RESOLVED) or reject back to Staff (IN_PROGRESS)'
+                : ['RESOLVED', 'CLOSED'].includes(currentStatus)
+                  ? 'Manager can only reopen closed incidents to IN_PROGRESS'
+                  : 'Ticket must be submitted by Staff (PENDING_CONFIRM) before Manager action',
+          },
+          { status: 403 }
+        );
+      }
+    } else if (session && session.role !== 'MANAGER') {
       if (isClosing) {
         return NextResponse.json(
           { error: 'Only a Manager can resolve or close an incident' },

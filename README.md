@@ -18,28 +18,26 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 ### 2. 📊 IT Operations Triage Matrix (`/admin`)
 * **Real-time Telemetry:** 3 core Glacier KPI cards (Active Incidents, Critical P1 Blockers, Avg Resolution Time / MTTR).
 * **Queue Priority Sorting:** Automatically prioritizes unresolved cases (`OPEN` ➔ `IN_PROGRESS` ➔ `PENDING_CONFIRM` ➔ `ON_HOLD` ➔ `RESOLVED` / `CLOSED`) sorted by urgency (`HIGH` ➔ `MEDIUM` ➔ `LOW`) and newest first.
-* **Precision Search & Filtering:** Instant filter with `/` keyboard focus shortcut; filter by status (`ALL`, `ACTIVE`, `OPEN`, `IN_PROGRESS`, `PENDING_CONFIRM`, `ON_HOLD`, `RESOLVED`, `CLOSED`), urgency, category, and department.
-* **Dynamic Category & RCA Badges:** Admins can create/manage ticket categories on the fly and view `RCA` root cause tags directly in the queue.
-* **Quick Single-Click Claim:** Instant ticket claiming and status transition to `IN_PROGRESS` with responder attribution.
-* **Excel (.CSV UTF-8 BOM) Export:** Filtered incident export (including `Root Cause` and `Related Tickets`) with Thai language compatibility in Microsoft Excel.
+* **Precision Search & Filtering:** Instant filter with `/` keyboard focus shortcut; filter by status (`ALL`, `ACTIVE`, `OPEN`, `IN_PROGRESS`, `PENDING_CONFIRM`, `ON_HOLD`, `RESOLVED`, `CLOSED`), urgency, category, department, and solver (`All` / `IT Team` / `External User`), plus a configurable records-per-page dropdown (`10`, `25`, `50`, `100`).
+* **Dynamic Category & RCA Badges:** Admins can create/manage ticket categories on the fly and view `RCA` and `External User` badges directly in the queue.
+* **Quick Single-Click Claim (Staff):** Instant ticket claiming and status transition to `IN_PROGRESS` for Staff (hidden for `MANAGER` in one-way review mode).
+* **Excel (.CSV UTF-8 BOM) Export:** Filtered incident export (including `Root Cause`, `Related Tickets`, and `External User`) with Thai language compatibility in Microsoft Excel.
 
 ### 3. 🧠 Incident Detail & Workflow-Driven Triage Hub (`/admin/incidents/[id]`)
-* **Workflow-Driven Status Transitions:** Free-form manual status switching is replaced with explicit stage actions:
-  * `OPEN` ➔ **`Claim Ticket (รับเคส)`** (`IN_PROGRESS`)
-  * `IN_PROGRESS` ⇄ **`พักเคส (On Hold)`** / **`กลับมาทำต่อ (Resume)`** (`ON_HOLD` pauses queue aging and auto-excludes hold duration from MTTR)
-  * **Staff:** Save Draft or **`ส่งให้ Manager ยืนยันปิดเคส`** (`PENDING_CONFIRM`, requires claimed ticket + Category + Root Cause; triggers Manager confirmation email and grays out to prevent duplicate sends)
-  * **Manager:** **`ตีกลับแก้ไข (In Progress)`** (with optional internal send-back comment), **`Confirm & Mark Resolved (ยืนยันปิดเคส)`** (`PERMANENT` or `WORKAROUND` with condition note and optional internal `managerComment`, stops MTTR and records `resolvedBy`), and **`เปิดเคสใหม่ (Reopen)`** (Manager-only with confirmation)
-  * **Urgency Adjustment:** Admins can adjust incident urgency (`LOW` / `MEDIUM` / `HIGH`) directly on open tickets to correct reporter misclassifications; locked automatically once ticket is closed.
-  * **Status-Preserving Re-assign:** Re-assigning a claimed ticket updates `assignedTo` without resetting its current workflow status.
+* **Workflow-Driven Status Transitions (One-Way Reviewer RBAC):** Free-form manual status switching is replaced with explicit stage actions:
+  * **Staff:** `OPEN` ➔ **`Claim Ticket (รับเคส)`** (`IN_PROGRESS`), `IN_PROGRESS` ⇄ **`พักเคส (On Hold)`** / **`กลับมาทำต่อ (Resume)`** (`ON_HOLD` auto-excludes from MTTR), Save Draft, edit details/triage/attachments/timestamps, mark **`External User`** (skips mandatory Claim and auto-excludes from MTTR for holiday/non-IT fixes), or **`ส่งให้ Manager ยืนยันปิดเคส`** (`PENDING_CONFIRM`, requires Category + Root Cause + Claim or `External User`; triggers Manager confirmation email).
+  * **Manager (One-Way Reviewer):** Read-only across incident details, triage, resolution, attachments, and timestamps (`403` on edits). Only acts on `PENDING_CONFIRM` (**`Confirm & Mark Resolved`** or **`ตีกลับแก้ไข (Reject)`** to `IN_PROGRESS` with optional internal `managerComment`) or closed tickets (**`เปิดเคสใหม่ (Reopen)`** to `IN_PROGRESS` with confirmation).
+  * **Urgency Adjustment:** Staff can adjust incident urgency (`LOW` / `MEDIUM` / `HIGH`) on open tickets; locked automatically once closed (and read-only for `MANAGER`).
+  * **Status-Preserving Re-assign:** Staff re-assigning a claimed ticket updates `assignedTo` without resetting its current workflow status.
   * **State Machine & Transition Reference:** Full Mermaid state diagram, role guards, and side effects documented in [`DATA_DICTIONARY.md#27-incident-status-state-machine--workflow-transitions`](DATA_DICTIONARY.md#27-incident-status-state-machine--workflow-transitions).
-* **Diagnostics & Resolution Attachments:** Separate upload/paste galleries for reporter evidence (`REPORT`) and closure proof (`RESOLUTION`) via `/api/uploads/[filename]` (standalone-compatible).
-* **Inline Details & Lifecycle Editing:** Edit incident title/description (locked once `RESOLVED`/`CLOSED`) as well as `createdAt` and `closedAt` timestamps (with validation bounds) and live elapsed duration.
-* **Multi-Incident Referencing (`Related Incidents`):** Link multiple prior incidents, view reverse `Referenced by` links, and one-click copy previous resolutions into the current ticket.
+* **Diagnostics & Resolution Attachments:** Separate upload/paste galleries for reporter evidence (`REPORT`) and closure proof (`RESOLUTION`) via `/api/uploads/[...path]` (standalone-compatible; Staff-only before closure).
+* **Inline Details & Lifecycle Editing:** Staff can edit incident title/description (locked once `RESOLVED`/`CLOSED`) as well as `createdAt` and `mttrExcluded` toggle.
+* **Multi-Incident Referencing (`Related Incidents`):** Staff can link multiple prior incidents, view reverse `Referenced by` links, and one-click copy previous resolutions into the current ticket.
 * **Clean-Text Resolution Indexer & MCP Hub:** RCA documentation sanitizer and live JSON schema preview conforming to `mcp://incidenthub/incidents/[ticketNo]`.
 
 ### 4. 🔐 Role-Based Access & User Management (`/admin/users`, `/admin/invite`)
 * **Email-First Authentication:** Sign in with email (backward-compatible with legacy usernames and `ADMIN_PASSCODE` fallback) using HTTP-only HMAC-signed session cookies with live DB role/active re-validation on every request (`src/proxy.ts` & API routes).
-* **RBAC (`STAFF` vs `MANAGER`):** Managers control user CRUD, inline role updates, incident closure (`RESOLVED`/`CLOSED`), and reopening closed tickets; Staff can claim, investigate, hold, draft resolutions, and submit for Manager confirmation.
+* **RBAC (`STAFF` vs `MANAGER`):** Staff owns triage, investigation, attachments, `External User` marking, and submitting `PENDING_CONFIRM`; Managers are strict one-way reviewers (`PENDING_CONFIRM` Approve/Reject and closed-ticket `Reopen` only) plus user management (`/admin/users`, `/admin/invite`).
 * **Signed Email Invite Links:** Managers can issue single-use 48-hour HMAC invite links (`/admin/invite`) via SMTP or copyable URL so teammates set their own password.
 
 ### 5. 🔌 Integration Hub (`/admin/integrations`)
@@ -49,7 +47,7 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 * **Notification Audit Logs & Unresolved Failure Badges:** Filterable dispatch history by channel (`TEAMS`, `EMAIL`, `CUSTOM_API`) and delivery status with single-click Resend and unresolved failure acknowledgment.
 
 ### 6. 📈 Analytics & Operational Intelligence (`/admin/analytics`)
-* **Global Filtering & Synced Export:** Filter all KPIs and charts by Date Range (including "ปีนี้ (12 เดือน)" preset), `Urgency`, `Category`, `Root Cause`, and `Department` (case-insensitive normalization) with matching CSV export.
+* **Global Filtering & Synced Export:** Filter all KPIs and charts by Date Range (including "ปีนี้ (12 เดือน)" preset), `Urgency`, `Category`, `Root Cause`, `Department` (case-insensitive normalization), and `Solver` (`All` / `IT Team` / `External User`, with `externalUserCount` summary) with matching CSV export.
 * **7 Operational Views:** Created vs. Resolved paired bars, Category Share, Top Departments, Resolution & SLA Status (`OPEN`, `IN_PROGRESS`, `PENDING_CONFIRM`, `ON_HOLD`, `RESOLVED`, `CLOSED`), MTTR Breakdown by Urgency & Category, Backlog Aging (`<24h`, `1–3d`, `4–7d`, `>7d` excluding `ON_HOLD`), and Root Cause Breakdown (`Human`, `System`, `Data`, etc.).
 
 ---

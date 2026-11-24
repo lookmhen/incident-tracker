@@ -115,16 +115,14 @@ describe('13. External User Resolution Mark Workflow', () => {
     assert.equal(pendingJson.mttrExcluded, true);
     assert.equal(pendingJson.resolutionType, 'WORKAROUND');
 
-    // Manager confirms RESOLVED without claiming
+    // Manager confirms RESOLVED without claiming and without re-sending Staff fields
     const resolvedRes = await incidentPatch(
       await makeAuthReq(`http://localhost/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
         role: 'MANAGER',
         body: {
           status: 'RESOLVED',
-          resolutionType: 'WORKAROUND',
-          workaroundNote: 'Check cable during PM',
-          resolvedByExternal: true,
+          managerComment: 'Verified holiday external resolution',
         },
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
@@ -135,7 +133,7 @@ describe('13. External User Resolution Mark Workflow', () => {
     assert.equal(resolvedJson.resolvedByExternal, true);
     assert.equal(resolvedJson.mttrExcluded, true);
 
-    // Closed lock blocks mutating resolvedByExternal without reopening
+    // Closed lock blocks mutating resolvedByExternal (403 for Manager one-way, 400 at service level)
     const lockedRes = await incidentPatch(
       await makeAuthReq(`http://localhost/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
@@ -144,7 +142,11 @@ describe('13. External User Resolution Mark Workflow', () => {
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
     );
-    assert.equal(lockedRes.status, 400);
+    assert.equal(lockedRes.status, 403);
+    await assert.rejects(
+      () => IncidentService.updateIncident(inc.ticketNo, { resolvedByExternal: false }),
+      (err: any) => err instanceof IncidentServiceError && err.status === 400
+    );
   });
 
   it('restores mttrExcluded to false when resolvedByExternal is unchecked before close (non-ON_HOLD)', async () => {

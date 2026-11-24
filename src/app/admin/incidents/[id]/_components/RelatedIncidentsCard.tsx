@@ -8,6 +8,7 @@ import { statusPillClass } from './utils';
 interface RelatedIncidentsCardProps {
   incident: IncidentDetail;
   isClosed: boolean;
+  isManager: boolean;
   onIncidentUpdated: (updated: IncidentDetail) => void;
   onAppendResolution: (snippet: string, sourceTicketNo: string) => void;
   showToast: (msg: string, type?: 'success' | 'error') => void;
@@ -16,6 +17,7 @@ interface RelatedIncidentsCardProps {
 export default function RelatedIncidentsCard({
   incident,
   isClosed,
+  isManager,
   onIncidentUpdated,
   onAppendResolution,
   showToast,
@@ -102,7 +104,7 @@ export default function RelatedIncidentsCard({
   const relatedIncidents = incident.relatedIncidents || [];
   const referencedBy = incident.referencedBy || [];
   const currentRelatedNos = relatedIncidents.map((r) => r.ticketNo);
-  const canEditRelated = !isClosed;
+  const canEditRelated = !isClosed && !isManager;
   const filteredRelatedResults = relatedSearchResults.filter(
     (item) => item.ticketNo !== incident.ticketNo && !currentRelatedNos.includes(item.ticketNo)
   );
@@ -260,7 +262,7 @@ export default function RelatedIncidentsCard({
                 </button>
               </div>
 
-              {rel.resolution?.trim() && !isClosed && (
+              {rel.resolution?.trim() && canEditRelated && (
                 <div className="flex items-center justify-end">
                   <button
                     type="button"

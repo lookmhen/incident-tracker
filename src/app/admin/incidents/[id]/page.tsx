@@ -260,6 +260,16 @@ export default function IncidentDetailMcpHub({
   const submitResolutionUpdate = async (targetStatus?: 'PENDING_CONFIRM' | 'RESOLVED') => {
     if (!incident || isMutatingStatus) return;
     setResolutionFeedback(null);
+
+    if (isManager) {
+      if (targetStatus !== 'RESOLVED' || normStatus(incident.status) !== 'PENDING_CONFIRM') {
+        showToast('Manager ยืนยันปิดเคสได้เฉพาะเคสที่ Staff ส่งมารออนุมัติ (PENDING_CONFIRM)', 'error');
+        return;
+      }
+      await handleUpdateStatus('RESOLVED', { managerComment: managerComment.trim() });
+      return;
+    }
+
     if (targetStatus) {
       if (!validateReadyToClose(incident)) return;
       if (resolutionType === 'WORKAROUND' && !workaroundNote.trim()) {
@@ -276,7 +286,6 @@ export default function IncidentDetailMcpHub({
       resolvedByExternal,
     };
     if (targetStatus) payload.status = targetStatus;
-    if (targetStatus === 'RESOLVED') payload.managerComment = managerComment.trim();
 
     setSavingResolution(true);
     try {
@@ -484,6 +493,7 @@ export default function IncidentDetailMcpHub({
             <IncidentDetailsCard
               incident={incident}
               isClosed={isClosed}
+              isManager={isManager}
               onIncidentUpdated={setIncident}
               showToast={showToast}
             />
@@ -540,6 +550,7 @@ export default function IncidentDetailMcpHub({
               categories={categories}
               rootCauses={rootCauses}
               isClosed={isClosed}
+              isManager={isManager}
               onIncidentUpdated={setIncident}
               onRootCausesUpdated={setRootCauses}
               onClearFeedback={() => setResolutionFeedback(null)}
@@ -549,6 +560,7 @@ export default function IncidentDetailMcpHub({
             <ReportAttachmentsCard
               attachments={reportAttachments}
               isClosed={isClosed}
+              isManager={isManager}
               uploadingKind={uploadingKind}
               deletingAttId={deletingAttId}
               onUpload={handleUploadAttachments}
@@ -560,6 +572,7 @@ export default function IncidentDetailMcpHub({
             <RelatedIncidentsCard
               incident={incident}
               isClosed={isClosed}
+              isManager={isManager}
               onIncidentUpdated={setIncident}
               onAppendResolution={handleAppendResolution}
               showToast={showToast}

@@ -74,6 +74,7 @@ export default function ResolutionEditorCard({
   const resolutionFileRef = useRef<HTMLInputElement>(null);
 
   const statusKey = normStatus(incident.status);
+  const isReadOnlyFields = isClosed || isManager;
   const canSubmitConfirm = isClaimed || resolvedByExternal;
   const charCount = resolutionText.length;
   const wordCount = resolutionText.trim() ? resolutionText.trim().split(/\s+/).length : 0;
@@ -100,11 +101,11 @@ export default function ResolutionEditorCard({
   return (
     <div
       onPaste={(e) => {
-        if (!isClosed) onPasteImages(e, 'RESOLUTION');
+        if (!isReadOnlyFields) onPasteImages(e, 'RESOLUTION');
       }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
-        if (!isClosed && e.dataTransfer.files?.length) {
+        if (!isReadOnlyFields && e.dataTransfer.files?.length) {
           e.preventDefault();
           onUploadAttachments(e.dataTransfer.files, 'RESOLUTION');
         }
@@ -116,6 +117,12 @@ export default function ResolutionEditorCard({
         <div className="p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-semibold flex items-center gap-2">
           <span className="material-symbols-outlined text-[18px] text-indigo-600">pending_actions</span>
           <span>เคสนี้รอ Manager ตรวจสอบและยืนยันปิดงาน</span>
+        </div>
+      )}
+      {isManager && !isPendingConfirm && !isClosed && (
+        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-2">
+          <span className="material-symbols-outlined text-[18px] text-slate-500">visibility</span>
+          <span>โหมดตรวจสอบ (Read-Only) — รอ Staff ดำเนินการและส่งเรื่องมายัง Manager เพื่ออนุมัติหรือตีกลับ</span>
         </div>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -132,12 +139,12 @@ export default function ResolutionEditorCard({
         </div>
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50 border border-sky-200 text-[10px] font-mono text-sky-700 font-semibold shadow-inner">
           <span className="w-1.5 h-1.5 rounded-full bg-sky-600"></span>
-          <span>{isClosed ? 'Locked (Read-Only)' : 'Clean Text Mode: Active'}</span>
+          <span>{isReadOnlyFields ? 'Locked (Read-Only)' : 'Clean Text Mode: Active'}</span>
         </div>
       </div>
 
       {/* Action Helper Tags */}
-      {!isClosed && (
+      {!isReadOnlyFields && (
         <div className="flex items-center justify-end text-xs">
           <button
             type="button"
@@ -154,7 +161,7 @@ export default function ResolutionEditorCard({
       <div className="relative">
         <textarea
           rows={6}
-          readOnly={isClosed}
+          readOnly={isReadOnlyFields}
           value={resolutionText}
           onChange={(e) => setResolutionText(e.target.value)}
           placeholder="Enter root cause, mitigation, and preventive actions in clean text format..."
@@ -173,13 +180,13 @@ export default function ResolutionEditorCard({
             <span className="text-xs font-headline font-bold text-slate-800">
               ไฟล์ / รูปหลักฐานการแก้ไข / ปิดงาน ({resolutionAttachments.length})
             </span>
-            {!isClosed && (
+            {!isReadOnlyFields && (
               <span className="text-[11px] text-slate-500 hidden sm:inline">
                 รูปภาพ, PDF, Excel, Word, ZIP • วางรูป (Ctrl+V) หรือลากวางได้
               </span>
             )}
           </div>
-          {!isClosed && (
+          {!isReadOnlyFields && (
             <>
               <input
                 ref={resolutionFileRef}
@@ -214,7 +221,7 @@ export default function ResolutionEditorCard({
                 key={att.id}
                 att={att}
                 tone="emerald"
-                isClosed={isClosed}
+                isClosed={isReadOnlyFields}
                 isDeleting={deletingAttId === att.id}
                 onPreview={onPreviewAttachment}
                 onDelete={onDeleteAttachment}
@@ -233,7 +240,7 @@ export default function ResolutionEditorCard({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             type="button"
-            disabled={isClosed}
+            disabled={isReadOnlyFields}
             onClick={() => setResolutionType('PERMANENT')}
             className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
               resolutionType === 'PERMANENT'
@@ -246,7 +253,7 @@ export default function ResolutionEditorCard({
           </button>
           <button
             type="button"
-            disabled={isClosed}
+            disabled={isReadOnlyFields}
             onClick={() => setResolutionType('WORKAROUND')}
             className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
               resolutionType === 'WORKAROUND'
@@ -262,7 +269,7 @@ export default function ResolutionEditorCard({
           <div className="pt-1">
             <textarea
               rows={2}
-              readOnly={isClosed}
+              readOnly={isReadOnlyFields}
               value={workaroundNote}
               onChange={(e) => setWorkaroundNote(e.target.value)}
               placeholder="เงื่อนไข / งานที่ต้องติดตามต่อ..."
@@ -272,7 +279,7 @@ export default function ResolutionEditorCard({
         )}
         <label
           className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-xs transition-all ${
-            isClosed ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+            isReadOnlyFields ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
           } ${
             resolvedByExternal
               ? 'bg-teal-50 border-teal-300 text-teal-900 font-semibold'
@@ -282,7 +289,7 @@ export default function ResolutionEditorCard({
           <span className="flex items-center gap-2">
             <input
               type="checkbox"
-              disabled={isClosed}
+              disabled={isReadOnlyFields}
               checked={resolvedByExternal}
               onChange={(e) => setResolvedByExternal(e.target.checked)}
               className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer disabled:cursor-not-allowed"
@@ -300,7 +307,7 @@ export default function ResolutionEditorCard({
 
       {/* Bottom Actions */}
       <div className="space-y-3 pt-2">
-        {!isClosed && missingToClose.length > 0 && (
+        {!isReadOnlyFields && missingToClose.length > 0 && (
           <div className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium flex items-center gap-2">
             <span className="material-symbols-outlined text-[16px] text-amber-600 shrink-0">checklist</span>
             <span>ยังเลือกไม่ครบก่อนปิดเคส: {missingToClose.join(', ')}</span>
@@ -331,7 +338,7 @@ export default function ResolutionEditorCard({
             </button>
           </div>
         )}
-        {isManager && !isClosed && (
+        {isManager && isPendingConfirm && (
           <div className="space-y-1.5">
             <label
               htmlFor="managerComment"
@@ -361,11 +368,11 @@ export default function ResolutionEditorCard({
                 <button
                   type="button"
                   disabled={isMutatingStatus}
-                  onClick={() => onUpdateStatus('IN_PROGRESS')}
+                  onClick={() => onUpdateStatus('IN_PROGRESS', { managerComment: managerComment.trim() })}
                   className="px-4 py-2.5 rounded-xl bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[16px]">undo</span>
-                  <span>ตีกลับแก้ไข (In Progress)</span>
+                  <span>ตีกลับแก้ไข (Reject)</span>
                 </button>
               )}
               {isClosed && (
@@ -375,23 +382,26 @@ export default function ResolutionEditorCard({
               )}
               <button
                 type="button"
-                disabled={isClosed || isMutatingStatus}
+                disabled={!isPendingConfirm || isClosed || isMutatingStatus}
                 onClick={() => onSubmitResolution('RESOLVED')}
+                title={!isPendingConfirm && !isClosed ? 'รอ Staff ส่งเรื่องมาตรวจสอบ (PENDING_CONFIRM) ก่อน' : undefined}
                 className={
-                  isClosed
+                  !isPendingConfirm || isClosed
                     ? 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-200 text-slate-500 cursor-not-allowed shadow-none text-xs font-bold flex items-center justify-center gap-2'
                     : 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(2,132,199,0.35)] hover:shadow-[0_6px_22px_rgba(2,132,199,0.45)] transition-all cursor-pointer disabled:cursor-not-allowed'
                 }
               >
                 <span className={`material-symbols-outlined text-[18px] ${savingResolution ? 'animate-spin' : ''}`}>
-                  {savingResolution ? 'sync' : 'check_circle'}
+                  {savingResolution ? 'sync' : isPendingConfirm || isClosed ? 'check_circle' : 'hourglass_empty'}
                 </span>
                 <span>
                   {savingResolution
                     ? 'กำลังบันทึก...'
                     : isClosed
                       ? `ปิดเคสเรียบร้อยแล้ว (${statusKey})`
-                      : 'Confirm & Mark Resolved (ยืนยันปิดเคส)'}
+                      : isPendingConfirm
+                        ? 'Confirm & Mark Resolved (ยืนยันปิดเคส)'
+                        : 'รอ Staff ส่งเรื่องปิดเคส (Pending Confirm)'}
                 </span>
               </button>
             </div>

@@ -36,11 +36,11 @@ export default function IncidentHeaderCard({
   const [updatingUrgency, setUpdatingUrgency] = useState(false);
 
   const [prevTicketNo, setPrevTicketNo] = useState(incident.ticketNo);
-  const [prevIsClosed, setPrevIsClosed] = useState(isClosed);
-  if (prevTicketNo !== incident.ticketNo || prevIsClosed !== isClosed) {
+  const [prevIsClosed, setPrevIsClosed] = useState(isClosed || isManager);
+  if (prevTicketNo !== incident.ticketNo || prevIsClosed !== (isClosed || isManager)) {
     setPrevTicketNo(incident.ticketNo);
-    setPrevIsClosed(isClosed);
-    if (prevTicketNo !== incident.ticketNo || isClosed) {
+    setPrevIsClosed(isClosed || isManager);
+    if (prevTicketNo !== incident.ticketNo || isClosed || isManager) {
       setIsEditingReporter(false);
     }
   }
@@ -115,19 +115,19 @@ export default function IncidentHeaderCard({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="space-y-3 min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            {isClosed ? (
+            {isClosed || isManager ? (
               isHigh ? (
-                <span className="px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-semibold flex items-center gap-1.5 shadow-xs" title="ปิดเคสแล้ว ไม่สามารถแก้ไขได้">
+                <span className="px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 font-semibold flex items-center gap-1.5 shadow-xs" title={isClosed ? 'ปิดเคสแล้ว ไม่สามารถแก้ไขได้' : 'Manager Read-Only'}>
                   <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
                   HIGH URGENCY
                 </span>
               ) : incident.urgency === 'LOW' ? (
-                <span className="px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-semibold flex items-center gap-1.5" title="ปิดเคสแล้ว ไม่สามารถแก้ไขได้">
+                <span className="px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-semibold flex items-center gap-1.5" title={isClosed ? 'ปิดเคสแล้ว ไม่สามารถแก้ไขได้' : 'Manager Read-Only'}>
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
                   LOW URGENCY
                 </span>
               ) : (
-                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold flex items-center gap-1.5" title="ปิดเคสแล้ว ไม่สามารถแก้ไขได้">
+                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold flex items-center gap-1.5" title={isClosed ? 'ปิดเคสแล้ว ไม่สามารถแก้ไขได้' : 'Manager Read-Only'}>
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                   MEDIUM URGENCY
                 </span>
@@ -313,20 +313,22 @@ export default function IncidentHeaderCard({
                 <span className="text-slate-400 font-medium">Contact:</span>
                 <span className="text-slate-700">{incident.contactInfo}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditReporterName(incident.reporterName);
-                  setEditDepartment(incident.department || '');
-                  setEditContactInfo(incident.contactInfo);
-                  setIsEditingReporter(true);
-                }}
-                className="px-2 py-0.5 rounded-md bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                title="แก้ไขชื่อผู้แจ้ง แผนก หรือข้อมูลติดต่อ"
-              >
-                <span className="material-symbols-outlined text-[13px]">edit</span>
-                <span>แก้ไข</span>
-              </button>
+              {!isManager && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditReporterName(incident.reporterName);
+                    setEditDepartment(incident.department || '');
+                    setEditContactInfo(incident.contactInfo);
+                    setIsEditingReporter(true);
+                  }}
+                  className="px-2 py-0.5 rounded-md bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  title="แก้ไขชื่อผู้แจ้ง แผนก หรือข้อมูลติดต่อ"
+                >
+                  <span className="material-symbols-outlined text-[13px]">edit</span>
+                  <span>แก้ไข</span>
+                </button>
+              )}
               {isClosed && incident.resolvedBy && (
                 <>
                   <span className="hidden sm:inline text-slate-300">•</span>
@@ -362,54 +364,65 @@ export default function IncidentHeaderCard({
 
         {/* Action Toolbar */}
         <div className="flex flex-wrap lg:flex-nowrap items-center gap-2.5 shrink-0 self-start lg:self-center">
-          {statusKey === 'OPEN' ? (
-            <button
-              type="button"
-              onClick={onAssignToMe}
-              disabled={isMutatingStatus}
-              className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-sm shadow-sky-600/20 cursor-pointer"
-              title="กดรับเคสนี้ และเปลี่ยนสถานะเป็น IN_PROGRESS ทันที"
-            >
-              <span className="material-symbols-outlined text-[16px]">pan_tool</span>
-              <span>Claim Ticket (รับเคส)</span>
-            </button>
+          {isManager ? (
+            incident.assignedTo && (
+              <span className="px-3.5 py-2 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] text-sky-600">assignment_ind</span>
+                <span>Assigned: {incident.assignedTo}</span>
+              </span>
+            )
           ) : (
-            <button
-              type="button"
-              onClick={onAssignToMe}
-              disabled={isMutatingStatus || isClosed}
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-xs cursor-pointer"
-              title={isClosed ? 'ปิดเคสแล้ว — Manager ต้องกด Reopen ก่อนจึงจะแก้ไขได้' : 'คลิกเพื่อ Re-assign เคสนี้ให้ตนเอง'}
-            >
-              <span className="material-symbols-outlined text-[16px] text-sky-600">assignment_ind</span>
-              <span>{incident.assignedTo ? `Assigned: ${incident.assignedTo}` : 'Assign to Me'}</span>
-            </button>
-          )}
+            <>
+              {statusKey === 'OPEN' ? (
+                <button
+                  type="button"
+                  onClick={onAssignToMe}
+                  disabled={isMutatingStatus}
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-sm shadow-sky-600/20 cursor-pointer"
+                  title="กดรับเคสนี้ และเปลี่ยนสถานะเป็น IN_PROGRESS ทันที"
+                >
+                  <span className="material-symbols-outlined text-[16px]">pan_tool</span>
+                  <span>Claim Ticket (รับเคส)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onAssignToMe}
+                  disabled={isMutatingStatus || isClosed}
+                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-xs cursor-pointer"
+                  title={isClosed ? 'ปิดเคสแล้ว — Manager ต้องกด Reopen ก่อนจึงจะแก้ไขได้' : 'คลิกเพื่อ Re-assign เคสนี้ให้ตนเอง'}
+                >
+                  <span className="material-symbols-outlined text-[16px] text-sky-600">assignment_ind</span>
+                  <span>{incident.assignedTo ? `Assigned: ${incident.assignedTo}` : 'Assign to Me'}</span>
+                </button>
+              )}
 
-          {statusKey === 'IN_PROGRESS' && (
-            <button
-              type="button"
-              disabled={isMutatingStatus}
-              onClick={() => onUpdateStatus('ON_HOLD')}
-              className="px-3.5 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 disabled:opacity-60 disabled:cursor-not-allowed text-violet-700 border border-violet-200 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
-              title="พักเคสรอ Solution และหยุดนับ MTTR"
-            >
-              <span className="material-symbols-outlined text-[16px]">pause_circle</span>
-              <span>พักเคส (On Hold)</span>
-            </button>
-          )}
+              {statusKey === 'IN_PROGRESS' && (
+                <button
+                  type="button"
+                  disabled={isMutatingStatus}
+                  onClick={() => onUpdateStatus('ON_HOLD')}
+                  className="px-3.5 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 disabled:opacity-60 disabled:cursor-not-allowed text-violet-700 border border-violet-200 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  title="พักเคสรอ Solution และหยุดนับ MTTR"
+                >
+                  <span className="material-symbols-outlined text-[16px]">pause_circle</span>
+                  <span>พักเคส (On Hold)</span>
+                </button>
+              )}
 
-          {statusKey === 'ON_HOLD' && (
-            <button
-              type="button"
-              disabled={isMutatingStatus}
-              onClick={() => onUpdateStatus('IN_PROGRESS')}
-              className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shadow-sky-600/20 cursor-pointer"
-              title="กลับมาดำเนินการต่อ (IN_PROGRESS)"
-            >
-              <span className="material-symbols-outlined text-[16px]">play_arrow</span>
-              <span>กลับมาทำต่อ (Resume)</span>
-            </button>
+              {statusKey === 'ON_HOLD' && (
+                <button
+                  type="button"
+                  disabled={isMutatingStatus}
+                  onClick={() => onUpdateStatus('IN_PROGRESS')}
+                  className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shadow-sky-600/20 cursor-pointer"
+                  title="กลับมาดำเนินการต่อ (IN_PROGRESS)"
+                >
+                  <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                  <span>กลับมาทำต่อ (Resume)</span>
+                </button>
+              )}
+            </>
           )}
 
           {isClosed && isManager && (

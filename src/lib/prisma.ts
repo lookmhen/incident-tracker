@@ -30,6 +30,7 @@ function ensureSchemaColumns(): Promise<void> {
             ['resolutionType', 'TEXT'],
             ['workaroundNote', 'TEXT'],
             ['resolvedBy', 'TEXT'],
+            ['resolvedByExternal', 'BOOLEAN NOT NULL DEFAULT false'],
             ['managerComment', 'TEXT'],
             ['relatedTickets', 'TEXT'],
           ];

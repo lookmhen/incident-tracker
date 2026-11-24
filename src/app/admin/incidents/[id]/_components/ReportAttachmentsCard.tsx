@@ -8,6 +8,7 @@ import type { IncidentAttachment } from './types';
 interface ReportAttachmentsCardProps {
   attachments: IncidentAttachment[];
   isClosed: boolean;
+  isManager: boolean;
   uploadingKind: 'REPORT' | 'RESOLUTION' | null;
   deletingAttId: string | null;
   onUpload: (files: FileList | File[], kind: 'REPORT' | 'RESOLUTION') => void;
@@ -19,6 +20,7 @@ interface ReportAttachmentsCardProps {
 export default function ReportAttachmentsCard({
   attachments,
   isClosed,
+  isManager,
   uploadingKind,
   deletingAttId,
   onUpload,
@@ -27,16 +29,17 @@ export default function ReportAttachmentsCard({
   onDelete,
 }: ReportAttachmentsCardProps) {
   const reportFileRef = useRef<HTMLInputElement>(null);
+  const isReadOnly = isClosed || isManager;
 
   return (
     <div
       tabIndex={0}
       onPaste={(e) => {
-        if (!isClosed) onPaste(e, 'REPORT');
+        if (!isReadOnly) onPaste(e, 'REPORT');
       }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
-        if (!isClosed && e.dataTransfer.files?.length) {
+        if (!isReadOnly && e.dataTransfer.files?.length) {
           e.preventDefault();
           onUpload(e.dataTransfer.files, 'REPORT');
         }
@@ -54,11 +57,11 @@ export default function ReportAttachmentsCard({
             </h3>
             <p className="text-[11px] text-slate-500">
               {attachments.length} attachment file(s)
-              {!isClosed ? ' • รูปภาพ, PDF, Excel, Word, ZIP หรือ Ctrl+V' : ''}
+              {!isReadOnly ? ' • รูปภาพ, PDF, Excel, Word, ZIP หรือ Ctrl+V' : ''}
             </p>
           </div>
         </div>
-        {!isClosed && (
+        {!isReadOnly && (
           <>
             <input
               ref={reportFileRef}
@@ -92,7 +95,7 @@ export default function ReportAttachmentsCard({
             key={att.id}
             att={att}
             tone="sky"
-            isClosed={isClosed}
+            isClosed={isReadOnly}
             isDeleting={deletingAttId === att.id}
             onPreview={onPreview}
             onDelete={onDelete}
@@ -100,7 +103,7 @@ export default function ReportAttachmentsCard({
         ))
       ) : (
         <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-xs text-slate-500 text-center">
-          {isClosed ? 'ไม่มีไฟล์แนบจากผู้แจ้ง' : 'ไม่มีไฟล์แนบจากผู้แจ้ง — กด "+ แนบไฟล์" หรือวางรูปเพิ่มภายหลังได้'}
+          {isReadOnly ? 'ไม่มีไฟล์แนบจากผู้แจ้ง' : 'ไม่มีไฟล์แนบจากผู้แจ้ง — กด "+ แนบไฟล์" หรือวางรูปเพิ่มภายหลังได้'}
         </div>
       )}
     </div>

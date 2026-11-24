@@ -8,6 +8,7 @@ interface TriageSelectorsCardProps {
   categories: CategoryItem[];
   rootCauses: string[];
   isClosed: boolean;
+  isManager: boolean;
   onIncidentUpdated: (updated: IncidentDetail) => void;
   onRootCausesUpdated: (next: string[]) => void;
   onClearFeedback: () => void;
@@ -19,11 +20,13 @@ export default function TriageSelectorsCard({
   categories,
   rootCauses,
   isClosed,
+  isManager,
   onIncidentUpdated,
   onRootCausesUpdated,
   onClearFeedback,
   showToast,
 }: TriageSelectorsCardProps) {
+  const isReadOnly = isClosed || isManager;
   const [newRootCause, setNewRootCause] = useState('');
   const [addingRootCause, setAddingRootCause] = useState(false);
 
@@ -133,7 +136,7 @@ export default function TriageSelectorsCard({
               <button
                 key={cat.id}
                 type="button"
-                disabled={isClosed}
+                disabled={isReadOnly}
                 onClick={() => handleSelectCategory(cat.name)}
                 className={`py-2 px-2.5 rounded-xl flex items-center gap-2 transition-all text-xs font-semibold cursor-pointer disabled:cursor-not-allowed ${
                   isSelected
@@ -193,7 +196,7 @@ export default function TriageSelectorsCard({
               <button
                 key={rc}
                 type="button"
-                disabled={isClosed}
+                disabled={isReadOnly}
                 onClick={() => handleSelectRootCause(rc)}
                 className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:cursor-not-allowed border ${
                   isSelected
@@ -207,7 +210,7 @@ export default function TriageSelectorsCard({
           })}
         </div>
 
-        {!isClosed && (
+        {!isReadOnly && (
           <div className="flex items-center gap-2 pt-1">
             <input
               type="text"

@@ -70,6 +70,7 @@ export default function AdminDashboardPage() {
   const [deptFilter, setDeptFilter] = useState('ALL');
   const [externalFilter, setExternalFilter] = useState('ALL');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
@@ -83,6 +84,7 @@ export default function AdminDashboardPage() {
   // Teams ping feedback
   const [teamsPingStatus, setTeamsPingStatus] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('Admin');
+  const [currentUserRole, setCurrentUserRole] = useState<'STAFF' | 'MANAGER' | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -108,7 +110,7 @@ export default function AdminDashboardPage() {
       if (deptFilter !== 'ALL') params.set('department', deptFilter);
       if (externalFilter !== 'ALL') params.set('resolvedByExternal', externalFilter);
       params.set('page', String(page));
-      params.set('limit', '10');
+      params.set('limit', String(limit));
 
       const res = await fetch(`/api/incidents?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
@@ -153,13 +155,16 @@ export default function AdminDashboardPage() {
         if (d.authenticated && d.user?.name) {
           setCurrentUserName(d.user.name);
         }
+        if (d.authenticated && d.user?.role) {
+          setCurrentUserRole(d.user.role);
+        }
       })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     fetchIncidents();
-  }, [search, statusFilter, urgencyFilter, categoryFilter, deptFilter, externalFilter, page]);
+  }, [search, statusFilter, urgencyFilter, categoryFilter, deptFilter, externalFilter, page, limit]);
 
   // Create Category
   const handleCreateCategory = async (e: React.FormEvent) => {
@@ -721,7 +726,7 @@ export default function AdminDashboardPage() {
                               <span className="material-symbols-outlined text-[13px]">visibility</span> Detail
                             </Link>
 
-                            {inc.status === 'OPEN' && (
+                            {inc.status === 'OPEN' && currentUserRole !== 'MANAGER' && (
                               <button
                                 onClick={() => handleClaimTicket(inc.ticketNo)}
                                 className="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-700 text-white transition-colors text-[11px] font-semibold shadow-xs flex items-center gap-1"
@@ -751,11 +756,30 @@ export default function AdminDashboardPage() {
 
           {/* Pagination */}
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 font-label">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span>
                 Showing <strong className="text-slate-900 font-semibold">{incidents.length}</strong> of{' '}
                 <strong className="text-slate-900 font-semibold">{totalRecords}</strong> records
               </span>
+              <label className="flex items-center gap-1.5 text-slate-500">
+                <span>Show</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  aria-label="Records per page"
+                  className="bg-white border border-slate-200 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none focus:border-sky-500"
+                >
+                  {[10, 25, 50, 100].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+                <span>/ page</span>
+              </label>
             </div>
 
             {/* Navigation Controls */}

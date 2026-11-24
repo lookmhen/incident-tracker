@@ -206,47 +206,50 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.equal(inDb.reporterName, 'Zabbix NOC Alerting');
   });
 
-  it('allows Admin to edit closedAt on resolved/closed incidents and validates bounds', async () => {
+  it('validates createdAt/closedAt bounds via IncidentService/Staff PATCH and blocks Manager timestamp edits', async () => {
     const ticketNo = testTicketNos[0];
     const existing = await IncidentService.getIncidentById(ticketNo);
     assert.ok(existing);
 
-    const adminToken = await createAdminSessionToken();
+    const mgrToken = await createAdminSessionToken();
+    const staffToken = await createAdminSessionToken({
+      username: 'qa_staff',
+      name: 'QA Staff',
+      role: 'STAFF',
+    });
     const customClosedAt = new Date(existing.createdAt.getTime() + 90 * 60 * 1000).toISOString();
 
-    const validReq = new NextRequest(`http://localhost:3000/api/incidents/${ticketNo}`, {
-      method: 'PATCH',
-      headers: {
-        'content-type': 'application/json',
-        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
-      },
-      body: JSON.stringify({ closedAt: customClosedAt }),
-    });
-    const validRes = await incidentPatchHandler(validReq, { params: Promise.resolve({ id: ticketNo }) });
-    assert.equal(validRes.status, 200);
-    const updated = await validRes.json();
-    assert.equal(new Date(updated.closedAt).toISOString(), customClosedAt);
+    // Manager cannot edit closedAt directly via PATCH (one-way RBAC)
+    const mgrClosedRes = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${ticketNo}`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          cookie: `${ADMIN_COOKIE_NAME}=${mgrToken}`,
+        },
+        body: JSON.stringify({ closedAt: customClosedAt }),
+      }),
+      { params: Promise.resolve({ id: ticketNo }) }
+    );
+    assert.equal(mgrClosedRes.status, 403);
 
-    // Reject closedAt earlier than createdAt
-    const earlierIso = new Date(existing.createdAt.getTime() - 60 * 1000).toISOString();
-    const invalidReq = new NextRequest(`http://localhost:3000/api/incidents/${ticketNo}`, {
-      method: 'PATCH',
-      headers: {
-        'content-type': 'application/json',
-        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
-      },
-      body: JSON.stringify({ closedAt: earlierIso }),
-    });
-    const invalidRes = await incidentPatchHandler(invalidReq, { params: Promise.resolve({ id: ticketNo }) });
-    assert.equal(invalidRes.status, 400);
+    // Service-level closedAt update & bounds validation still work
+    const updated = await IncidentService.updateIncident(ticketNo, { closedAt: customClosedAt });
+    assert.equal(updated.closedAt?.toISOString(), customClosedAt);
 
-    // Allow Admin to edit createdAt (start date) earlier than closedAt, reject later than closedAt
+    await assert.rejects(
+      () => IncidentService.updateIncident(ticketNo, { closedAt: new Date(existing.createdAt.getTime() - 60 * 1000).toISOString() }),
+      (err: unknown) => err instanceof IncidentServiceError && err.status === 400
+    );
+
+    // Reopen as Manager, then Staff edits createdAt (start date) earlier than closedAt & validates bounds
+    await IncidentService.updateIncident(ticketNo, { status: 'IN_PROGRESS' });
     const customCreatedAt = new Date(existing.createdAt.getTime() - 30 * 60 * 1000).toISOString();
     const validCreatedReq = new NextRequest(`http://localhost:3000/api/incidents/${ticketNo}`, {
       method: 'PATCH',
       headers: {
         'content-type': 'application/json',
-        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
+        cookie: `${ADMIN_COOKIE_NAME}=${staffToken}`,
       },
       body: JSON.stringify({ createdAt: customCreatedAt }),
     });
@@ -255,17 +258,12 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const updatedCreated = await validCreatedRes.json();
     assert.equal(new Date(updatedCreated.createdAt).toISOString(), customCreatedAt);
 
+    await IncidentService.updateIncident(ticketNo, { status: 'RESOLVED', closedAt: customClosedAt });
     const afterClosedIso = new Date(new Date(customClosedAt).getTime() + 60 * 1000).toISOString();
-    const invalidCreatedReq = new NextRequest(`http://localhost:3000/api/incidents/${ticketNo}`, {
-      method: 'PATCH',
-      headers: {
-        'content-type': 'application/json',
-        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
-      },
-      body: JSON.stringify({ createdAt: afterClosedIso }),
-    });
-    const invalidCreatedRes = await incidentPatchHandler(invalidCreatedReq, { params: Promise.resolve({ id: ticketNo }) });
-    assert.equal(invalidCreatedRes.status, 400);
+    await assert.rejects(
+      () => IncidentService.updateIncident(ticketNo, { createdAt: afterClosedIso }),
+      (err: unknown) => err instanceof IncidentServiceError && err.status === 400
+    );
 
     // Preserves custom closedAt when transitioning RESOLVED -> CLOSED, clears on OPEN
     const closedStatus = await IncidentService.updateIncident(ticketNo, { status: 'CLOSED' });
@@ -472,13 +470,18 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const afterStats = await IncidentService.getAnalyticsData({ department: dept });
     assert.equal(afterStats.summary.avgResolutionMins, 30);
 
-    // Admin can toggle mttrExcluded off via PATCH API
-    const adminToken = await createAdminSessionToken();
+    // Staff can toggle mttrExcluded off via PATCH API while active (or via reopen)
+    const staffToken = await createAdminSessionToken({
+      username: 'qa_staff',
+      name: 'QA Staff',
+      role: 'STAFF',
+    });
+    await IncidentService.updateIncident(held.ticketNo, { status: 'IN_PROGRESS' });
     const toggleReq = new NextRequest(`http://localhost:3000/api/incidents/${held.ticketNo}`, {
       method: 'PATCH',
       headers: {
         'content-type': 'application/json',
-        cookie: `${ADMIN_COOKIE_NAME}=${adminToken}`,
+        cookie: `${ADMIN_COOKIE_NAME}=${staffToken}`,
       },
       body: JSON.stringify({ mttrExcluded: false }),
     });
@@ -486,6 +489,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.equal(toggleRes.status, 200);
     const toggled = await toggleRes.json();
     assert.equal(toggled.mttrExcluded, false);
+    await IncidentService.updateIncident(held.ticketNo, { status: 'RESOLVED', closedAt: resolvedAfterHold.closedAt });
 
     const includedStats = await IncidentService.getAnalyticsData({ department: dept });
     assert.ok(includedStats.summary.avgResolutionMins > 30);
@@ -493,13 +497,18 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
 
   it('requires both category and rootCause before closing, supports custom root causes, and aggregates byRootCause', async () => {
     const adminToken = await createAdminSessionToken();
+    const staffToken = await createAdminSessionToken({
+      username: 'qa_staff',
+      name: 'QA Staff',
+      role: 'STAFF',
+    });
     const customName = `Vendor-${Date.now()}`;
 
     // 1. Custom root cause options CRUD
     const addRes = await rootCausesPost(
       new NextRequest('http://localhost:3000/api/root-causes', {
         method: 'POST',
-        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
+        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${staffToken}` },
         body: JSON.stringify({ name: customName }),
       })
     );
@@ -509,7 +518,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.ok(options.includes('Human') && options.includes('System') && options.includes('Data'));
     assert.ok(options.includes(customName));
 
-    // 2. Reject closing without category and rootCause
+    // 2. Reject submitting/closing without category and rootCause
     const inc = await IncidentService.createIncident({
       reporterName: 'RCA Tester',
       contactInfo: 'rca@test.local',
@@ -522,30 +531,40 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const failCloseBoth = await incidentPatchHandler(
       new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
-        body: JSON.stringify({ status: 'RESOLVED' }),
+        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${staffToken}` },
+        body: JSON.stringify({ status: 'PENDING_CONFIRM', assignedTo: 'QA Staff' }),
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
     );
     assert.equal(failCloseBoth.status, 400);
 
-    // Reject closing with category set but rootCause missing
+    // Reject submitting with category set but rootCause missing
     const failNoRootCause = await incidentPatchHandler(
       new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
-        body: JSON.stringify({ status: 'CLOSED', category: 'SAP Basis' }),
+        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${staffToken}` },
+        body: JSON.stringify({ status: 'PENDING_CONFIRM', assignedTo: 'QA Staff', category: 'SAP Basis' }),
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
     );
     assert.equal(failNoRootCause.status, 400);
 
-    // 3. Succeeds when both category and rootCause are provided
+    // 3. Succeeds when Staff submits PENDING_CONFIRM with both category and rootCause, then Manager approves RESOLVED
+    const okPending = await incidentPatchHandler(
+      new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${staffToken}` },
+        body: JSON.stringify({ status: 'PENDING_CONFIRM', assignedTo: 'QA Staff', category: 'SAP Basis', rootCause: customName }),
+      }),
+      { params: Promise.resolve({ id: inc.ticketNo }) }
+    );
+    assert.equal(okPending.status, 200);
+
     const okClose = await incidentPatchHandler(
       new NextRequest(`http://localhost:3000/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json', cookie: `${ADMIN_COOKIE_NAME}=${adminToken}` },
-        body: JSON.stringify({ status: 'RESOLVED', category: 'SAP Basis', rootCause: customName }),
+        body: JSON.stringify({ status: 'RESOLVED' }),
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
     );
@@ -568,8 +587,12 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.equal(delRes.status, 200);
   });
 
-  it('allows admin to upload and delete REPORT vs RESOLUTION attachments separately', async () => {
-    const adminToken = await createAdminSessionToken();
+  it('allows Staff to upload and delete REPORT vs RESOLUTION attachments separately and blocks Manager', async () => {
+    const adminToken = await createAdminSessionToken({
+      username: 'qa_staff',
+      name: 'QA Staff',
+      role: 'STAFF',
+    });
     const cookieHeader = `${ADMIN_COOKIE_NAME}=${adminToken}`;
 
     const inc = await IncidentService.createIncident({
@@ -725,7 +748,11 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
   });
 
   it('links multiple related incidents, resolves referencedBy, validates errors, and exports Related Tickets', async () => {
-    const adminToken = await createAdminSessionToken();
+    const adminToken = await createAdminSessionToken({
+      username: 'qa_staff',
+      name: 'QA Staff',
+      role: 'STAFF',
+    });
     const cookieHeader = `${ADMIN_COOKIE_NAME}=${adminToken}`;
 
     const oldA = await IncidentService.createIncident({
@@ -906,7 +933,11 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
   });
 
   it('allows PDF/Excel attachments and blocks dangerous extensions like .exe/.html/.svg', async () => {
-    const adminToken = await createAdminSessionToken();
+    const adminToken = await createAdminSessionToken({
+      username: 'qa_staff',
+      name: 'QA Staff',
+      role: 'STAFF',
+    });
     const cookieHeader = `${ADMIN_COOKIE_NAME}=${adminToken}`;
     const inc = await IncidentService.createIncident({
       reporterName: 'File Tester',

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { IncidentAttachmentService } from '@/lib/services/incident-attachment.service';
 import { IncidentServiceError } from '@/lib/services/incident-errors';
 import { checkApiAccess } from '@/lib/api-guard';
+import { getActiveSession } from '@/lib/session';
 import {
   ALLOWED_ATTACHMENT_LABEL,
   fallbackAttachmentFileName,
@@ -17,6 +18,14 @@ export const revalidate = 0;
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const denied = await checkApiAccess(req, { requireAuth: true });
   if (denied) return denied;
+
+  const session = await getActiveSession(req);
+  if (session && session.role === 'MANAGER') {
+    return NextResponse.json(
+      { error: 'Managers cannot modify incident attachments' },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await params;
@@ -73,6 +82,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const denied = await checkApiAccess(req, { requireAuth: true });
   if (denied) return denied;
+
+  const session = await getActiveSession(req);
+  if (session && session.role === 'MANAGER') {
+    return NextResponse.json(
+      { error: 'Managers cannot modify incident attachments' },
+      { status: 403 }
+    );
+  }
 
   try {
     const { id } = await params;

@@ -446,99 +446,99 @@ export default function AnalyticsDashboardPage() {
           </div>
         </div>
 
-        {/* Chart 1: Full-width Trend Over Time */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">
-                1. แนวโน้มเข้าใหม่ vs ปิดแล้ว ({data?.groupBy === 'year' ? 'รายปี' : data?.groupBy === 'month' ? 'รายเดือน' : 'รายวัน'})
-              </h2>
-              <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-sky-500 inline-block"></span>
-                  เข้าใหม่ (Created)
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 inline-block"></span>
-                  ปิดแล้ว (Resolved)
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs self-start sm:self-auto">
-              {(
-                [
-                  { key: 'year', label: 'รายปี' },
-                  { key: 'month', label: 'รายเดือน' },
-                  { key: 'day', label: 'รายวัน' },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => {
-                    setGroupBy(opt.key);
-                    fetchAnalytics({ groupBy: opt.key });
-                  }}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                    data?.groupBy === opt.key
-                      ? 'bg-white text-sky-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {!data || data.trend.length === 0 ? (
-            <div className="h-52 flex items-center justify-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
-          ) : (
-            <div className="h-56 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-slate-100 overflow-x-auto">
-              {data.trend.map((item) => {
-                const totalPct = item.total > 0 ? Math.max(Math.round((item.total / maxTrend) * 100), 10) : 0;
-                const resolvedPct = item.resolved > 0 ? Math.max(Math.round((item.resolved / maxTrend) * 100), 10) : 0;
-                return (
-                  <div key={item.date} className="flex-1 min-w-[32px] flex flex-col items-center gap-1.5">
-                    <span
-                      className={`text-[10px] font-mono font-bold whitespace-nowrap ${
-                        item.total > 0 ? 'text-slate-700' : 'text-slate-300'
-                      }`}
-                    >
-                      {item.total}/{item.resolved}
+        {/* 2-Column Stacked Grid (3 cards left, 3 cards right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Left Column: Chart 1 (Trend), Chart 2 (Category), Chart 3 (Top Departments) */}
+          <div className="space-y-6">
+            {/* Chart 1: Trend Over Time */}
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    1. แนวโน้มเข้าใหม่ vs ปิดแล้ว ({data?.groupBy === 'year' ? 'รายปี' : data?.groupBy === 'month' ? 'รายเดือน' : 'รายวัน'})
+                  </h2>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-xs bg-sky-500 inline-block"></span>
+                      เข้าใหม่ (Created)
                     </span>
-                    <div className="w-full max-w-[52px] bg-slate-100/80 rounded-t-lg h-36 flex items-end justify-center gap-0.5 px-0.5 overflow-hidden">
-                      {item.total > 0 || item.resolved > 0 ? (
-                        <>
-                          <div
-                            className="flex-1 bg-sky-600 rounded-t-sm transition-colors"
-                            style={{ height: `${totalPct}%` }}
-                            title={`${item.date}: เข้าใหม่ ${item.total} (${item.high} High)`}
-                          />
-                          <div
-                            className="flex-1 bg-emerald-600 rounded-t-sm transition-colors"
-                            style={{ height: `${resolvedPct}%` }}
-                            title={`${item.date}: ปิดแล้ว ${item.resolved}`}
-                          />
-                        </>
-                      ) : (
-                        <div className="w-full h-1 bg-slate-200" title={`${item.date}: 0 cases`} />
-                      )}
-                    </div>
-                    <span className="text-[10px] font-mono text-slate-500 truncate max-w-[56px] text-center" title={item.label || item.date}>
-                      {item.label || item.date.slice(5)}
+                    <span className="inline-flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 inline-block"></span>
+                      ปิดแล้ว (Resolved)
                     </span>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                </div>
+                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs self-start sm:self-auto">
+                  {(
+                    [
+                      { key: 'year', label: 'รายปี' },
+                      { key: 'month', label: 'รายเดือน' },
+                      { key: 'day', label: 'รายวัน' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => {
+                        setGroupBy(opt.key);
+                        fetchAnalytics({ groupBy: opt.key });
+                      }}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                        data?.groupBy === opt.key
+                          ? 'bg-white text-sky-700 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-        {/* 2-Column Stacked Masonry Grid (prevents empty gap under compact cards like Chart 4) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          {/* Left Column: Chart 2, Chart 3 (collapsible), Chart 6 */}
-          <div className="space-y-6">
+              {!data || data.trend.length === 0 ? (
+                <div className="h-52 flex items-center justify-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
+              ) : (
+                <div className="h-56 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-slate-100 overflow-x-auto">
+                  {data.trend.map((item) => {
+                    const totalPct = item.total > 0 ? Math.max(Math.round((item.total / maxTrend) * 100), 10) : 0;
+                    const resolvedPct = item.resolved > 0 ? Math.max(Math.round((item.resolved / maxTrend) * 100), 10) : 0;
+                    return (
+                      <div key={item.date} className="flex-1 min-w-[32px] flex flex-col items-center gap-1.5">
+                        <span
+                          className={`text-[10px] font-mono font-semibold tabular-nums whitespace-nowrap ${
+                            item.total > 0 ? 'text-slate-700' : 'text-slate-300'
+                          }`}
+                        >
+                          {item.total}/{item.resolved}
+                        </span>
+                        <div className="w-full max-w-[52px] bg-slate-100/80 rounded-t-lg h-36 flex items-end justify-center gap-0.5 px-0.5 overflow-hidden">
+                          {item.total > 0 || item.resolved > 0 ? (
+                            <>
+                              <div
+                                className="flex-1 bg-sky-600 rounded-t-sm transition-colors"
+                                style={{ height: `${totalPct}%` }}
+                                title={`${item.date}: เข้าใหม่ ${item.total} (${item.high} High)`}
+                              />
+                              <div
+                                className="flex-1 bg-emerald-600 rounded-t-sm transition-colors"
+                                style={{ height: `${resolvedPct}%` }}
+                                title={`${item.date}: ปิดแล้ว ${item.resolved}`}
+                              />
+                            </>
+                          ) : (
+                            <div className="w-full h-1 bg-slate-200" title={`${item.date}: 0 cases`} />
+                          )}
+                        </div>
+                        <span className="text-[10px] font-mono tabular-nums text-slate-500 truncate max-w-[56px] text-center" title={item.label || item.date}>
+                          {item.label || item.date.slice(5)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Chart 2: Category Distribution */}
             <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
@@ -643,64 +643,9 @@ export default function AnalyticsDashboardPage() {
                 </div>
               )}
             </div>
-
-            {/* Chart 6: Backlog Aging */}
-            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">
-                    6. อายุเคสที่ยังค้างอยู่ (Backlog Aging)
-                  </h2>
-                  <p className="text-[11px] text-slate-500">ติดตามระยะเวลาค้างของเคส OPEN และ IN_PROGRESS เพื่อกันเคสตกหล่น</p>
-                </div>
-                <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-mono font-bold">
-                  ค้าง {totalBacklogAging} เคส
-                </span>
-              </div>
-
-              {(data?.summary.onHoldCount || 0) > 0 && (
-                <div className="px-3 py-2 rounded-xl bg-violet-50 border border-violet-200 text-[11px] text-violet-800 flex items-center justify-between">
-                  <span>พักรอ Solution (On Hold — แยกออกจากคิวค้าง &amp; MTTR):</span>
-                  <strong className="font-mono">{data?.summary.onHoldCount} เคส</strong>
-                </div>
-              )}
-
-              {totalBacklogAging === 0 ? (
-                <div className="py-12 text-center text-xs text-emerald-600 font-medium bg-emerald-50/50 rounded-xl border border-emerald-100">
-                  ไม่มีเคสเปิดค้างในช่วงตัวกรองที่เลือก
-                </div>
-              ) : (
-                <div className="space-y-3 pt-2">
-                  {(data?.backlogAging || []).map((b) => {
-                    const pct = totalBacklogAging > 0 ? Math.round((b.count / totalBacklogAging) * 100) : 0;
-                    const isOverdue = b.key === 'over_7d' && b.count > 0;
-                    return (
-                      <div key={b.key} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className={`font-semibold ${isOverdue ? 'text-rose-700' : 'text-slate-700'}`}>
-                            {b.label}
-                          </span>
-                          <span className={`font-mono font-bold ${isOverdue ? 'text-rose-600' : 'text-slate-700'}`}>
-                            {b.count} เคส ({pct}%)
-                          </span>
-                        </div>
-                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              isOverdue ? 'bg-rose-500' : b.key === '4_7d' ? 'bg-amber-500' : 'bg-sky-500'
-                            }`}
-                            style={{ width: `${b.count > 0 ? Math.max(pct, 6) : 0}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* Right Column: Chart 4, Chart 5 (moves directly up under Chart 4) */}
+          {/* Right Column: Chart 4, Chart 5, Chart 6 */}
           <div className="space-y-6">
             {/* Chart 4: Resolution Efficiency & Status Breakdown */}
             <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-5">
@@ -801,6 +746,61 @@ export default function AnalyticsDashboardPage() {
                   })
                 )}
               </div>
+            </div>
+
+            {/* Chart 6: Backlog Aging */}
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">
+                    6. อายุเคสที่ยังค้างอยู่ (Backlog Aging)
+                  </h2>
+                  <p className="text-[11px] text-slate-500">ติดตามระยะเวลาค้างของเคส OPEN และ IN_PROGRESS เพื่อกันเคสตกหล่น</p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-mono font-semibold tabular-nums">
+                  ค้าง {totalBacklogAging} เคส
+                </span>
+              </div>
+
+              {(data?.summary.onHoldCount || 0) > 0 && (
+                <div className="px-3 py-2 rounded-xl bg-violet-50 border border-violet-200 text-[11px] text-violet-800 flex items-center justify-between">
+                  <span>พักรอ Solution (On Hold — แยกออกจากคิวค้าง &amp; MTTR):</span>
+                  <strong className="font-mono font-semibold tabular-nums">{data?.summary.onHoldCount} เคส</strong>
+                </div>
+              )}
+
+              {totalBacklogAging === 0 ? (
+                <div className="py-12 text-center text-xs text-emerald-600 font-medium bg-emerald-50/50 rounded-xl border border-emerald-100">
+                  ไม่มีเคสเปิดค้างในช่วงตัวกรองที่เลือก
+                </div>
+              ) : (
+                <div className="space-y-3 pt-2">
+                  {(data?.backlogAging || []).map((b) => {
+                    const pct = totalBacklogAging > 0 ? Math.round((b.count / totalBacklogAging) * 100) : 0;
+                    const isOverdue = b.key === 'over_7d' && b.count > 0;
+                    return (
+                      <div key={b.key} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className={`font-semibold ${isOverdue ? 'text-rose-700' : 'text-slate-700'}`}>
+                            {b.label}
+                          </span>
+                          <span className={`font-mono font-semibold tabular-nums ${isOverdue ? 'text-rose-600' : 'text-slate-700'}`}>
+                            {b.count} เคส ({pct}%)
+                          </span>
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-colors ${
+                              isOverdue ? 'bg-rose-500' : b.key === '4_7d' ? 'bg-amber-500' : 'bg-sky-500'
+                            }`}
+                            style={{ width: `${b.count > 0 ? Math.max(pct, 6) : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

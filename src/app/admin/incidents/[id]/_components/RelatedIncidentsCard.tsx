@@ -110,14 +110,14 @@ export default function RelatedIncidentsCard({
   );
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-3.5">
+    <div className="bg-white rounded-2xl p-6 shadow-2xs border border-slate-200 space-y-3.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600 shrink-0">
             <span className="material-symbols-outlined text-[18px]">link</span>
           </span>
           <div className="min-w-0">
-            <h3 className="text-xs font-headline font-bold text-slate-900">
+            <h3 className="text-xs font-headline font-semibold text-slate-900">
               Related Incidents (อ้างอิงเคสเก่า)
             </h3>
             <p className="text-[11px] text-slate-500">เชื่อมโยงเคสที่เคยเกิดขึ้นเพื่ออ้างอิงวิธีแก้ไข</p>

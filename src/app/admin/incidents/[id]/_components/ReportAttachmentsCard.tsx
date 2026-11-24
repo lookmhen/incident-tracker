@@ -44,7 +44,7 @@ export default function ReportAttachmentsCard({
           onUpload(e.dataTransfer.files, 'REPORT');
         }
       }}
-      className="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-3.5 focus:outline-none focus:ring-2 focus:ring-sky-300"
+      className="bg-white rounded-2xl p-6 shadow-2xs border border-slate-200 space-y-3.5 focus:outline-none focus:ring-2 focus:ring-sky-300"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -52,7 +52,7 @@ export default function ReportAttachmentsCard({
             <span className="material-symbols-outlined text-[18px]">attachment</span>
           </span>
           <div>
-            <h3 className="text-xs font-headline font-bold text-slate-900">
+            <h3 className="text-xs font-headline font-semibold text-slate-900">
               Diagnostics &amp; Evidence (ฝั่งผู้แจ้ง)
             </h3>
             <p className="text-[11px] text-slate-500">
@@ -78,7 +78,7 @@ export default function ReportAttachmentsCard({
               type="button"
               disabled={uploadingKind === 'REPORT'}
               onClick={() => reportFileRef.current?.click()}
-              className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+              className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
             >
               <span className="material-symbols-outlined text-[15px]">
                 {uploadingKind === 'REPORT' ? 'sync' : 'attach_file'}

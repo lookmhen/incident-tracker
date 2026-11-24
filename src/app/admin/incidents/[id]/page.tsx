@@ -184,7 +184,7 @@ export default function IncidentDetailMcpHub({
     if (missing.length > 0) {
       const msg = `กรุณา ${missing.join(' และ ')} ก่อนส่งหรือปิดเคส`;
       setResolutionFeedback({ type: 'error', text: msg });
-      showToast(`⚠️ ${msg}`, 'error');
+      showToast(msg, 'error');
       return false;
     }
     return true;
@@ -295,7 +295,7 @@ export default function IncidentDetailMcpHub({
       if (resolutionType === 'WORKAROUND' && !workaroundNote.trim()) {
         const msg = 'กรุณาระบุเงื่อนไข Workaround ในช่องด้านบนก่อนปิดเคส';
         setResolutionFeedback({ type: 'error', text: msg });
-        showToast(`⚠️ ${msg}`, 'error');
+        showToast(msg, 'error');
         return;
       }
     }
@@ -499,12 +499,8 @@ export default function IncidentDetailMcpHub({
   if (!resolutionText.trim()) missingToClose.push('บันทึกการแก้ไข (Resolution)');
 
   return (
-    <div className="w-full bg-[#f0f7ff] min-h-[calc(100vh-4rem)]">
+    <div className="w-full bg-[#f5f7fa] min-h-[calc(100vh-4rem)]">
       <div className="relative w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Ambient Blobs */}
-        <div className="absolute -top-32 left-1/4 w-96 h-96 bg-sky-200/40 rounded-full blur-[120px] pointer-events-none"></div>
-        <div className="absolute top-1/2 right-10 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-[140px] pointer-events-none"></div>
-
         <IncidentHeaderCard
           incident={incident}
           categoryColor={categoryColor}
@@ -624,7 +620,7 @@ export default function IncidentDetailMcpHub({
 
       {/* Prominent Top-Center Notification Banner */}
       {toast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-lg transition-all duration-200">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-lg transition-opacity duration-200">
           <div
             role="status"
             className={`flex items-center justify-between gap-3 px-5 py-3.5 rounded-xl shadow-2xl border ${

@@ -54,7 +54,7 @@ export default function McpPreviewAccordion({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 overflow-hidden transition-all">
+    <div className="bg-white rounded-2xl shadow-2xs border border-slate-200 overflow-hidden transition-colors">
       {/* Accordion Header */}
       <div
         onClick={() => setMcpExpanded(!mcpExpanded)}
@@ -122,17 +122,17 @@ export default function McpPreviewAccordion({
         <div className="px-5 pb-5 pt-1 space-y-4 border-t border-slate-100 bg-slate-50/40">
           {/* Status metrics */}
           <div className="grid grid-cols-3 gap-2 text-center pt-2">
-            <div className="bg-white border border-slate-200 p-2.5 rounded-xl shadow-xs">
-              <div className="text-[10px] text-slate-500 uppercase font-medium">Schema</div>
-              <div className="text-xs font-bold text-sky-700 font-mono mt-0.5">mcp.incident.v1</div>
+            <div className="bg-white border border-slate-200 p-2.5 rounded-xl shadow-2xs">
+              <div className="text-[11px] text-slate-500 font-medium">Schema</div>
+              <div className="text-xs font-semibold text-sky-700 font-mono mt-0.5">mcp.incident.v1</div>
             </div>
-            <div className="bg-white border border-slate-200 p-2.5 rounded-xl shadow-xs">
-              <div className="text-[10px] text-slate-500 uppercase font-medium">Protocol</div>
-              <div className="text-xs font-bold text-slate-700 font-mono mt-0.5">REST / JSON</div>
+            <div className="bg-white border border-slate-200 p-2.5 rounded-xl shadow-2xs">
+              <div className="text-[11px] text-slate-500 font-medium">Protocol</div>
+              <div className="text-xs font-semibold text-slate-700 font-mono mt-0.5">REST / JSON</div>
             </div>
-            <div className="bg-white border border-slate-200 p-2.5 rounded-xl shadow-xs">
-              <div className="text-[10px] text-slate-500 uppercase font-medium">Text Corpus</div>
-              <div className="text-xs font-bold text-emerald-700 font-mono mt-0.5">{charCount} chars</div>
+            <div className="bg-white border border-slate-200 p-2.5 rounded-xl shadow-2xs">
+              <div className="text-[11px] text-slate-500 font-medium">Text Corpus</div>
+              <div className="text-xs font-semibold text-emerald-700 font-mono mt-0.5 tabular-nums">{charCount} chars</div>
             </div>
           </div>
 

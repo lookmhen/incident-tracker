@@ -202,17 +202,15 @@ export default function AnalyticsDashboardPage() {
   const totalBacklogAging = data?.backlogAging.reduce((acc, b) => acc + b.count, 0) || 0;
 
   return (
-    <div className="w-full bg-gradient-to-b from-[#f0f7fe] via-[#f8fafc] to-[#f0f7fd] min-h-[calc(100vh-4rem)] py-8 px-4 sm:px-8">
+    <div className="w-full bg-[#f5f7fa] min-h-[calc(100vh-4rem)] py-8 px-4 sm:px-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Top Bar & Date Filters */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-sky-100 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
           <div>
-            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-0.5 rounded-full">
-              Executive Operations Report
-            </span>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 mt-1">
+            <h1 className="text-2xl font-headline font-semibold text-slate-900 tracking-tight">
               IT Incident Analytics &amp; SLA Metrics
             </h1>
+            <p className="text-xs text-slate-500 mt-0.5">รายงานภาพรวมและประสิทธิภาพการแก้ไขปัญหา IT</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -402,54 +400,54 @@ export default function AnalyticsDashboardPage() {
 
         {/* 4 Summary KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl p-5 border border-sky-100 shadow-xs">
-            <div className="text-xs text-slate-500 font-medium uppercase">Total Incidents</div>
-            <div className="text-3xl font-bold text-slate-900 mt-2">{data?.summary.total || 0}</div>
-            <div className="text-[11px] text-slate-500 mt-2">
-              Open: <strong className="text-sky-700">{data?.summary.openCount || 0}</strong> • In Progress:{' '}
-              <strong className="text-amber-600">{data?.summary.inProgressCount || 0}</strong>
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs">
+            <div className="text-xs text-slate-500 font-medium">Total Incidents</div>
+            <div className="text-3xl font-semibold tabular-nums text-slate-900 mt-2">{data?.summary.total || 0}</div>
+            <div className="text-xs text-slate-500 mt-2 tabular-nums">
+              Open: <strong className="text-sky-700 font-semibold">{data?.summary.openCount || 0}</strong> • In Progress:{' '}
+              <strong className="text-amber-600 font-semibold">{data?.summary.inProgressCount || 0}</strong>
               {(data?.summary.onHoldCount || 0) > 0 && (
                 <>
                   {' '}
-                  • On Hold: <strong className="text-violet-700">{data?.summary.onHoldCount}</strong>
+                  • On Hold: <strong className="text-violet-700 font-semibold">{data?.summary.onHoldCount}</strong>
                 </>
               )}
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-sky-100 shadow-xs">
-            <div className="text-xs text-slate-500 font-medium uppercase">Resolution Rate (SLA)</div>
-            <div className="text-3xl font-bold text-emerald-600 mt-2">
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs">
+            <div className="text-xs text-slate-500 font-medium">Resolution Rate (SLA)</div>
+            <div className="text-3xl font-semibold tabular-nums text-emerald-600 mt-2">
               {data?.summary.resolutionRate || 0}%
             </div>
-            <div className="text-[11px] text-slate-500 mt-2">
+            <div className="text-xs text-slate-500 mt-2 tabular-nums">
               แก้ไขสำเร็จแล้ว {data?.summary.resolvedCount || 0} จาก {data?.summary.total || 0} เคส
               {(data?.summary.externalUserCount || 0) > 0 && (
                 <>
                   {' '}
-                  • External User: <strong className="text-teal-700">{data?.summary.externalUserCount}</strong>
+                  • External User: <strong className="text-teal-700 font-semibold">{data?.summary.externalUserCount}</strong>
                 </>
               )}
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-sky-100 shadow-xs">
-            <div className="text-xs text-slate-500 font-medium uppercase">Critical • High Urgency</div>
-            <div className="text-3xl font-bold text-rose-600 mt-2">{data?.summary.criticalCount || 0}</div>
-            <div className="text-[11px] text-slate-500 mt-2">เคสเร่งด่วนระดับ P1 Blocker</div>
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs">
+            <div className="text-xs text-slate-500 font-medium">Critical • High Urgency</div>
+            <div className="text-3xl font-semibold tabular-nums text-rose-600 mt-2">{data?.summary.criticalCount || 0}</div>
+            <div className="text-xs text-slate-500 mt-2">เคสเร่งด่วนระดับ P1 Blocker</div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-sky-100 shadow-xs">
-            <div className="text-xs text-slate-500 font-medium uppercase">Avg Resolution Time (MTTR)</div>
-            <div className="text-3xl font-bold text-sky-700 mt-2">
-              {data?.summary.avgResolutionMins || 0} <span className="text-sm font-normal">mins</span>
+          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs">
+            <div className="text-xs text-slate-500 font-medium">Avg Resolution Time (MTTR)</div>
+            <div className="text-3xl font-semibold tabular-nums text-sky-700 mt-2">
+              {data?.summary.avgResolutionMins || 0} <span className="text-sm font-normal text-slate-500">mins</span>
             </div>
-            <div className="text-[11px] text-slate-500 mt-2">ค่าเฉลี่ยเวลาตั้งแต่รับแจ้งจนปิดเคส</div>
+            <div className="text-xs text-slate-500 mt-2">ค่าเฉลี่ยเวลาตั้งแต่รับแจ้งจนปิดเคส</div>
           </div>
         </div>
 
         {/* Chart 1: Full-width Trend Over Time */}
-        <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold text-slate-900">
@@ -513,12 +511,12 @@ export default function AnalyticsDashboardPage() {
                       {item.total > 0 || item.resolved > 0 ? (
                         <>
                           <div
-                            className="flex-1 bg-gradient-to-t from-sky-600 to-sky-400 rounded-t-sm transition-all"
+                            className="flex-1 bg-sky-600 rounded-t-sm transition-colors"
                             style={{ height: `${totalPct}%` }}
                             title={`${item.date}: เข้าใหม่ ${item.total} (${item.high} High)`}
                           />
                           <div
-                            className="flex-1 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-sm transition-all"
+                            className="flex-1 bg-emerald-600 rounded-t-sm transition-colors"
                             style={{ height: `${resolvedPct}%` }}
                             title={`${item.date}: ปิดแล้ว ${item.resolved}`}
                           />
@@ -542,7 +540,7 @@ export default function AnalyticsDashboardPage() {
           {/* Left Column: Chart 2, Chart 3 (collapsible), Chart 6 */}
           <div className="space-y-6">
             {/* Chart 2: Category Distribution */}
-            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">2. สัดส่วนปัญหาแยกตามหมวดหมู่ (By Category)</h2>
@@ -588,7 +586,7 @@ export default function AnalyticsDashboardPage() {
             </div>
 
             {/* Chart 3: Top Departments (Expand / Collapse) */}
-            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">
@@ -647,7 +645,7 @@ export default function AnalyticsDashboardPage() {
             </div>
 
             {/* Chart 6: Backlog Aging */}
-            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">
@@ -705,7 +703,7 @@ export default function AnalyticsDashboardPage() {
           {/* Right Column: Chart 4, Chart 5 (moves directly up under Chart 4) */}
           <div className="space-y-6">
             {/* Chart 4: Resolution Efficiency & Status Breakdown */}
-            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-5">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-5">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">
@@ -748,7 +746,7 @@ export default function AnalyticsDashboardPage() {
             </div>
 
             {/* Chart 5: MTTR Breakdown by Urgency & Category */}
-            <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">
@@ -808,7 +806,7 @@ export default function AnalyticsDashboardPage() {
         </div>
 
         {/* Chart 7: Full-width Root Cause Analysis */}
-        <div className="bg-white rounded-2xl p-6 border border-sky-100 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold text-slate-900">

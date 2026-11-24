@@ -14,10 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th" suppressHydrationWarning>
-      <body className="bg-[#f0f7ff] text-slate-900 antialiased selection:bg-sky-100 selection:text-sky-900 min-h-screen flex flex-col font-body">
+      <body className="bg-[#f5f7fa] text-slate-900 antialiased selection:bg-sky-100 selection:text-sky-900 min-h-screen flex flex-col font-body">
         <Navbar />
         <main className="flex-1 w-full pt-16">{children}</main>
-        <footer className="w-full bg-white border-t border-sky-100 py-6">
+        <footer className="w-full bg-white border-t border-slate-200 py-5">
           <div className="w-full px-6 lg:px-8 flex items-center justify-center text-xs text-slate-500">
             <div>© 2026 IncidentHub Operations. High-Reliability Incident Response Architecture.</div>
           </div>

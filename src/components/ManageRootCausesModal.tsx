@@ -191,13 +191,13 @@ export default function ManageRootCausesModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl border border-sky-100 space-y-5">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-lg border border-slate-200 space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-indigo-600">troubleshoot</span>
+            <span className="material-symbols-outlined text-[18px] text-slate-500">troubleshoot</span>
             <div>
-              <h3 className="font-headline font-bold text-base text-slate-900">Manage Root Causes</h3>
+              <h3 className="font-headline font-semibold text-base text-slate-900">Manage Root Causes</h3>
               <p className="text-[11px] text-slate-500">
                 จัดการกลุ่มหลัก (Parent) และ Branch ย่อย — การเปลี่ยนชื่อจะอัปเดต Incident ที่มีอยู่ให้อัตโนมัติ
               </p>
@@ -207,7 +207,7 @@ export default function ManageRootCausesModal({
             type="button"
             onClick={handleClose}
             aria-label="Close Manage Root Causes modal"
-            className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+            className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
@@ -234,7 +234,7 @@ export default function ManageRootCausesModal({
         )}
 
         <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-          <div className="text-xs font-semibold uppercase text-slate-500 tracking-wider">
+          <div className="text-xs font-medium text-slate-500">
             Root Cause Tree ({tree.length} Main Groups)
           </div>
 
@@ -326,7 +326,7 @@ export default function ManageRootCausesModal({
                 {/* Sub-branches List */}
                 <div className="pl-4 border-l-2 border-indigo-100 space-y-1.5">
                   {node.children.length === 0 ? (
-                    <div className="text-[11px] text-slate-400 italic py-0.5">
+                    <div className="text-[11px] text-slate-400 py-0.5">
                       ยังไม่มีข้อย่อย (Sub-branch)
                     </div>
                   ) : (

@@ -112,8 +112,7 @@ export default function IncidentHeaderCard({
   const isPendingConfirm = statusKey === 'PENDING_CONFIRM';
 
   return (
-    <section className="relative z-20 bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.06)] border border-sky-100">
-      <div className="absolute inset-x-0 top-0 h-[3px] rounded-t-2xl bg-gradient-to-r from-sky-400 via-blue-500 to-sky-300"></div>
+    <section className="relative z-20 bg-white rounded-2xl p-6 shadow-2xs border border-slate-200">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="space-y-3 min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -151,12 +150,12 @@ export default function IncidentHeaderCard({
                       type="button"
                       disabled={updatingUrgency}
                       onClick={() => handleUpdateUrgency(lvl)}
-                      className={`px-2 py-0.5 rounded-md text-[11px] transition-all cursor-pointer disabled:opacity-50 ${
+                      className={`px-2 py-0.5 rounded-md text-[11px] transition-colors cursor-pointer disabled:opacity-50 ${
                         isCurr ? activeCls : idleCls
                       }`}
                       title={`เปลี่ยนระดับเป็น ${lvl}`}
                     >
-                      {lvl === 'HIGH' && isCurr && <span className="inline-block w-1 h-1 rounded-full bg-white mr-1 animate-ping align-middle"></span>}
+                      {lvl === 'HIGH' && isCurr && <span className="inline-block w-1.5 h-1.5 rounded-full bg-white mr-1 align-middle"></span>}
                       {lvl}
                     </button>
                   );
@@ -232,7 +231,7 @@ export default function IncidentHeaderCard({
               </span>
             ) : (
               <span className="px-2.5 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200 font-semibold flex items-center gap-1 shadow-2xs">
-                <span className="material-symbols-outlined text-[14px] text-sky-600 animate-spin" style={{ animationDuration: '8s' }}>
+                <span className="material-symbols-outlined text-[14px] text-sky-600">
                   timelapse
                 </span>
                 <span>เปิดมาแล้ว {formatDuration(incident.createdAt, undefined, nowMs)}</span>
@@ -241,8 +240,8 @@ export default function IncidentHeaderCard({
           </div>
 
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-headline font-bold text-slate-900 tracking-tight leading-snug break-words">
-              <span className="text-sky-600 font-mono select-all">[{incident.ticketNo}]</span> {incident.title}
+            <h1 className="text-xl sm:text-2xl font-headline font-semibold text-slate-900 tracking-tight leading-snug break-words">
+              <span className="text-sky-600 font-mono select-all tabular-nums">[{incident.ticketNo}]</span> {incident.title}
             </h1>
           </div>
 
@@ -395,7 +394,7 @@ export default function IncidentHeaderCard({
                   type="button"
                   onClick={onAssignToMe}
                   disabled={isMutatingStatus}
-                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-sm shadow-sky-600/20 cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-2 transition-colors shadow-2xs cursor-pointer"
                   title="กดรับเคสนี้ และเปลี่ยนสถานะเป็น IN_PROGRESS ทันที"
                 >
                   <span className="material-symbols-outlined text-[16px]">pan_tool</span>
@@ -406,7 +405,7 @@ export default function IncidentHeaderCard({
                   type="button"
                   onClick={onAssignToMe}
                   disabled={isMutatingStatus || isClosed}
-                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-all shadow-xs cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 border border-slate-200 text-xs font-semibold flex items-center gap-2 transition-colors shadow-2xs cursor-pointer"
                   title={isClosed ? 'ปิดเคสแล้ว — Manager ต้องกด Reopen ก่อนจึงจะแก้ไขได้' : 'คลิกเพื่อ Re-assign เคสนี้ให้ตนเอง'}
                 >
                   <span className="material-symbols-outlined text-[16px] text-sky-600">assignment_ind</span>
@@ -419,7 +418,7 @@ export default function IncidentHeaderCard({
                   type="button"
                   disabled={isMutatingStatus}
                   onClick={() => onUpdateStatus('ON_HOLD')}
-                  className="px-3.5 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 disabled:opacity-60 disabled:cursor-not-allowed text-violet-700 border border-violet-200 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 disabled:opacity-60 disabled:cursor-not-allowed text-violet-700 border border-violet-200 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
                   title="พักเคสรอ Solution และหยุดนับ MTTR"
                 >
                   <span className="material-symbols-outlined text-[16px]">pause_circle</span>
@@ -432,7 +431,7 @@ export default function IncidentHeaderCard({
                   type="button"
                   disabled={isMutatingStatus}
                   onClick={() => onUpdateStatus('IN_PROGRESS')}
-                  className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shadow-sky-600/20 cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
                   title="กลับมาดำเนินการต่อ (IN_PROGRESS)"
                 >
                   <span className="material-symbols-outlined text-[16px]">play_arrow</span>
@@ -451,7 +450,7 @@ export default function IncidentHeaderCard({
                   onUpdateStatus('IN_PROGRESS');
                 }
               }}
-              className="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed text-amber-800 border border-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed text-amber-800 border border-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
               title="เปิดเคสกลับเป็น IN_PROGRESS เพื่อแก้ไขเพิ่มเติม (เฉพาะ Manager)"
             >
               <span className="material-symbols-outlined text-[16px]">lock_open</span>
@@ -462,7 +461,7 @@ export default function IncidentHeaderCard({
           <a
             href={`/api/mcp/v1/context?ticketNo=${incident.ticketNo}`}
             target="_blank"
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-2 shadow-xs transition-all"
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-2 shadow-2xs transition-colors"
             title="Inspect raw MCP context payload for this ticket"
           >
             <span className="material-symbols-outlined text-[16px]">data_object</span>

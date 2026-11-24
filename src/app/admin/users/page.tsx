@@ -285,7 +285,7 @@ export default function AdminUsersPage() {
 
   if (sessionUser?.role !== 'MANAGER') {
     return (
-      <div className="w-full bg-gradient-to-b from-[#f0f7fe] via-[#f8fafc] to-[#f0f7fd] min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
+      <div className="w-full bg-[#f5f7fa] min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
         <div className="max-w-md w-full bg-white rounded-2xl border border-rose-200 shadow-lg p-8 text-center space-y-4">
           <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
             <span className="material-symbols-outlined text-[30px]">gpp_maybe</span>
@@ -313,7 +313,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="w-full bg-gradient-to-b from-[#f0f7fe] via-[#f8fafc] to-[#f0f7fd] min-h-[calc(100vh-4rem)] py-8 px-4 sm:px-8">
+    <div className="w-full bg-[#f5f7fa] min-h-[calc(100vh-4rem)] py-8 px-4 sm:px-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {toast && (
           <div
@@ -337,24 +337,19 @@ export default function AdminUsersPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-700 bg-sky-100 border border-sky-200 px-2.5 py-0.5 rounded-full">
-                Role-Based Access Control
-              </span>
-              <span className="text-xs text-slate-500 font-mono">
-                Signed in as {sessionUser.name} ({sessionUser.role})
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-headline font-bold text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-headline font-semibold tracking-tight text-slate-900">
               Users &amp; Roles Management
             </h1>
             <p className="text-xs sm:text-sm text-slate-600">
               จัดการบัญชีเจ้าหน้าที่ IT (STAFF) และผู้จัดการระบบ (MANAGER) พร้อมกำหนดสิทธิ์การปิดงานและตั้งค่าระบบ
+              <span className="ml-2 text-xs text-slate-500 font-mono">
+                • Signed in as {sessionUser.name} ({sessionUser.role})
+              </span>
             </p>
           </div>
           <Link
             href="/admin"
-            className="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-white hover:bg-sky-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs transition-colors"
+            className="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">arrow_back</span>
             <span>Incident Console</span>
@@ -362,13 +357,13 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Invite via Email Form */}
-        <section className="bg-white rounded-2xl border border-indigo-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-indigo-50/40 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 text-sky-600 flex items-center justify-center">
               <span className="material-symbols-outlined text-[18px]">forward_to_inbox</span>
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900">เชิญทีมงานผ่าน Email (Invite Link)</h2>
+              <h2 className="text-sm font-semibold text-slate-900">เชิญทีมงานผ่าน Email (Invite Link)</h2>
               <p className="text-[11px] text-slate-500">
                 ส่งลิงก์อายุ 48 ชม. (ใช้ได้ 1 ครั้ง) ให้ผู้ถูกเชิญตั้ง Password เพื่อล็อกอินด้วย Email ของตัวเอง
               </p>
@@ -429,8 +424,15 @@ export default function AdminUsersPage() {
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="min-w-0 space-y-1">
                   <div className="text-[11px] font-semibold flex items-center gap-1.5">
-                    <span className={generatedInvite.emailSent ? 'text-emerald-700' : 'text-amber-700'}>
-                      {generatedInvite.emailSent ? '✅ ส่ง Email แล้ว' : 'ℹ️ ยังไม่ได้ส่ง Email อัตโนมัติ'}
+                    <span
+                      className={`inline-flex items-center gap-1 ${
+                        generatedInvite.emailSent ? 'text-emerald-700' : 'text-amber-700'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[14px]">
+                        {generatedInvite.emailSent ? 'check_circle' : 'info'}
+                      </span>
+                      <span>{generatedInvite.emailSent ? 'ส่ง Email แล้ว' : 'ยังไม่ได้ส่ง Email อัตโนมัติ'}</span>
                     </span>
                     <span className="text-slate-400">•</span>
                     <span className="text-slate-500">{generatedInvite.message}</span>
@@ -573,7 +575,7 @@ export default function AdminUsersPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-medium text-slate-600">
                     <th className="py-3 px-5">Email / บัญชีเข้าใช้</th>
                     <th className="py-3 px-4">ชื่อแสดงผล</th>
                     <th className="py-3 px-4">Role</th>
@@ -672,9 +674,9 @@ export default function AdminUsersPage() {
 
         {/* Edit Modal */}
         {editingUser && (
-          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl border border-sky-100 shadow-xl max-w-md w-full overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-sky-50/50">
+          <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
                     แก้ไขข้อมูลผู้ใช้: <span className="font-mono text-sky-700">{editingUser.username}</span>

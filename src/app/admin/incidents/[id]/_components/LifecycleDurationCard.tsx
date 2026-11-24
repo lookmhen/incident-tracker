@@ -137,14 +137,14 @@ export default function LifecycleDurationCard({
   );
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-3.5">
+    <div className="bg-white rounded-2xl p-6 shadow-2xs border border-slate-200 space-y-3.5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
             <span className="material-symbols-outlined text-[18px]">timer</span>
           </span>
           <div>
-            <h3 className="text-xs font-headline font-bold text-slate-900">
+            <h3 className="text-xs font-headline font-semibold text-slate-900">
               Lifecycle &amp; Duration Tracking
             </h3>
             <p className="text-[11px] text-slate-500">การติดตามระยะเวลาดำเนินงานของเคส</p>
@@ -168,7 +168,7 @@ export default function LifecycleDurationCard({
       <div className="grid grid-cols-2 gap-2.5 text-xs">
         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
+            <span className="text-[11px] text-slate-500 font-medium">
               เปิดเคสเมื่อ (Created)
             </span>
             {!isClosed && !isManager && editingTimeField !== 'createdAt' && (
@@ -214,7 +214,7 @@ export default function LifecycleDurationCard({
           }`}
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
+            <span className="text-[11px] text-slate-500 font-medium">
               {isClosed ? 'ปิดเคสเมื่อ (Closed)' : 'สถานะเวลาปัจจุบัน'}
             </span>
           </div>
@@ -250,7 +250,7 @@ export default function LifecycleDurationCard({
           ) : (
             <>
               <div className="font-semibold text-sky-800 flex items-center gap-1.5 font-mono">
-                <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
+                <span className="w-2 h-2 rounded-full bg-sky-500"></span>
                 Active Counting
               </div>
               <div className="text-[11px] text-slate-500">
@@ -268,7 +268,7 @@ export default function LifecycleDurationCard({
             ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
             : isOnHold
             ? 'bg-violet-50 border-violet-200 text-violet-900'
-            : 'bg-gradient-to-r from-sky-50 to-blue-50 border-sky-200 text-sky-900'
+            : 'bg-sky-50 border-sky-200 text-sky-900'
         }`}
       >
         <div className="flex items-center gap-2">

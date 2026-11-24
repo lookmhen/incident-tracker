@@ -228,29 +228,29 @@ export default function SimplePublicReportPortal() {
   };
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-gradient-to-b from-[#f0f7ff] via-slate-50 to-[#f0f7ff] py-8 px-4 sm:px-6">
+    <div className="w-full min-h-[calc(100vh-4rem)] bg-[#f5f7fa] py-8 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto">
         {/* Success State View */}
         {submittedTicket ? (
-          <div className="bg-white rounded-2xl p-8 sm:p-10 shadow-lg border border-sky-100 text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
-              <span className="material-symbols-outlined text-[36px]">check_circle</span>
+          <div className="bg-white rounded-2xl p-8 sm:p-10 shadow-sm border border-slate-200 text-center space-y-6">
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl flex items-center justify-center mx-auto">
+              <span className="material-symbols-outlined text-[24px]">check_circle</span>
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-2xl font-headline font-bold text-slate-900">บันทึกแจ้งปัญหาเรียบร้อยแล้ว!</h2>
+              <h2 className="text-2xl font-headline font-semibold text-slate-900">บันทึกแจ้งปัญหาเรียบร้อยแล้ว</h2>
               <p className="text-sm text-slate-600">
                 ระบบได้บันทึกข้อมูลการแจ้งปัญหาเรียบร้อยแล้ว เจ้าหน้าที่จะดำเนินการตรวจสอบโดยเร็วที่สุด
               </p>
             </div>
 
             {/* Generated Ticket Box */}
-            <div className="p-5 rounded-xl bg-sky-50/80 border border-sky-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-left">
-                <span className="text-[11px] font-label font-medium text-slate-500 uppercase tracking-wider block">
+                <span className="text-xs font-label font-medium text-slate-500 block">
                   หมายเลข Ticket ของคุณ
                 </span>
-                <span className="text-2xl font-mono font-bold text-sky-700 tracking-wider">
+                <span className="text-2xl font-mono tabular-nums font-semibold text-sky-700">
                   {submittedTicket.ticketNo}
                 </span>
               </div>
@@ -300,20 +300,20 @@ export default function SimplePublicReportPortal() {
           </div>
         ) : (
           /* Normal Form State */
-          <div className="bg-white rounded-2xl shadow-md border border-sky-100 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Header */}
-            <div className="p-6 sm:p-7 border-b border-slate-100 bg-gradient-to-r from-sky-50/70 to-white">
+            <div className="p-6 sm:p-7 border-b border-slate-200 bg-white">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-headline font-bold text-slate-900 tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-headline font-semibold text-slate-900 tracking-tight">
                     แจ้งปัญหาด้าน IT (Report an Incident)
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                    กรอกข้อมูลด้านล่าง หรือกด <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-mono text-[11px] shadow-2xs">Ctrl+V</kbd> เพื่อวางรูปจาก Clipboard ได้ทันที
+                    กรอกข้อมูลด้านล่าง หรือกด <kbd className="px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-slate-700 font-mono text-[11px]">Ctrl+V</kbd> เพื่อวางรูปจาก Clipboard ได้ทันที
                   </p>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[24px]">support_agent</span>
+                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[20px]">support_agent</span>
                 </div>
               </div>
             </div>
@@ -341,8 +341,8 @@ export default function SimplePublicReportPortal() {
                         setReporterName(e.target.value);
                         saveIdentity(e.target.value, department, contactInfo);
                       }}
-                      placeholder="พิมพ์ชื่อของคุณ..."
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all shadow-2xs"
+                      placeholder="พิมพ์ชื่อของคุณ"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                     />
                   </div>
                 </div>
@@ -364,8 +364,8 @@ export default function SimplePublicReportPortal() {
                         setDepartment(next);
                         saveIdentity(reporterName, next, contactInfo);
                       }}
-                      placeholder="เช่น Packing, บัญชี, คลังสินค้า, IT..."
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all shadow-2xs"
+                      placeholder="เช่น Packing, บัญชี, คลังสินค้า, IT"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                     />
                   </div>
                 </div>
@@ -391,7 +391,7 @@ export default function SimplePublicReportPortal() {
                       saveIdentity(reporterName, department, e.target.value);
                     }}
                     placeholder="เช่น Ext. 4412, 08x-xxx-xxxx, somchai.p@company.com"
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all shadow-2xs"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                   />
                 </div>
               </div>
@@ -404,7 +404,7 @@ export default function SimplePublicReportPortal() {
                     type="button"
                     aria-expanded={showUrgencyGuide}
                     onClick={() => setShowUrgencyGuide((prev) => !prev)}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[11px] font-semibold cursor-pointer transition-colors"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-medium cursor-pointer transition-colors"
                   >
                     <span className="material-symbols-outlined text-[14px]">help</span>
                     <span>{showUrgencyGuide ? 'ซ่อนเกณฑ์การเลือก' : 'ดูเกณฑ์การเลือก'}</span>
@@ -416,11 +416,11 @@ export default function SimplePublicReportPortal() {
                     {
                       value: 'LOW' as const,
                       dot: 'bg-sky-500',
-                      label: '🟢 ทั่วไป (Low)',
+                      label: 'ทั่วไป (Low)',
                       short: 'คำขอ / ไม่เร่งด่วน',
-                      activeClass: 'bg-sky-50 border-sky-500 text-sky-900 shadow-xs ring-1 ring-sky-400',
-                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-sky-50/50 text-slate-700',
-                      tipHeader: '🟢 ทั่วไป (Low) — ไม่เร่งด่วน / งานคำขอทั่วไป (ค่าเริ่มต้น)',
+                      activeClass: 'bg-sky-50 border-sky-500 text-sky-900 ring-1 ring-sky-400',
+                      idleClass: 'bg-slate-50 border-slate-200 hover:bg-slate-100/70 text-slate-700',
+                      tipHeader: 'ทั่วไป (Low) — ไม่เร่งด่วน / งานคำขอทั่วไป (ค่าเริ่มต้น)',
                       tipAccent: 'border-sky-200 bg-sky-50/40 text-sky-900',
                       tooltipPos: 'sm:left-0',
                       points: [
@@ -431,11 +431,11 @@ export default function SimplePublicReportPortal() {
                     {
                       value: 'MEDIUM' as const,
                       dot: 'bg-amber-500',
-                      label: '🟡 ปานกลาง (Medium)',
+                      label: 'ปานกลาง (Medium)',
                       short: 'ติดขัด / พอมีทางเลี่ยง',
-                      activeClass: 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs ring-1 ring-amber-400',
-                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-amber-50/50 text-slate-700',
-                      tipHeader: '🟡 ปานกลาง (Medium) — ติดขัดแต่ยังเดินงานต่อได้',
+                      activeClass: 'bg-amber-50 border-amber-500 text-amber-900 ring-1 ring-amber-400',
+                      idleClass: 'bg-slate-50 border-slate-200 hover:bg-slate-100/70 text-slate-700',
+                      tipHeader: 'ปานกลาง (Medium) — ติดขัดแต่ยังเดินงานต่อได้',
                       tipAccent: 'border-amber-200 bg-amber-50/40 text-amber-900',
                       tooltipPos: 'sm:left-1/2 sm:-translate-x-1/2',
                       points: [
@@ -446,11 +446,11 @@ export default function SimplePublicReportPortal() {
                     {
                       value: 'HIGH' as const,
                       dot: 'bg-red-600',
-                      label: '🔴 สูง (High)',
+                      label: 'สูง (High)',
                       short: 'หยุดผลิต / ขาย-ส่งของไม่ได้',
-                      activeClass: 'bg-red-50 border-red-500 text-red-800 shadow-xs ring-1 ring-red-400',
-                      idleClass: 'bg-slate-50/70 border-slate-200 hover:bg-red-50/50 text-slate-700',
-                      tipHeader: '🔴 สูง (High) — หยุดงานหลักทันที',
+                      activeClass: 'bg-red-50 border-red-500 text-red-800 ring-1 ring-red-400',
+                      idleClass: 'bg-slate-50 border-slate-200 hover:bg-slate-100/70 text-slate-700',
+                      tipHeader: 'สูง (High) — หยุดงานหลักทันที',
                       tipAccent: 'border-red-200 bg-red-50/40 text-red-900',
                       tooltipPos: 'sm:right-0',
                       points: [
@@ -463,21 +463,24 @@ export default function SimplePublicReportPortal() {
                       <button
                         type="button"
                         onClick={() => setUrgency(opt.value)}
-                        className={`w-full py-2.5 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                        className={`w-full py-2.5 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-colors cursor-pointer ${
                           urgency === opt.value ? opt.activeClass : opt.idleClass
                         }`}
                       >
                         <span className={`w-2 h-2 rounded-full ${opt.dot}`}></span>
                         <span className="font-semibold">{opt.label}</span>
-                        <span className="text-[10px] text-slate-500 text-center leading-tight">{opt.short}</span>
+                        <span className="text-[11px] text-slate-500 text-center leading-tight">{opt.short}</span>
                       </button>
 
                       {/* Desktop Hover Tooltip */}
                       <div
                         role="tooltip"
-                        className={`hidden sm:group-hover:block pointer-events-none absolute bottom-full mb-2 z-30 w-64 ${opt.tooltipPos} rounded-xl border border-slate-200 bg-white p-3 shadow-lg text-left space-y-1.5`}
+                        className={`hidden sm:group-hover:block pointer-events-none absolute bottom-full mb-2 z-30 w-64 ${opt.tooltipPos} rounded-xl border border-slate-200 bg-white p-3 shadow-md text-left space-y-1.5`}
                       >
-                        <div className="text-[11px] font-bold text-slate-900">{opt.tipHeader}</div>
+                        <div className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${opt.dot}`} />
+                          <span>{opt.tipHeader}</span>
+                        </div>
                         <ul className="space-y-1 text-[11px] text-slate-600 list-disc pl-4 leading-snug">
                           {opt.points.map((pt) => (
                             <li key={pt}>{pt}</li>
@@ -490,10 +493,10 @@ export default function SimplePublicReportPortal() {
 
                 {/* Clickable 3-Level Comparison Guide (Mobile & Desktop friendly) */}
                 {showUrgencyGuide && (
-                  <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3.5 space-y-2 text-[11px] text-slate-700">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2 text-[11px] text-slate-700">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-900 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[15px] text-sky-600">info</span>
+                      <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-slate-500">info</span>
                         เกณฑ์การเลือกระดับความเร่งด่วน
                       </span>
                       <button
@@ -506,17 +509,26 @@ export default function SimplePublicReportPortal() {
                       </button>
                     </div>
                     <div className="space-y-1.5 leading-relaxed">
-                      <div className="p-2 rounded-lg bg-white border border-red-200/80">
-                        <div className="font-semibold text-red-800">🔴 สูง (High) — หยุดงานหลักทันที</div>
-                        <p className="text-slate-600">กระบวนการผลิตหยุดชะงัก, ขายหรือส่งของให้ลูกค้าไม่ได้, หรือระบบหลัก (SAP/ERP, เน็ต, Server) ล่มทั้งแผนก</p>
+                      <div className="p-2.5 rounded-lg bg-white border border-red-200/80">
+                        <div className="font-semibold text-red-800 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />
+                          <span>สูง (High) — หยุดงานหลักทันที</span>
+                        </div>
+                        <p className="text-slate-600 mt-0.5">กระบวนการผลิตหยุดชะงัก, ขายหรือส่งของให้ลูกค้าไม่ได้, หรือระบบหลัก (SAP/ERP, เน็ต, Server) ล่มทั้งแผนก</p>
                       </div>
-                      <div className="p-2 rounded-lg bg-white border border-amber-200/80">
-                        <div className="font-semibold text-amber-900">🟡 ปานกลาง (Medium) — ติดขัดแต่ยังเดินงานต่อได้</div>
-                        <p className="text-slate-600">กระทบเฉพาะบางเครื่อง/บางฟังก์ชัน ยังมีทางเลี่ยงชั่วคราว (เช่น ปริ้นท์ไม่ออกแต่สลับเครื่องได้, โปรแกรมช้า/ค้างบางหน้าจอ)</p>
+                      <div className="p-2.5 rounded-lg bg-white border border-amber-200/80">
+                        <div className="font-semibold text-amber-900 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                          <span>ปานกลาง (Medium) — ติดขัดแต่ยังเดินงานต่อได้</span>
+                        </div>
+                        <p className="text-slate-600 mt-0.5">กระทบเฉพาะบางเครื่อง/บางฟังก์ชัน ยังมีทางเลี่ยงชั่วคราว (เช่น ปริ้นท์ไม่ออกแต่สลับเครื่องได้, โปรแกรมช้า/ค้างบางหน้าจอ)</p>
                       </div>
-                      <div className="p-2 rounded-lg bg-white border border-sky-200/80">
-                        <div className="font-semibold text-sky-900">🟢 ทั่วไป (Low) — ไม่เร่งด่วน / งานคำขอทั่วไป</div>
-                        <p className="text-slate-600">ขอสิทธิ์ใช้งาน, รีเซ็ตรหัสผ่าน, ติดตั้งโปรแกรม/อุปกรณ์เสริม, สอบถามวิธีใช้งาน, หรือขอรายงาน/ซ่อมอุปกรณ์ที่ไม่กระทบงาน</p>
+                      <div className="p-2.5 rounded-lg bg-white border border-sky-200/80">
+                        <div className="font-semibold text-sky-900 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0" />
+                          <span>ทั่วไป (Low) — ไม่เร่งด่วน / งานคำขอทั่วไป</span>
+                        </div>
+                        <p className="text-slate-600 mt-0.5">ขอสิทธิ์ใช้งาน, รีเซ็ตรหัสผ่าน, ติดตั้งโปรแกรม/อุปกรณ์เสริม, สอบถามวิธีใช้งาน, หรือขอรายงาน/ซ่อมอุปกรณ์ที่ไม่กระทบงาน</p>
                       </div>
                     </div>
                   </div>
@@ -535,7 +547,7 @@ export default function SimplePublicReportPortal() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="เช่น SAP GUI ค้าง, จอฟ้า, ปริ้นท์ไม่ออก, อินเทอร์เน็ตหลุด"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all shadow-2xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-sm focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                 />
               </div>
 
@@ -550,8 +562,8 @@ export default function SimplePublicReportPortal() {
                   required
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="อธิบายอาการที่พบ รหัส Error Code ที่ขึ้น หรือขั้นตอนที่ทำแล้วเกิดปัญหา..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs leading-relaxed focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 resize-y transition-all shadow-2xs"
+                  placeholder="อธิบายอาการที่พบ รหัส Error Code ที่ขึ้น หรือขั้นตอนที่ทำแล้วเกิดปัญหา"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-900 text-xs leading-relaxed focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 resize-y transition-colors"
                 />
               </div>
 
@@ -616,9 +628,9 @@ export default function SimplePublicReportPortal() {
                     onClick={() => fileInputRef.current?.click()}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleDrop}
-                    className="flex flex-col items-center justify-center p-5 rounded-xl border-2 border-dashed border-sky-200 hover:border-sky-400 hover:bg-sky-50/40 transition-all cursor-pointer text-center group"
+                    className="flex flex-col items-center justify-center p-5 rounded-xl border-2 border-dashed border-slate-300 hover:border-sky-400 hover:bg-slate-50 transition-colors cursor-pointer text-center"
                   >
-                    <span className="material-symbols-outlined text-sky-600 text-[26px] mb-1 group-hover:scale-110 transition-transform">
+                    <span className="material-symbols-outlined text-slate-500 text-[20px] mb-1">
                       attach_file
                     </span>
                     <p className="text-xs font-medium text-slate-700">
@@ -636,7 +648,7 @@ export default function SimplePublicReportPortal() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-headline font-semibold text-sm shadow-md shadow-sky-600/25 hover:shadow-lg transition-all cursor-pointer disabled:opacity-70"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-headline font-semibold text-sm transition-colors cursor-pointer disabled:opacity-70"
                 >
                   <span className={`material-symbols-outlined text-[20px] ${isSubmitting ? 'animate-spin' : ''}`}>
                     {isSubmitting ? 'sync' : 'send'}

@@ -16,8 +16,8 @@ export default function AttachmentPreviewModal({
   if (!attachment) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-sky-200 space-y-4">
+    <div className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-xl border border-slate-200 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <span className="material-symbols-outlined text-sky-600">attachment</span>

@@ -63,16 +63,16 @@ export default function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-white/95 backdrop-blur-xl border-b border-sky-100 shadow-[0_2px_12px_rgba(2,132,199,0.06)]">
+    <header className="fixed top-0 left-0 right-0 w-full z-50 bg-white border-b border-slate-200 shadow-2xs">
       <div className="h-16 w-full px-6 lg:px-8 flex items-center justify-between gap-6">
         {/* Brand & Desktop Navigation */}
         <div className="flex items-center gap-6 shrink-0">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-sm shadow-sky-600/30">
-              <span className="material-symbols-outlined text-[20px]">shield_with_heart</span>
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white">
+              <span className="material-symbols-outlined text-[18px]">shield_with_heart</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-headline font-bold text-base tracking-tight text-slate-900 group-hover:text-sky-600 transition-colors">
+              <span className="font-headline font-semibold text-base tracking-tight text-slate-900 group-hover:text-sky-700 transition-colors">
                 IncidentHub
               </span>
             </div>
@@ -87,17 +87,17 @@ export default function Navbar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
                       active
-                        ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/20'
-                        : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50'
+                        ? 'bg-sky-600 text-white'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-[15px]">{item.icon}</span>
+                    <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
                     <span>{item.label}</span>
                     {item.href === '/admin/integrations' && failedCount > 0 && (
                       <span
-                        className="ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-600 text-white leading-none shadow-2xs"
+                        className="ml-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono tabular-nums font-semibold bg-rose-600 text-white leading-none"
                         title={`${failedCount} failed webhook/email notification(s)`}
                       >
                         {failedCount}
@@ -115,8 +115,8 @@ export default function Navbar() {
           {isAdmin ? (
             <>
               <div className="hidden md:flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-700 font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                   <span>{`${user?.name || 'Admin'} (${user?.role || 'MANAGER'})`}</span>
                 </div>
               </div>
@@ -133,22 +133,22 @@ export default function Navbar() {
             <div className="flex items-center gap-2">
               <Link
                 href="/track"
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
                   pathname.startsWith('/track')
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-sky-700 hover:bg-sky-50'
+                    ? 'bg-sky-600 text-white'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
                 title="ติดตามสถานะการแจ้งปัญหาด้วย Ticket ID"
               >
-                <span className="material-symbols-outlined text-[15px]">search_check</span>
+                <span className="material-symbols-outlined text-[16px]">search_check</span>
                 <span>ติดตามสถานะ</span>
               </Link>
               <Link
                 href="/admin"
-                className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-sky-50 text-slate-600 hover:text-sky-700 border border-slate-200 hover:border-sky-200 text-xs font-medium flex items-center gap-1.5 transition-all"
+                className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium flex items-center gap-1.5 transition-colors"
                 title="Sign in to IT Operations & Admin Console"
               >
-                <span className="material-symbols-outlined text-[15px] text-sky-600">lock</span>
+                <span className="material-symbols-outlined text-[16px] text-slate-500">lock</span>
                 <span>IT Admin Console</span>
               </Link>
             </div>

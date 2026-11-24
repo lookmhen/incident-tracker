@@ -68,24 +68,20 @@ function TrackContent() {
   const { isCompletedForUser, isInProgress, progressWidth, step2Note } = getPublicTrackStage(ticket?.status);
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-gradient-to-b from-[#f0f7ff] via-slate-50 to-[#f0f7ff] py-10 px-4 sm:px-6">
+    <div className="w-full min-h-[calc(100vh-4rem)] bg-[#f5f7fa] py-10 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-100/80 text-sky-800 text-xs font-semibold">
-            <span className="material-symbols-outlined text-[15px]">search_check</span>
-            <span>Public Tracking Portal</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-headline font-bold text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-headline font-semibold text-slate-900 tracking-tight">
             ติดตามสถานะการแจ้งปัญหา
           </h1>
           <p className="text-xs sm:text-sm text-slate-600">
-            กรอกหมายเลข Ticket เช่น <code className="bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded font-mono">INC-202611-0001</code> หรือเลขท้าย 4 หลัก
+            กรอกหมายเลข Ticket เช่น <code className="bg-slate-100 text-slate-800 border border-slate-200 px-1.5 py-0.5 rounded font-mono">INC-202611-0001</code> หรือเลขท้าย 4 หลัก
           </p>
         </div>
 
         {/* Search Bar Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-sky-100 flex gap-2">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs border border-slate-200 flex gap-2">
           <div className="relative flex-1">
             <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">
               tag
@@ -125,23 +121,23 @@ function TrackContent() {
 
         {/* Ticket Details Card */}
         {ticket && (
-          <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-md border border-sky-100 space-y-6 animate-in fade-in zoom-in-98 duration-200">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
             {/* Top Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
               <div>
-                <span className="text-[11px] font-label font-medium text-slate-400 uppercase tracking-wider block">
+                <span className="text-xs font-label font-medium text-slate-500 block">
                   หมายเลข Ticket
                 </span>
-                <span className="text-xl sm:text-2xl font-mono font-bold text-sky-700 tracking-wider">
+                <span className="text-xl sm:text-2xl font-mono tabular-nums font-semibold text-sky-700">
                   {ticket.ticketNo}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-full text-xs font-semibold border bg-slate-50 text-slate-700 border-slate-200">
+                <span className="px-2.5 py-1 rounded-md text-xs font-medium border bg-slate-50 text-slate-700 border-slate-200">
                   {ticket.category}
                 </span>
                 <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${
                     ticket.urgency === 'HIGH'
                       ? 'bg-red-50 text-red-700 border-red-200'
                       : ticket.urgency === 'MEDIUM'
@@ -149,7 +145,16 @@ function TrackContent() {
                       : 'bg-sky-50 text-sky-700 border-sky-200'
                   }`}
                 >
-                  {ticket.urgency === 'HIGH' ? '🔴 ด่วนมาก' : ticket.urgency === 'MEDIUM' ? '🟡 ปานกลาง' : '🟢 ทั่วไป'}
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      ticket.urgency === 'HIGH'
+                        ? 'bg-red-600'
+                        : ticket.urgency === 'MEDIUM'
+                        ? 'bg-amber-500'
+                        : 'bg-sky-600'
+                    }`}
+                  />
+                  {ticket.urgency === 'HIGH' ? 'ด่วนมาก' : ticket.urgency === 'MEDIUM' ? 'ปานกลาง' : 'ทั่วไป'}
                 </span>
               </div>
             </div>

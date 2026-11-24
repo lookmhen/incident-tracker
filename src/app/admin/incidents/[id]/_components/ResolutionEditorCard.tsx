@@ -110,9 +110,8 @@ export default function ResolutionEditorCard({
           onUploadAttachments(e.dataTransfer.files, 'RESOLUTION');
         }
       }}
-      className="relative bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.08)] border-2 border-sky-200 space-y-4 overflow-hidden"
+      className="relative bg-white rounded-2xl p-6 shadow-2xs border border-slate-200 space-y-4 overflow-hidden"
     >
-      <div className="absolute -top-12 -right-12 w-48 h-48 bg-sky-100/50 rounded-full blur-2xl pointer-events-none"></div>
       {isPendingConfirm && (
         <div className="p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-semibold flex items-center gap-2">
           <span className="material-symbols-outlined text-[18px] text-indigo-600">pending_actions</span>
@@ -165,7 +164,7 @@ export default function ResolutionEditorCard({
           value={resolutionText}
           onChange={(e) => setResolutionText(e.target.value)}
           placeholder="Enter root cause, mitigation, and preventive actions in clean text format..."
-          className={`w-full bg-slate-50 text-slate-900 border text-xs font-mono rounded-xl p-4 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white resize-y transition-all read-only:bg-slate-100/80 read-only:text-slate-600 read-only:cursor-not-allowed ${
+          className={`w-full bg-slate-50 text-slate-900 border text-xs font-mono rounded-xl p-4 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white resize-y transition-colors read-only:bg-slate-100/80 read-only:text-slate-600 read-only:cursor-not-allowed ${
             !isReadOnlyFields && !resolutionText.trim() ? 'border-amber-300' : 'border-slate-200'
           }`}
         />
@@ -205,7 +204,7 @@ export default function ResolutionEditorCard({
                 type="button"
                 disabled={uploadingKind === 'RESOLUTION'}
                 onClick={() => resolutionFileRef.current?.click()}
-                className="px-3 py-1.5 rounded-lg bg-white hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+                className="px-3 py-1.5 rounded-lg bg-white hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
               >
                 <span className="material-symbols-outlined text-[15px]">
                   {uploadingKind === 'RESOLUTION' ? 'sync' : 'upload'}
@@ -244,9 +243,9 @@ export default function ResolutionEditorCard({
             type="button"
             disabled={isReadOnlyFields}
             onClick={() => setResolutionType('PERMANENT')}
-            className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
+            className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed ${
               resolutionType === 'PERMANENT'
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
                 : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 disabled:opacity-50'
             }`}
           >
@@ -257,9 +256,9 @@ export default function ResolutionEditorCard({
             type="button"
             disabled={isReadOnlyFields}
             onClick={() => setResolutionType('WORKAROUND')}
-            className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
+            className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed ${
               resolutionType === 'WORKAROUND'
-                ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
                 : 'bg-white hover:bg-amber-50 text-slate-700 border-slate-200 disabled:opacity-50'
             }`}
           >
@@ -280,7 +279,7 @@ export default function ResolutionEditorCard({
           </div>
         )}
         <label
-          className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-xs transition-all ${
+          className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-xs transition-colors ${
             isReadOnlyFields ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
           } ${
             resolvedByExternal
@@ -371,15 +370,16 @@ export default function ResolutionEditorCard({
                   type="button"
                   disabled={isMutatingStatus}
                   onClick={() => onUpdateStatus('IN_PROGRESS', { managerComment: managerComment.trim() })}
-                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-amber-50 text-amber-700 border border-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[16px]">undo</span>
                   <span>ตีกลับแก้ไข (Reject)</span>
                 </button>
               )}
               {isClosed && (
-                <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
-                  ✓ ปิดเคสแล้ว{incident.resolvedBy ? ` โดย ${incident.resolvedBy}` : ''}
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                  <span>ปิดเคสแล้ว{incident.resolvedBy ? ` โดย ${incident.resolvedBy}` : ''}</span>
                 </span>
               )}
               <button
@@ -389,8 +389,8 @@ export default function ResolutionEditorCard({
                 title={!isPendingConfirm && !isClosed ? 'รอ Staff ส่งเรื่องมาตรวจสอบ (PENDING_CONFIRM) ก่อน' : undefined}
                 className={
                   !isPendingConfirm || isClosed
-                    ? 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-200 text-slate-500 cursor-not-allowed shadow-none text-xs font-bold flex items-center justify-center gap-2'
-                    : 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(2,132,199,0.35)] hover:shadow-[0_6px_22px_rgba(2,132,199,0.45)] transition-all cursor-pointer disabled:cursor-not-allowed'
+                    ? 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-200 text-slate-500 cursor-not-allowed shadow-none text-xs font-semibold flex items-center justify-center gap-2'
+                    : 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer disabled:cursor-not-allowed'
                 }
               >
                 <span className={`material-symbols-outlined text-[18px] ${savingResolution ? 'animate-spin' : ''}`}>
@@ -410,15 +410,16 @@ export default function ResolutionEditorCard({
           ) : (
             <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
               {isClosed && (
-                <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
-                  ✓ ปิดเคสแล้ว{incident.resolvedBy ? ` โดย ${incident.resolvedBy}` : ''}
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold inline-flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                  <span>ปิดเคสแล้ว{incident.resolvedBy ? ` โดย ${incident.resolvedBy}` : ''}</span>
                 </span>
               )}
               <button
                 type="button"
                 disabled={isClosed || isMutatingStatus}
                 onClick={() => onSubmitResolution()}
-                className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-[16px]">save</span>
                 <span>{savingResolution ? 'กำลังบันทึก...' : 'Save Draft'}</span>
@@ -438,8 +439,8 @@ export default function ResolutionEditorCard({
                 }
                 className={
                   !canSubmitConfirm || isPendingConfirm || isClosed
-                    ? 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-200 text-slate-500 cursor-not-allowed text-xs font-bold flex items-center justify-center gap-2'
-                    : 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                    ? 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-200 text-slate-500 cursor-not-allowed text-xs font-semibold flex items-center justify-center gap-2'
+                    : 'w-full sm:w-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
                 }
               >
                 <span className={`material-symbols-outlined text-[18px] ${savingResolution ? 'animate-spin' : ''}`}>

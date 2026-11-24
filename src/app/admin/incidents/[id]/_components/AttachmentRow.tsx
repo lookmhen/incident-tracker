@@ -39,7 +39,7 @@ export default function AttachmentRow({
 
   return (
     <div
-      className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all ${boxStyle}`}
+      className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-colors ${boxStyle}`}
     >
       <div className="flex items-center gap-2.5 min-w-0">
         <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${iconStyle}`}>
@@ -58,7 +58,7 @@ export default function AttachmentRow({
           <button
             type="button"
             onClick={() => onPreview(att)}
-            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1 transition-colors shadow-2xs cursor-pointer"
           >
             <span className="material-symbols-outlined text-[15px]">visibility</span>
             <span>Preview</span>
@@ -67,7 +67,7 @@ export default function AttachmentRow({
           <a
             href={att.fileUrl}
             download={name}
-            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-sky-600 hover:text-white hover:border-sky-600 text-xs text-slate-700 font-medium flex items-center gap-1 transition-colors shadow-2xs cursor-pointer"
           >
             <span className="material-symbols-outlined text-[15px]">download</span>
             <span>Download</span>
@@ -79,7 +79,7 @@ export default function AttachmentRow({
             disabled={isDeleting}
             onClick={() => onDelete(att)}
             title="ลบไฟล์แนบ"
-            className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-400 transition-all cursor-pointer disabled:opacity-50"
+            className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-400 transition-colors cursor-pointer disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-[15px]">delete</span>
           </button>

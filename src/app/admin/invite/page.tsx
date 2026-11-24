@@ -80,13 +80,13 @@ function AcceptInviteForm() {
   }
 
   return (
-    <div className="w-full min-h-[calc(100vh-4rem)] bg-gradient-to-b from-[#f0f7ff] via-slate-50 to-[#f0f7ff] flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border border-sky-100 overflow-hidden">
-        <div className="p-6 sm:p-8 border-b border-slate-100 bg-gradient-to-r from-sky-50/80 to-white text-center space-y-2">
-          <div className="w-12 h-12 rounded-xl bg-sky-600 text-white flex items-center justify-center mx-auto shadow-md shadow-sky-600/20">
-            <span className="material-symbols-outlined text-[26px]">mail_lock</span>
+    <div className="w-full min-h-[calc(100vh-4rem)] bg-[#f5f7fa] flex items-center justify-center px-4 py-12">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-6 sm:p-8 border-b border-slate-200 bg-white text-center space-y-2">
+          <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center mx-auto">
+            <span className="material-symbols-outlined text-[20px]">mail_lock</span>
           </div>
-          <h1 className="text-xl font-headline font-bold text-slate-900">ตั้งรหัสผ่านบัญชีผู้ดูแลระบบ</h1>
+          <h1 className="text-xl font-headline font-semibold text-slate-900">ตั้งรหัสผ่านบัญชีผู้ดูแลระบบ</h1>
           <p className="text-xs text-slate-500">ใช้ Email ที่ได้รับเชิญและตั้งรหัสผ่านเพื่อเข้าร่วมทีม IncidentHub</p>
         </div>
 
@@ -167,7 +167,7 @@ function AcceptInviteForm() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white font-semibold text-xs shadow-md shadow-sky-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">
                 {submitting ? 'sync' : 'check_circle'}

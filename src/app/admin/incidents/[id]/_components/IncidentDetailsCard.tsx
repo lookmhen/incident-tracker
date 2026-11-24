@@ -63,25 +63,27 @@ export default function IncidentDetailsCard({
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border border-sky-100 space-y-5">
+    <div className="bg-white rounded-2xl p-6 shadow-2xs border border-slate-200 space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
             <span className="material-symbols-outlined text-[20px]">feed</span>
           </span>
           <div>
-            <h2 className="text-sm font-headline font-bold text-slate-900">Incident Details &amp; User Submission</h2>
+            <h2 className="text-sm font-headline font-semibold text-slate-900">Incident Details &amp; User Submission</h2>
             <p className="text-[11px] text-slate-500">รายละเอียดปัญหาและข้อความที่ผู้ใช้แจ้งเข้ามา</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {isClosed ? (
-            <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-600 flex items-center gap-1">
-              🔒 Locked หลังปิดเคส
+            <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-600 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">lock</span>
+              <span>Locked หลังปิดเคส</span>
             </span>
           ) : isManager ? (
-            <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[11px] font-semibold text-slate-600 flex items-center gap-1">
-              👁️ Read-Only (Manager)
+            <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-600 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">visibility</span>
+              <span>Read-Only (Manager)</span>
             </span>
           ) : (
             <button
@@ -155,11 +157,11 @@ export default function IncidentDetailsCard({
         /* View Mode */
         <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-4 text-xs text-slate-800 leading-relaxed space-y-2 select-text">
           <div className="text-slate-900 font-semibold bg-white p-2.5 rounded-lg border border-slate-200/80">
-            <span className="text-[11px] uppercase tracking-wider text-slate-500 block mb-0.5">Problem Title:</span>
+            <span className="text-[11px] font-medium text-slate-500 block mb-0.5">Problem title</span>
             {incident.title}
           </div>
           <div className="text-slate-700 p-2.5 bg-white/70 rounded-lg border border-slate-200/60 whitespace-pre-wrap">
-            <span className="text-[11px] uppercase tracking-wider text-slate-500 block mb-0.5">Description:</span>
+            <span className="text-[11px] font-medium text-slate-500 block mb-0.5">Description</span>
             {incident.description}
           </div>
         </div>

@@ -41,7 +41,7 @@ interface LogEntry {
 export default function IntegrationsSecurityHubPage() {
   const [activeTab, setActiveTab] = useState<'outbound' | 'mcp' | 'logs'>('outbound');
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warn'; text: string } | null>(null);
 
   // Settings State
   const [teams, setTeams] = useState<TeamsSettings>({
@@ -83,8 +83,8 @@ export default function IntegrationsSecurityHubPage() {
   const [savingTeams, setSavingTeams] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
+  const showToast = (msg: string, type: 'success' | 'error' | 'warn' = 'success') => {
+    setToast({ type, text: msg });
     setTimeout(() => setToast(null), 4000);
   };
 
@@ -121,7 +121,7 @@ export default function IntegrationsSecurityHubPage() {
         setSmtp(data.smtp);
         setMcpSec(data.mcpSecurity);
       } else if (res.status === 401) {
-        showToast('⚠️ เซสชันผู้ดูแลหมดอายุ กรุณาเข้าสู่ระบบใหม่ที่ /admin/login');
+        showToast('เซสชันผู้ดูแลหมดอายุ กรุณาเข้าสู่ระบบใหม่ที่ /admin/login', 'warn');
       }
     } catch (e) {
       console.error(e);
@@ -170,12 +170,12 @@ export default function IntegrationsSecurityHubPage() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.teams) {
         setTeams(data.teams);
-        showToast('✅ บันทึกการตั้งค่า Webhook เรียบร้อยแล้ว');
+        showToast('บันทึกการตั้งค่า Webhook เรียบร้อยแล้ว');
       } else {
-        showToast(`❌ บันทึกไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`);
+        showToast(`บันทึกไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`, 'error');
       }
     } catch (err: any) {
-      showToast(`❌ ข้อผิดพลาดเครือข่าย: ${err.message}`);
+      showToast(`ข้อผิดพลาดเครือข่าย: ${err.message}`, 'error');
     } finally {
       setSavingTeams(false);
     }
@@ -193,12 +193,12 @@ export default function IntegrationsSecurityHubPage() {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.smtp) {
         setSmtp(data.smtp);
-        showToast('✅ บันทึกการตั้งค่า SMTP เรียบร้อยแล้ว');
+        showToast('บันทึกการตั้งค่า SMTP เรียบร้อยแล้ว');
       } else {
-        showToast(`❌ บันทึกไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`);
+        showToast(`บันทึกไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`, 'error');
       }
     } catch (err: any) {
-      showToast(`❌ ข้อผิดพลาดเครือข่าย: ${err.message}`);
+      showToast(`ข้อผิดพลาดเครือข่าย: ${err.message}`, 'error');
     } finally {
       setSavingSmtp(false);
     }
@@ -243,17 +243,17 @@ export default function IntegrationsSecurityHubPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showToast(`❌ ทดสอบไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`);
+        showToast(`ทดสอบไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`, 'error');
       } else if (data.simulated) {
-        showToast(`⚠️ โหมดจำลอง: ${data.message}`);
+        showToast(`โหมดจำลอง: ${data.message}`, 'warn');
       } else if (data.success) {
-        showToast(`✅ ส่งข้อความเข้า Teams สำเร็จ (HTTP ${data.statusCode || 200})`);
+        showToast(`ส่งข้อความเข้า Teams สำเร็จ (HTTP ${data.statusCode || 200})`);
       } else {
-        showToast(`❌ Teams ปลายทางตอบกลับ: ${data.message || 'Failed'}`);
+        showToast(`Teams ปลายทางตอบกลับ: ${data.message || 'Failed'}`, 'error');
       }
       fetchLogs();
     } catch (err: any) {
-      showToast(`❌ ข้อผิดพลาดเครือข่าย: ${err.message}`);
+      showToast(`ข้อผิดพลาดเครือข่าย: ${err.message}`, 'error');
     } finally {
       setTestingTeams(false);
     }
@@ -269,13 +269,13 @@ export default function IntegrationsSecurityHubPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        showToast(`❌ ส่งอีเมลไม่สำเร็จ: ${data.message || data.error || `HTTP ${res.status}`}`);
+        showToast(`ส่งอีเมลไม่สำเร็จ: ${data.message || data.error || `HTTP ${res.status}`}`, 'error');
       } else {
-        showToast(`✅ ${data.message || 'ส่งอีเมลทดสอบเรียบร้อยแล้ว'}`);
+        showToast(data.message || 'ส่งอีเมลทดสอบเรียบร้อยแล้ว');
       }
       fetchLogs();
     } catch (err: any) {
-      showToast(`❌ ข้อผิดพลาดเครือข่าย: ${err.message}`);
+      showToast(`ข้อผิดพลาดเครือข่าย: ${err.message}`, 'error');
     } finally {
       setTestingEmail(false);
     }
@@ -291,9 +291,9 @@ export default function IntegrationsSecurityHubPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success === false) {
-        showToast(`❌ ส่งซ้ำไม่สำเร็จ: ${data.message || data.error || `HTTP ${res.status}`}`);
+        showToast(`ส่งซ้ำไม่สำเร็จ: ${data.message || data.error || `HTTP ${res.status}`}`, 'error');
       } else {
-        showToast(`✅ ${data.message || 'ส่งซ้ำเรียบร้อยแล้ว'}`);
+        showToast(data.message || 'ส่งซ้ำเรียบร้อยแล้ว');
       }
       await fetchLogs();
     } finally {
@@ -307,7 +307,7 @@ export default function IntegrationsSecurityHubPage() {
       if (res.ok) {
         setUnresolvedFailedCount(0);
         window.dispatchEvent(new Event('integrations-logs-updated'));
-        showToast('✅ ล้างตัวเลขแจ้งเตือน Error เรียบร้อยแล้ว');
+        showToast('ล้างตัวเลขแจ้งเตือน Error เรียบร้อยแล้ว');
       }
     } catch (e) {
       console.error(e);
@@ -355,30 +355,43 @@ export default function IntegrationsSecurityHubPage() {
   }
 
   return (
-    <div className="w-full bg-gradient-to-b from-[#f0f7fe] via-[#f8fafc] to-[#f0f7fd] min-h-[calc(100vh-4rem)] py-8 px-4 sm:px-8">
+    <div className="w-full bg-[#f5f7fa] min-h-[calc(100vh-4rem)] py-8 px-4 sm:px-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Toast Notification */}
         {toast && (
-          <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg border border-sky-500/30 flex items-center gap-2 text-xs font-medium">
-            <span className="material-symbols-outlined text-sky-400 text-[18px]">check_circle</span>
-            <span>{toast}</span>
+          <div
+            className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg border flex items-center gap-2 text-xs font-medium ${
+              toast.type === 'error'
+                ? 'bg-rose-950 text-rose-50 border-rose-500/40'
+                : toast.type === 'warn'
+                ? 'bg-amber-950 text-amber-50 border-amber-500/40'
+                : 'bg-slate-900 text-white border-slate-700'
+            }`}
+          >
+            <span
+              className={`material-symbols-outlined text-[18px] ${
+                toast.type === 'error'
+                  ? 'text-rose-400'
+                  : toast.type === 'warn'
+                  ? 'text-amber-400'
+                  : 'text-emerald-400'
+              }`}
+            >
+              {toast.type === 'error' ? 'error' : toast.type === 'warn' ? 'warning' : 'check_circle'}
+            </span>
+            <span>{toast.text}</span>
           </div>
         )}
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-sky-700 bg-sky-100 border border-sky-200 px-2.5 py-0.5 rounded-full">
-                AES-256 Encrypted Config
-              </span>
-              <span className="text-xs text-slate-500 font-mono">100% Offline Ready</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-headline font-bold text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-headline font-semibold tracking-tight text-slate-900">
               Integrations, API &amp; Security Hub
             </h1>
             <p className="text-xs sm:text-sm text-slate-600">
               จัดการช่องทางแจ้งเตือนขาออก (Teams / Email SMTP), ตั้งค่าความปลอดภัย API Key และตรวจสอบประวัติการส่งย้อนหลัง
+              <span className="ml-2 text-xs text-slate-500 font-mono">• AES-256 config • Offline ready</span>
             </p>
           </div>
         </div>
@@ -387,10 +400,10 @@ export default function IntegrationsSecurityHubPage() {
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
           <button
             onClick={() => setActiveTab('outbound')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
               activeTab === 'outbound'
-                ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/20'
-                : 'bg-white hover:bg-sky-50 text-slate-700 border border-slate-200'
+                ? 'bg-sky-600 text-white shadow-2xs'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
             }`}
           >
             <span className="material-symbols-outlined text-[17px]">send</span>
@@ -399,10 +412,10 @@ export default function IntegrationsSecurityHubPage() {
 
           <button
             onClick={() => setActiveTab('mcp')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
               activeTab === 'mcp'
-                ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/20'
-                : 'bg-white hover:bg-sky-50 text-slate-700 border border-slate-200'
+                ? 'bg-sky-600 text-white shadow-2xs'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
             }`}
           >
             <span className="material-symbols-outlined text-[17px]">shield_lock</span>
@@ -411,16 +424,16 @@ export default function IntegrationsSecurityHubPage() {
 
           <button
             onClick={() => setActiveTab('logs')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
               activeTab === 'logs'
-                ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/20'
-                : 'bg-white hover:bg-sky-50 text-slate-700 border border-slate-200'
+                ? 'bg-sky-600 text-white shadow-2xs'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200'
             }`}
           >
             <span className="material-symbols-outlined text-[17px]">receipt_long</span>
             <span>3. Delivery Logs ({logs.length})</span>
             {unresolvedFailedCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-600 text-white leading-none">
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-rose-600 text-white leading-none tabular-nums">
                 {unresolvedFailedCount}
               </span>
             )}
@@ -589,7 +602,7 @@ export default function IntegrationsSecurityHubPage() {
                       <select
                         value={smtp.encryption}
                         onChange={(e) => setSmtp({ ...smtp, encryption: e.target.value as any })}
-                        className="w-full appearance-none px-3 py-2 pr-8 rounded-xl border border-slate-300 text-xs bg-white text-slate-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        className="w-full appearance-none bg-none px-3 py-2 pr-8 rounded-xl border border-slate-300 text-xs bg-white text-slate-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500"
                       >
                         <option value="STARTTLS">STARTTLS (587)</option>
                         <option value="SSL">SSL/TLS (465)</option>
@@ -885,14 +898,14 @@ export default function IntegrationsSecurityHubPage() {
 
         {/* TAB 3: DELIVERY LOGS */}
         {activeTab === 'logs' && (
-          <div className="bg-white rounded-2xl shadow-xs border border-sky-100 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xs border border-slate-200 overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50/60">
               <div className="flex flex-wrap items-center gap-2.5">
                 <div className="relative min-w-[140px]">
                   <select
                     value={channelFilter}
                     onChange={(e) => setChannelFilter(e.target.value)}
-                    className="w-full appearance-none bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-700 py-1.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500 font-medium transition-colors shadow-2xs"
+                    className="w-full appearance-none bg-none bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-700 py-1.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500 font-medium transition-colors shadow-2xs"
                   >
                     <option value="ALL">All Channels</option>
                     <option value="TEAMS">TEAMS</option>
@@ -908,7 +921,7 @@ export default function IntegrationsSecurityHubPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full appearance-none bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-700 py-1.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500 font-medium transition-colors shadow-2xs"
+                    className="w-full appearance-none bg-none bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-700 py-1.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500 font-medium transition-colors shadow-2xs"
                   >
                     <option value="ALL">All Status</option>
                     <option value="SUCCESS">SUCCESS</option>
@@ -949,7 +962,7 @@ export default function IntegrationsSecurityHubPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-mono uppercase text-slate-500">
+                  <tr className="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-600">
                     <th className="py-3 px-4">Timestamp</th>
                     <th className="py-3 px-4">Channel</th>
                     <th className="py-3 px-4">Ticket Ref</th>
@@ -1023,36 +1036,36 @@ export default function IntegrationsSecurityHubPage() {
 
         {/* Log Inspect Modal */}
         {inspectLog && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl border border-sky-100 space-y-4">
+          <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-xl border border-slate-200 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-sm font-bold text-slate-900 font-mono">
+                <h3 className="text-sm font-semibold text-slate-900 font-mono">
                   Delivery Log Inspection ({inspectLog.channel} • {inspectLog.ticketNo})
                 </h3>
                 <button
                   onClick={() => setInspectLog(null)}
-                  className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"
+                  className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">close</span>
                 </button>
               </div>
               <div className="space-y-3 text-xs font-mono">
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase">Destination:</span>
+                  <span className="text-slate-500 block text-[11px] font-sans font-medium mb-1">Destination</span>
                   <div className="p-2 rounded bg-slate-50 border border-slate-200 break-all">
                     {inspectLog.destination}
                   </div>
                 </div>
                 {inspectLog.errorMessage && (
                   <div>
-                    <span className="text-rose-600 block text-[10px] uppercase font-bold">Error:</span>
+                    <span className="text-rose-600 block text-[11px] font-sans font-semibold mb-1">Error</span>
                     <div className="p-2 rounded bg-rose-50 border border-rose-200 text-rose-700">
                       {inspectLog.errorMessage}
                     </div>
                   </div>
                 )}
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase">Payload Sent:</span>
+                  <span className="text-slate-500 block text-[11px] font-sans font-medium mb-1">Payload sent</span>
                   <pre className="p-3 rounded bg-slate-900 text-slate-100 overflow-x-auto max-h-48 text-[11px]">
                     {inspectLog.payload || '-'}
                   </pre>

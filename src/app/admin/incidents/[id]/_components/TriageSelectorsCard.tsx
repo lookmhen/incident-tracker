@@ -105,12 +105,12 @@ export default function TriageSelectorsCard({
     <>
       {/* Dynamic Category & Triage Routing Selector */}
       <div
-        className={`bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border space-y-3.5 ${
-          !incident.category?.trim() ? 'border-amber-300' : 'border-sky-100'
+        className={`bg-white rounded-2xl p-6 shadow-2xs border space-y-3.5 ${
+          !incident.category?.trim() ? 'border-amber-300' : 'border-slate-200'
         }`}
       >
         <div className="flex items-center justify-between">
-          <label className="text-xs font-headline font-bold text-slate-900 flex items-center gap-2">
+          <label className="text-xs font-headline font-semibold text-slate-900 flex items-center gap-2">
             <span className="material-symbols-outlined text-[16px] text-sky-600">alt_route</span>
             Category &amp; Routing
           </label>
@@ -146,7 +146,7 @@ export default function TriageSelectorsCard({
                       }
                     : undefined
                 }
-                className={`py-2 px-2.5 rounded-xl flex items-center gap-2 transition-all text-xs font-semibold cursor-pointer disabled:cursor-not-allowed border ${
+                className={`py-2 px-2.5 rounded-xl flex items-center gap-2 transition-colors text-xs font-semibold cursor-pointer disabled:cursor-not-allowed border ${
                   isSelected
                     ? 'text-slate-900'
                     : 'bg-slate-50 hover:bg-sky-50 border-slate-200 hover:border-sky-200 text-slate-700 disabled:opacity-50'
@@ -178,12 +178,12 @@ export default function TriageSelectorsCard({
 
       {/* Hierarchical Root Cause Analysis Selector (Parent > Sub-branch) */}
       <div
-        className={`bg-white rounded-2xl p-6 shadow-[0_4px_20px_rgba(2,132,199,0.05)] border space-y-3.5 ${
-          !hasSubBranch ? 'border-amber-300' : 'border-sky-100'
+        className={`bg-white rounded-2xl p-6 shadow-2xs border space-y-3.5 ${
+          !hasSubBranch ? 'border-amber-300' : 'border-slate-200'
         }`}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <label className="text-xs font-headline font-bold text-slate-900 flex items-center gap-2">
+          <label className="text-xs font-headline font-semibold text-slate-900 flex items-center gap-2">
             <span className="material-symbols-outlined text-[16px] text-indigo-600">troubleshoot</span>
             Root Cause Analysis
           </label>
@@ -239,9 +239,9 @@ export default function TriageSelectorsCard({
                     setPinnedParent((prev) => (prev === node.name ? null : node.name));
                   }}
                   aria-expanded={isExpanded}
-                  className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:cursor-not-allowed border flex items-center gap-1.5 ${
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed border flex items-center gap-1.5 ${
                     isSelectedParent
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-600/25'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
                       : isExpanded
                       ? 'bg-indigo-50 text-indigo-800 border-indigo-300 ring-1 ring-indigo-200'
                       : 'bg-slate-50 hover:bg-indigo-50 text-slate-700 border-slate-200 hover:border-indigo-200 disabled:opacity-50'
@@ -300,9 +300,9 @@ export default function TriageSelectorsCard({
                         type="button"
                         disabled={isReadOnly}
                         onClick={() => handleSelectRootCause(fullPath)}
-                        className={`py-1.5 px-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer disabled:cursor-not-allowed border ${
+                        className={`py-1.5 px-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed border ${
                           isSelectedChild
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs font-semibold'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs font-semibold'
                             : 'bg-white hover:bg-indigo-100 text-slate-700 border-indigo-200 disabled:opacity-60'
                         }`}
                       >

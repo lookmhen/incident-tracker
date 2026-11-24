@@ -345,12 +345,12 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="w-full bg-gradient-to-b from-[#f0f7fe] via-[#f8fafc] to-[#f0f7fd] min-h-[calc(100vh-4rem)]">
-      <div className="w-full px-6 lg:px-10 py-8 max-w-[1680px] mx-auto space-y-7">
+    <div className="w-full bg-[#f5f7fa] min-h-[calc(100vh-4rem)]">
+      <div className="w-full px-6 lg:px-10 py-8 max-w-[1680px] mx-auto space-y-6">
         {/* Top Bar: Title & Controls */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div className="space-y-1 shrink-0">
-            <h1 className="text-2xl font-headline font-bold text-slate-900 tracking-tight whitespace-nowrap">
+            <h1 className="text-2xl font-headline font-semibold text-slate-900 tracking-tight whitespace-nowrap">
               IT Operations &amp; Incident Dashboard
             </h1>
           </div>
@@ -366,104 +366,101 @@ export default function AdminDashboardPage() {
                 ...(deptFilter !== 'ALL' ? { department: deptFilter } : {}),
                 ...(externalFilter !== 'ALL' ? { resolvedByExternal: externalFilter } : {}),
               }).toString()}`}
-              className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0"
+              className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-medium text-white flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
               title="Export filtered incidents to Excel (.CSV UTF-8 with BOM)"
             >
-              <span className="material-symbols-outlined text-[17px]">table_view</span>
+              <span className="material-symbols-outlined text-[16px]">table_view</span>
               <span>Export Excel (.CSV)</span>
             </a>
 
             <Link
               href="/admin/analytics"
-              className="px-3 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 border border-slate-200 hover:border-slate-300 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
             >
-              <span className="material-symbols-outlined text-[17px] text-sky-600">bar_chart</span>
+              <span className="material-symbols-outlined text-[16px] text-slate-500">bar_chart</span>
               <span>Analytics &amp; Graphs</span>
             </Link>
 
             <Link
               href="/admin/integrations"
-              className="px-3 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 border border-slate-200 hover:border-slate-300 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
             >
-              <span className="material-symbols-outlined text-[17px] text-sky-600">hub</span>
+              <span className="material-symbols-outlined text-[16px] text-slate-500">hub</span>
               <span>Integrations &amp; API</span>
             </Link>
 
             {/* Manage Categories Modal Trigger (Requirement: Add categories later) */}
             <button
               onClick={() => setShowCatModal(true)}
-              className="px-3 py-2 rounded-lg bg-white hover:bg-sky-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-sky-200 flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 border border-slate-200 hover:border-slate-300 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               title="Manage and add custom ticket categories"
             >
-              <span className="material-symbols-outlined text-[17px] text-sky-600">category</span>
-              <span>Manage Categories ({categories.length})</span>
+              <span className="material-symbols-outlined text-[16px] text-slate-500">category</span>
+              <span className="tabular-nums">Manage Categories ({categories.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowRootCauseModal(true)}
-              className="px-3 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-indigo-200 flex items-center gap-1.5 shadow-xs transition-all duration-200 whitespace-nowrap shrink-0 cursor-pointer"
+              className="px-3 py-2 rounded-lg bg-white hover:bg-slate-50 text-xs font-medium text-slate-700 border border-slate-200 hover:border-slate-300 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               title="Manage hierarchical root cause groups and sub-branches"
             >
-              <span className="material-symbols-outlined text-[17px] text-indigo-600">troubleshoot</span>
-              <span>Manage Root Causes ({rootCauseTree.length})</span>
+              <span className="material-symbols-outlined text-[16px] text-slate-500">troubleshoot</span>
+              <span className="tabular-nums">Manage Root Causes ({rootCauseTree.length})</span>
             </button>
           </div>
         </div>
 
-        {/* Frosted Metric KPI Cards (3 Core Operational Cards) */}
+        {/* Operational KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Metric 1: Total Active */}
-          <div className="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
+          <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Active Incidents</p>
+                <p className="text-xs text-slate-500 font-medium">Active Incidents</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-headline font-bold text-slate-900">{kpis.activeCount}</span>
-                  <span className="text-xs font-semibold text-sky-600 flex items-center font-label">
+                  <span className="text-3xl font-headline font-semibold tabular-nums text-slate-900">{kpis.activeCount}</span>
+                  <span className="text-xs font-medium text-sky-700 flex items-center font-mono tabular-nums">
                     <span className="material-symbols-outlined text-[14px]">arrow_upward</span> +{kpis.todayCount} today
                   </span>
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
-                <span className="material-symbols-outlined text-[20px]">layers</span>
+              <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500">
+                <span className="material-symbols-outlined text-[18px]">layers</span>
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <span>{kpis.activeCount === 0 ? 'All tickets resolved' : `${kpis.activeCount} in progress`}</span>
-              <span className="text-sky-700 font-mono font-semibold bg-sky-50 px-1.5 py-0.5 rounded">
+              <span className="text-slate-700 font-mono tabular-nums font-medium bg-slate-100 px-1.5 py-0.5 rounded">
                 {kpis.totalRecords > 0 ? `${Math.round((kpis.activeCount / kpis.totalRecords) * 100)}% load` : '0%'}
               </span>
             </div>
           </div>
 
           {/* Metric 2: High Urgency / Blocker */}
-          <div className="relative overflow-hidden rounded-xl bg-white border border-red-100 p-5 shadow-sm hover:shadow-md hover:border-red-200 transition-all duration-300 group flex flex-col justify-between">
+          <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Critical • P1 Blocker</p>
+                <p className="text-xs text-slate-500 font-medium">Critical • P1 Blocker</p>
                 <div className="flex items-baseline gap-2.5 mt-2">
-                  <span className="text-3xl font-headline font-bold text-rose-600">{kpis.criticalP1Count}</span>
+                  <span className="text-3xl font-headline font-semibold tabular-nums text-rose-600">{kpis.criticalP1Count}</span>
                   {kpis.criticalP1Count > 0 && (
-                    <span className="flex h-2.5 w-2.5 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
-                    </span>
+                    <span className="inline-flex rounded-full h-2 w-2 bg-rose-600" />
                   )}
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-lg bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
-                <span className="material-symbols-outlined text-[20px]">emergency_heat</span>
+              <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-rose-600">
+                <span className="material-symbols-outlined text-[18px]">emergency_heat</span>
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
               <span className="text-slate-500">
                 {kpis.criticalP1Count > 0 ? 'Active P1 in progress' : 'No critical blockers'}
               </span>
-              <span className={`font-semibold px-1.5 py-0.5 rounded border ${
+              <span className={`font-medium px-1.5 py-0.5 rounded border tabular-nums ${
                 kpis.criticalP1Count > 0
-                  ? 'text-rose-700 bg-rose-50 border-rose-100'
-                  : 'text-emerald-700 bg-emerald-50 border-emerald-100'
+                  ? 'text-rose-700 bg-rose-50 border-rose-200'
+                  : 'text-emerald-700 bg-emerald-50 border-emerald-200'
               }`}>
                 {kpis.criticalP1Count > 0 ? `${kpis.criticalP1Count} Urgent` : 'Nominal'}
               </span>
@@ -471,12 +468,12 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Metric 3: MTTR & SLA */}
-          <div className="relative overflow-hidden rounded-xl bg-white border border-sky-100 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all duration-300 group flex flex-col justify-between">
+          <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-2xs flex flex-col justify-between">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-label uppercase tracking-wider text-slate-500 font-medium">Resolution & SLA (MTTR)</p>
+                <p className="text-xs text-slate-500 font-medium">Resolution &amp; SLA (MTTR)</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl font-headline font-bold text-slate-900">
+                  <span className="text-3xl font-headline font-semibold tabular-nums text-slate-900">
                     {kpis.avgResolutionMins > 0
                       ? (kpis.avgResolutionMins >= 60 ? `${(kpis.avgResolutionMins / 60).toFixed(1)}h` : `${kpis.avgResolutionMins}m`)
                       : '—'}
@@ -484,16 +481,16 @@ export default function AdminDashboardPage() {
                   <span className="text-xs text-slate-500 font-medium">avg</span>
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
-                <span className="material-symbols-outlined text-[20px]">timer</span>
+              <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500">
+                <span className="material-symbols-outlined text-[18px]">timer</span>
               </div>
             </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <div className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full ${kpis.slaRate >= 80 ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                <span className="font-medium text-slate-600">{kpis.slaRate}% SLA resolved</span>
+                <span className="font-medium text-slate-600 tabular-nums">{kpis.slaRate}% SLA resolved</span>
               </div>
-              <span className="text-sky-700 font-mono font-medium bg-sky-50 px-1.5 py-0.5 rounded">
+              <span className="text-slate-700 font-mono tabular-nums font-medium bg-slate-100 px-1.5 py-0.5 rounded">
                 {kpis.resolvedCount} closed
               </span>
             </div>
@@ -501,7 +498,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Filter & Precision Search Strip */}
-        <div className="rounded-xl bg-white border border-slate-200/90 p-4 shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+        <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-2xs flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[280px]">
             <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">
@@ -512,8 +509,8 @@ export default function AdminDashboardPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search Ticket ID (INC-*), Reporter, or keyword payload..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-xs rounded-lg focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-all"
+              placeholder="Search ticket ID, reporter, or details"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-xs rounded-lg focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 text-[10px] text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded font-mono">
               <span>/</span> to focus
@@ -637,7 +634,7 @@ export default function AdminDashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-label tracking-wider uppercase text-[11px]">
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs">
                   <th className="py-3.5 px-4 font-semibold whitespace-nowrap">Ticket ID</th>
                   <th className="py-3.5 px-3 font-semibold">Age</th>
                   <th className="py-3.5 px-3 font-semibold whitespace-nowrap">Urgency</th>
@@ -683,7 +680,7 @@ export default function AdminDashboardPage() {
                         <td className="py-3.5 px-3 whitespace-nowrap">
                           {isHigh ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 whitespace-nowrap">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
                               P1 HIGH
                             </span>
                           ) : isMed ? (
@@ -831,7 +828,7 @@ export default function AdminDashboardPage() {
                           ) : (
                             <div className="flex items-center gap-2 text-slate-400">
                               <span className="material-symbols-outlined text-[15px]">person_off</span>
-                              <span className="text-[11px] italic">Unassigned</span>
+                              <span className="text-[11px]">Unassigned</span>
                             </div>
                           )}
                         </td>
@@ -932,16 +929,16 @@ export default function AdminDashboardPage() {
 
       {/* Dynamic Category Management Modal */}
       {showCatModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl border border-sky-100 space-y-5">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-lg border border-slate-200 space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-sky-600">category</span>
-                <h3 className="font-headline font-bold text-base text-slate-900">Manage Categories</h3>
+                <span className="material-symbols-outlined text-slate-500">category</span>
+                <h3 className="font-headline font-semibold text-base text-slate-900">Manage Categories</h3>
               </div>
               <button
                 onClick={() => setShowCatModal(false)}
-                className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500"
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
@@ -949,7 +946,7 @@ export default function AdminDashboardPage() {
 
             {/* Existing Categories List */}
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              <div className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Active Categories</div>
+              <div className="text-xs font-medium text-slate-500">Active Categories</div>
               {catError && (
                 <div className="px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">
                   {catError}
@@ -1047,7 +1044,7 @@ export default function AdminDashboardPage() {
 
             {/* Add New Category Form */}
             <form onSubmit={handleCreateCategory} className="border-t border-slate-100 pt-4 space-y-3">
-              <div className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Add New Category</div>
+              <div className="text-xs font-medium text-slate-500">Add New Category</div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-medium text-slate-700">Category Name</label>

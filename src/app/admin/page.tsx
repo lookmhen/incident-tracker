@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import ManageRootCausesModal, {
+  DEFAULT_ROOT_CAUSE_TREE,
+  type RootCauseNode,
+} from '@/components/ManageRootCausesModal';
 
 interface IncidentRecord {
   id: string;
@@ -13,6 +17,8 @@ interface IncidentRecord {
   contactInfo: string;
   urgency: string;
   category: string | null;
+  categoryId?: string | null;
+  categoryRel?: { id: string; name: string; color: string | null } | null;
   rootCause?: string | null;
   status: string;
   assignedTo: string | null;
@@ -80,6 +86,16 @@ export default function AdminDashboardPage() {
   const [newCatDesc, setNewCatDesc] = useState('');
   const [newCatColor, setNewCatColor] = useState('#0284c7');
   const [isCreatingCat, setIsCreatingCat] = useState(false);
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editCatName, setEditCatName] = useState('');
+  const [editCatDesc, setEditCatDesc] = useState('');
+  const [editCatColor, setEditCatColor] = useState('#0284c7');
+  const [isSavingCat, setIsSavingCat] = useState(false);
+  const [catError, setCatError] = useState<string | null>(null);
+
+  // Root Cause Modal
+  const [rootCauseTree, setRootCauseTree] = useState<RootCauseNode[]>(DEFAULT_ROOT_CAUSE_TREE);
+  const [showRootCauseModal, setShowRootCauseModal] = useState(false);
 
   // Teams ping feedback
   const [teamsPingStatus, setTeamsPingStatus] = useState<string | null>(null);
@@ -141,8 +157,21 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const fetchRootCauseTree = async () => {
+    try {
+      const res = await fetch('/api/root-causes?format=tree', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) setRootCauseTree(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch root cause tree:', e);
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
+    fetchRootCauseTree();
     fetch('/api/departments', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => {
@@ -171,6 +200,7 @@ export default function AdminDashboardPage() {
     e.preventDefault();
     if (!newCatName.trim()) return;
     setIsCreatingCat(true);
+    setCatError(null);
     try {
       const res = await fetch('/api/categories', {
         method: 'POST',
@@ -185,11 +215,44 @@ export default function AdminDashboardPage() {
         setNewCatName('');
         setNewCatDesc('');
         fetchCategories();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setCatError(err.error || 'Failed to add category');
       }
     } catch (e) {
       console.error(e);
     } finally {
       setIsCreatingCat(false);
+    }
+  };
+
+  // Update Category
+  const handleSaveCategory = async (catId: string) => {
+    if (!editCatName.trim()) return;
+    setIsSavingCat(true);
+    setCatError(null);
+    try {
+      const res = await fetch(`/api/categories/${catId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editCatName.trim(),
+          description: editCatDesc.trim(),
+          color: editCatColor,
+        }),
+      });
+      if (res.ok) {
+        setEditingCatId(null);
+        await Promise.all([fetchCategories(), fetchIncidents()]);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setCatError(err.error || 'Failed to update category');
+      }
+    } catch (e) {
+      console.error(e);
+      setCatError('Failed to update category');
+    } finally {
+      setIsSavingCat(false);
     }
   };
 
@@ -287,6 +350,7 @@ export default function AdminDashboardPage() {
                 ...(urgencyFilter !== 'ALL' ? { urgency: urgencyFilter } : {}),
                 ...(categoryFilter !== 'ALL' ? { category: categoryFilter } : {}),
                 ...(deptFilter !== 'ALL' ? { department: deptFilter } : {}),
+                ...(externalFilter !== 'ALL' ? { resolvedByExternal: externalFilter } : {}),
               }).toString()}`}
               className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white flex items-center gap-2 shadow-xs transition-all duration-200"
               title="Export filtered incidents to Excel (.CSV UTF-8 with BOM)"
@@ -319,6 +383,16 @@ export default function AdminDashboardPage() {
             >
               <span className="material-symbols-outlined text-[17px] text-sky-600">category</span>
               <span>Manage Categories ({categories.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowRootCauseModal(true)}
+              className="px-3.5 py-2 rounded-lg bg-white hover:bg-indigo-50 text-xs font-medium text-slate-700 border border-slate-200/90 hover:border-indigo-200 flex items-center gap-2 shadow-xs transition-all duration-200 cursor-pointer"
+              title="Manage hierarchical root cause groups and sub-branches"
+            >
+              <span className="material-symbols-outlined text-[17px] text-indigo-600">troubleshoot</span>
+              <span>Manage Root Causes ({rootCauseTree.length})</span>
             </button>
           </div>
         </div>
@@ -610,12 +684,42 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="py-3.5 px-3 whitespace-nowrap">
                           <div className="flex flex-col items-start gap-1">
-                            <span
-                              title={inc.category || 'General'}
-                              className="px-2 py-0.5 rounded text-[10px] font-mono bg-sky-50 text-sky-800 border border-sky-100 font-medium whitespace-nowrap max-w-[240px] truncate"
-                            >
-                              {inc.category || 'General'}
-                            </span>
+                            {(() => {
+                              const catColor =
+                                inc.categoryRel?.color ||
+                                categories.find(
+                                  (c) =>
+                                    c.id === inc.categoryId ||
+                                    c.name.toLowerCase() === (inc.category || '').toLowerCase()
+                                )?.color ||
+                                null;
+                              return (
+                                <span
+                                  title={inc.category || 'General'}
+                                  style={
+                                    catColor
+                                      ? {
+                                          backgroundColor: `${catColor}18`,
+                                          borderColor: `${catColor}55`,
+                                        }
+                                      : undefined
+                                  }
+                                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono border font-medium whitespace-nowrap max-w-[240px] truncate ${
+                                    catColor
+                                      ? 'text-slate-800'
+                                      : 'bg-sky-50 text-sky-800 border-sky-100'
+                                  }`}
+                                >
+                                  {catColor && (
+                                    <span
+                                      className="w-2 h-2 rounded-full shrink-0"
+                                      style={{ backgroundColor: catColor }}
+                                    />
+                                  )}
+                                  <span className="truncate">{inc.category || 'General'}</span>
+                                </span>
+                              );
+                            })()}
                             {inc.rootCause && (
                               <span
                                 title={`RCA: ${inc.rootCause}`}
@@ -763,21 +867,26 @@ export default function AdminDashboardPage() {
               </span>
               <label className="flex items-center gap-1.5 text-slate-500">
                 <span>Show</span>
-                <select
-                  value={limit}
-                  onChange={(e) => {
-                    setLimit(Number(e.target.value));
-                    setPage(1);
-                  }}
-                  aria-label="Records per page"
-                  className="bg-white border border-slate-200 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none focus:border-sky-500"
-                >
-                  {[10, 25, 50, 100].map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
+                <span className="relative inline-flex items-center">
+                  <select
+                    value={limit}
+                    onChange={(e) => {
+                      setLimit(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    aria-label="Records per page"
+                    className="appearance-none bg-white border border-slate-200 rounded-md py-1 pl-2.5 pr-7 text-xs font-semibold text-slate-700 cursor-pointer focus:outline-none focus:border-sky-500"
+                  >
+                    {[10, 25, 50, 100].map((size) => (
+                      <option key={size} value={size}>
+                        {size}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[15px] text-slate-400">
+                    expand_more
+                  </span>
+                </span>
                 <span>/ page</span>
               </label>
             </div>
@@ -824,27 +933,101 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Existing Categories List */}
-            <div className="space-y-2 max-h-52 overflow-y-auto">
+            <div className="space-y-2 max-h-60 overflow-y-auto">
               <div className="text-xs font-semibold uppercase text-slate-500 tracking-wider">Active Categories</div>
-              {categories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color || '#0284c7' }}></span>
-                    <span className="font-semibold text-slate-900">{cat.name}</span>
-                    {cat.description && <span className="text-slate-500 text-[11px] truncate max-w-[200px]">({cat.description})</span>}
-                  </div>
-                  <button
-                    onClick={() => handleDeleteCategory(cat.id)}
-                    className="text-slate-400 hover:text-red-600 p-1 rounded"
-                    title="Delete category"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                  </button>
+              {catError && (
+                <div className="px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                  {catError}
                 </div>
-              ))}
+              )}
+              {categories.map((cat) =>
+                editingCatId === cat.id ? (
+                  <div
+                    key={cat.id}
+                    className="p-2.5 rounded-xl bg-sky-50/70 border border-sky-200 space-y-2 text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={editCatColor}
+                        onChange={(e) => setEditCatColor(e.target.value)}
+                        aria-label="Edit category color"
+                        className="h-7 w-10 rounded border border-slate-200 cursor-pointer shrink-0"
+                      />
+                      <input
+                        type="text"
+                        value={editCatName}
+                        onChange={(e) => setEditCatName(e.target.value)}
+                        placeholder="Category name"
+                        className="flex-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs text-slate-900 focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={editCatDesc}
+                      onChange={(e) => setEditCatDesc(e.target.value)}
+                      placeholder="Description (Optional)"
+                      className="w-full px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 focus:outline-none focus:border-sky-500"
+                    />
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        disabled={isSavingCat}
+                        onClick={() => {
+                          setEditingCatId(null);
+                          setCatError(null);
+                        }}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 text-[11px] font-medium cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSavingCat || !editCatName.trim()}
+                        onClick={() => handleSaveCategory(cat.id)}
+                        className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingCat ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    key={cat.id}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color || '#0284c7' }}></span>
+                      <span className="font-semibold text-slate-900 truncate">{cat.name}</span>
+                      {cat.description && <span className="text-slate-500 text-[11px] truncate max-w-[180px]">({cat.description})</span>}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCatId(cat.id);
+                          setEditCatName(cat.name);
+                          setEditCatDesc(cat.description || '');
+                          setEditCatColor(cat.color || '#0284c7');
+                          setCatError(null);
+                        }}
+                        className="text-slate-400 hover:text-sky-600 p-1 rounded cursor-pointer"
+                        title="Edit category"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(cat.id)}
+                        className="text-slate-400 hover:text-red-600 p-1 rounded cursor-pointer"
+                        title="Delete category"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                )
+              )}
             </div>
 
             {/* Add New Category Form */}
@@ -903,6 +1086,14 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       )}
+
+      <ManageRootCausesModal
+        isOpen={currentUserRole !== 'MANAGER' && showRootCauseModal}
+        onClose={() => setShowRootCauseModal(false)}
+        tree={rootCauseTree}
+        onTreeUpdated={setRootCauseTree}
+        onDataMutated={fetchIncidents}
+      />
     </div>
   );
 }

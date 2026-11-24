@@ -1,6 +1,6 @@
 import prisma from '@/lib/prisma';
 import { buildFilterWhere, normalizeDepartment } from './incident-shared';
-import { RootCauseService } from './root-cause.service';
+import { RootCauseNode, RootCauseService } from './root-cause.service';
 
 export class IncidentAnalyticsService {
   private static readonly MTTR_EXCLUDED_KEY = 'mttr_excluded_tickets';
@@ -81,7 +81,7 @@ export class IncidentAnalyticsService {
     resolvedByExternal?: string;
   }) {
     const where = buildFilterWhere(query);
-    const [records, distinctFilterRows, excludedIds, configuredRootCauses] = await Promise.all([
+    const [records, distinctFilterRows, excludedIds, configuredTree, allCategories] = await Promise.all([
       prisma.incident.findMany({
         where,
         orderBy: { createdAt: 'asc' },
@@ -90,8 +90,14 @@ export class IncidentAnalyticsService {
         select: { category: true, department: true, rootCause: true },
       }),
       this.getMttrExcludedIds(),
-      RootCauseService.getRootCauseOptions(),
+      RootCauseService.getRootCauseTree(),
+      prisma.category.findMany({
+        select: { name: true, color: true },
+      }),
     ]);
+    const configuredRootCauses = configuredTree.flatMap((n) =>
+      n.children.length > 0 ? n.children.map((c) => `${n.name} > ${c}`) : [n.name]
+    );
 
     const normStatus = (s?: string | null) => (s || 'OPEN').trim().toUpperCase();
     const normUrgency = (u?: string | null) => (u || 'MEDIUM').trim().toUpperCase();
@@ -177,6 +183,37 @@ export class IncidentAnalyticsService {
       { key: 'over_7d', label: '> 7 วัน', count: agingCounts.over_7d },
     ];
 
+    const mergedTree: RootCauseNode[] = configuredTree.map((n) => ({
+      name: n.name,
+      children: [...n.children],
+    }));
+    const treeByParent = new Map<string, RootCauseNode>(
+      mergedTree.map((n) => [n.name.toLowerCase(), n])
+    );
+    for (const row of distinctFilterRows) {
+      const raw = row.rootCause?.trim();
+      if (!raw) continue;
+      if (raw.includes(' > ')) {
+        const sepIdx = raw.indexOf(' > ');
+        const parentName = raw.slice(0, sepIdx).trim();
+        const childName = raw.slice(sepIdx + 3).trim();
+        if (!parentName) continue;
+        let node = treeByParent.get(parentName.toLowerCase());
+        if (!node) {
+          node = { name: parentName, children: [] };
+          treeByParent.set(parentName.toLowerCase(), node);
+          mergedTree.push(node);
+        }
+        if (childName && !node.children.some((c) => c.toLowerCase() === childName.toLowerCase())) {
+          node.children.push(childName);
+        }
+      } else if (!treeByParent.has(raw.toLowerCase())) {
+        const node = { name: raw, children: [] };
+        treeByParent.set(raw.toLowerCase(), node);
+        mergedTree.push(node);
+      }
+    }
+
     const filterOptions = {
       categories: Array.from(
         new Set(distinctFilterRows.map((r) => r.category?.trim()).filter((v): v is string => Boolean(v)))
@@ -187,6 +224,7 @@ export class IncidentAnalyticsService {
           ...distinctFilterRows.map((r) => r.rootCause?.trim()).filter((v): v is string => Boolean(v)),
         ])
       ),
+      rootCauseTree: mergedTree,
       departments: this.groupDepartments(distinctFilterRows, false)
         .map((d) => d.department)
         .sort((a, b) => a.localeCompare(b)),
@@ -277,6 +315,7 @@ export class IncidentAnalyticsService {
     }
 
     // 2. Category Share
+    const catColorMap = new Map(allCategories.map((c) => [c.name.toLowerCase(), c.color || '#0284c7']));
     const catMap = new Map<string, number>();
     for (const r of records) {
       const cat = r.category || 'Uncategorized';
@@ -287,6 +326,7 @@ export class IncidentAnalyticsService {
         name,
         count,
         percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+        color: name === 'Uncategorized' ? '#64748b' : catColorMap.get(name.toLowerCase()) || '#0284c7',
       }))
       .sort((a, b) => b.count - a.count);
 
@@ -299,11 +339,36 @@ export class IncidentAnalyticsService {
       }))
       .sort((a, b) => b.count - a.count);
 
-    // 3b. Root Cause Breakdown
+    // 3b. Root Cause Breakdown (flat + grouped 2-level hierarchy)
     const rcMap = new Map<string, number>();
+    const rcGroupedMap = new Map<
+      string,
+      { count: number; children: Map<string, { name: string; fullPath: string; count: number }> }
+    >();
     for (const r of records) {
       const rc = r.rootCause?.trim() || 'Unspecified';
       rcMap.set(rc, (rcMap.get(rc) || 0) + 1);
+
+      let parent = 'Unspecified';
+      let child = '';
+      if (rc !== 'Unspecified') {
+        if (rc.includes(' > ')) {
+          const sepIdx = rc.indexOf(' > ');
+          parent = rc.slice(0, sepIdx).trim() || 'Unspecified';
+          child = rc.slice(sepIdx + 3).trim();
+        } else {
+          parent = rc;
+        }
+      }
+      const pBucket = rcGroupedMap.get(parent) || { count: 0, children: new Map() };
+      pBucket.count++;
+      if (child) {
+        const fullPath = `${parent} > ${child}`;
+        const cBucket = pBucket.children.get(child) || { name: child, fullPath, count: 0 };
+        cBucket.count++;
+        pBucket.children.set(child, cBucket);
+      }
+      rcGroupedMap.set(parent, pBucket);
     }
     const byRootCause = Array.from(rcMap.entries())
       .map(([rootCause, count]) => ({
@@ -312,6 +377,20 @@ export class IncidentAnalyticsService {
         percentage: total > 0 ? Math.round((count / total) * 100) : 0,
       }))
       .sort((a, b) => b.count - a.count);
+
+    const byRootCauseGrouped = Array.from(rcGroupedMap.entries())
+      .map(([parent, bucket]) => ({
+        parent,
+        count: bucket.count,
+        percentage: total > 0 ? Math.round((bucket.count / total) * 100) : 0,
+        children: Array.from(bucket.children.values())
+          .map((c) => ({
+            ...c,
+            percentage: total > 0 ? Math.round((c.count / total) * 100) : 0,
+          }))
+          .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+      }))
+      .sort((a, b) => b.count - a.count || a.parent.localeCompare(b.parent));
 
     // 4. Status & Urgency Breakdown
     const byStatus = [
@@ -346,6 +425,7 @@ export class IncidentAnalyticsService {
       trend: Array.from(trendMap.values()),
       byCategory,
       byRootCause,
+      byRootCauseGrouped,
       byDepartment,
       byStatus,
       byUrgency,

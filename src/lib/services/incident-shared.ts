@@ -72,8 +72,19 @@ export function buildFilterWhere(query: {
     where.category = { contains: query.category };
   }
   if (query.rootCause && query.rootCause !== 'ALL') {
-    where.rootCause =
-      query.rootCause === 'Unspecified' ? null : query.rootCause.trim();
+    const rc = query.rootCause.trim();
+    if (rc === 'Unspecified') {
+      where.rootCause = null;
+    } else if (rc.includes(' > ')) {
+      where.rootCause = rc;
+    } else if (rc) {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        {
+          OR: [{ rootCause: rc }, { rootCause: { startsWith: `${rc} > ` } }],
+        },
+      ];
+    }
   }
   if (query.department && query.department !== 'ALL') {
     where.department = { contains: query.department };

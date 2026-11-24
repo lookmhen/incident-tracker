@@ -1,6 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { RootCauseNode } from '@/components/ManageRootCausesModal';
+
+interface RootCauseGroupedItem {
+  parent: string;
+  count: number;
+  percentage: number;
+  children: Array<{ name: string; fullPath: string; count: number; percentage: number }>;
+}
 
 interface AnalyticsData {
   summary: {
@@ -16,15 +24,21 @@ interface AnalyticsData {
   };
   groupBy?: 'day' | 'month';
   trend: Array<{ date: string; label?: string; total: number; high: number; resolved: number }>;
-  byCategory: Array<{ name: string; count: number; percentage: number }>;
+  byCategory: Array<{ name: string; count: number; percentage: number; color?: string }>;
   byRootCause?: Array<{ rootCause: string; count: number; percentage: number }>;
+  byRootCauseGrouped?: RootCauseGroupedItem[];
   byDepartment: Array<{ department: string; count: number; percentage: number }>;
   byStatus: Array<{ status: string; count: number }>;
   byUrgency: Array<{ urgency: string; count: number }>;
   mttrByUrgency: Array<{ urgency: string; avgMins: number; count: number }>;
   mttrByCategory: Array<{ category: string; avgMins: number; count: number }>;
   backlogAging: Array<{ key: string; label: string; count: number }>;
-  filterOptions?: { categories: string[]; rootCauses?: string[]; departments: string[] };
+  filterOptions?: {
+    categories: string[];
+    rootCauses?: string[];
+    rootCauseTree?: RootCauseNode[];
+    departments: string[];
+  };
 }
 
 const COLORS = ['#0284c7', '#0ea5e9', '#38bdf8', '#6366f1', '#8b5cf6', '#ec4899', '#14b8a6'];
@@ -48,12 +62,18 @@ export default function AnalyticsDashboardPage() {
   const [groupBy, setGroupBy] = useState<'auto' | 'day' | 'month'>('auto');
   const [urgencyFilter, setUrgencyFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
-  const [rootCauseFilter, setRootCauseFilter] = useState('ALL');
+  const [rootCauseParentFilter, setRootCauseParentFilter] = useState('ALL');
+  const [rootCauseSubFilter, setRootCauseSubFilter] = useState('ALL');
   const [deptFilter, setDeptFilter] = useState('ALL');
   const [externalFilter, setExternalFilter] = useState('ALL');
   // null = custom range from the date inputs
   const [preset, setPreset] = useState<'7' | '30' | 'year' | 'all' | null>('all');
   const currentYear = new Date().getFullYear();
+
+  const getEffectiveRootCause = (parent: string, sub: string) => {
+    if (parent === 'ALL' || parent === 'Unspecified') return parent;
+    return sub === 'ALL' ? parent : `${parent} > ${sub}`;
+  };
 
   const fetchAnalytics = async (overrides?: {
     startDate?: string;
@@ -72,7 +92,10 @@ export default function AnalyticsDashboardPage() {
       const g = overrides?.groupBy !== undefined ? overrides.groupBy : groupBy;
       const u = overrides?.urgency !== undefined ? overrides.urgency : urgencyFilter;
       const c = overrides?.category !== undefined ? overrides.category : categoryFilter;
-      const rc = overrides?.rootCause !== undefined ? overrides.rootCause : rootCauseFilter;
+      const rc =
+        overrides?.rootCause !== undefined
+          ? overrides.rootCause
+          : getEffectiveRootCause(rootCauseParentFilter, rootCauseSubFilter);
       const d = overrides?.department !== undefined ? overrides.department : deptFilter;
       const ext = overrides?.resolvedByExternal !== undefined ? overrides.resolvedByExternal : externalFilter;
 
@@ -146,11 +169,31 @@ export default function AnalyticsDashboardPage() {
     if (endDate) params.set('endDate', endDate);
     if (urgencyFilter !== 'ALL') params.set('urgency', urgencyFilter);
     if (categoryFilter !== 'ALL') params.set('category', categoryFilter);
-    if (rootCauseFilter !== 'ALL') params.set('rootCause', rootCauseFilter);
+    const activeRootCause = getEffectiveRootCause(rootCauseParentFilter, rootCauseSubFilter);
+    if (activeRootCause !== 'ALL') params.set('rootCause', activeRootCause);
     if (deptFilter !== 'ALL') params.set('department', deptFilter);
     if (externalFilter !== 'ALL') params.set('resolvedByExternal', externalFilter);
     return `/api/incidents/export?${params.toString()}`;
   };
+
+  const rootCauseTreeOptions: RootCauseNode[] = (() => {
+    const tree = data?.filterOptions?.rootCauseTree;
+    if (tree && tree.length > 0) return tree;
+    const flat = data?.filterOptions?.rootCauses || [];
+    const map = new Map<string, string[]>();
+    for (const item of flat) {
+      const sep = item.indexOf(' > ');
+      const parent = sep >= 0 ? item.slice(0, sep).trim() : item.trim();
+      const child = sep >= 0 ? item.slice(sep + 3).trim() : '';
+      if (!parent || parent === 'Unspecified') continue;
+      const children = map.get(parent) || [];
+      if (child && !children.includes(child)) children.push(child);
+      map.set(parent, children);
+    }
+    return Array.from(map.entries()).map(([name, children]) => ({ name, children }));
+  })();
+  const selectedRootCauseNode = rootCauseTreeOptions.find((n) => n.name === rootCauseParentFilter);
+  const rootCauseSubOptions = selectedRootCauseNode?.children || [];
 
   const maxTrend = Math.max(...(data?.trend.map((t) => Math.max(t.total, t.resolved)) || [1]), 1);
   const maxDept = Math.max(...(data?.byDepartment.map((d) => d.count) || [1]), 1);
@@ -236,23 +279,46 @@ export default function AnalyticsDashboardPage() {
             </select>
 
             <select
-              value={rootCauseFilter}
+              value={rootCauseParentFilter}
               onChange={(e) => {
                 const v = e.target.value;
-                setRootCauseFilter(v);
-                fetchAnalytics({ rootCause: v });
+                setRootCauseParentFilter(v);
+                setRootCauseSubFilter('ALL');
+                fetchAnalytics({ rootCause: getEffectiveRootCause(v, 'ALL') });
               }}
               aria-label="Filter by root cause"
               className="bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-sky-500"
             >
               <option value="ALL">Root Cause: All</option>
-              {(data?.filterOptions?.rootCauses || []).map((rc) => (
-                <option key={rc} value={rc}>
-                  {rc}
+              {rootCauseTreeOptions.map((node) => (
+                <option key={node.name} value={node.name}>
+                  {node.name}
                 </option>
               ))}
               <option value="Unspecified">Unspecified</option>
             </select>
+
+            {rootCauseParentFilter !== 'ALL' &&
+              rootCauseParentFilter !== 'Unspecified' &&
+              rootCauseSubOptions.length > 0 && (
+                <select
+                  value={rootCauseSubFilter}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setRootCauseSubFilter(v);
+                    fetchAnalytics({ rootCause: getEffectiveRootCause(rootCauseParentFilter, v) });
+                  }}
+                  aria-label="Filter by root cause sub-branch"
+                  className="bg-indigo-50/70 border border-indigo-200 rounded-xl pl-3 pr-8 py-1.5 text-xs text-indigo-800 font-medium cursor-pointer focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="ALL">Sub: All</option>
+                  {rootCauseSubOptions.map((child) => (
+                    <option key={child} value={child}>
+                      {child}
+                    </option>
+                  ))}
+                </select>
+              )}
 
             <select
               value={deptFilter}
@@ -491,31 +557,34 @@ export default function AnalyticsDashboardPage() {
               {!data || data.byCategory.length === 0 ? (
                 <div className="py-10 text-center text-xs text-slate-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
               ) : (
-                data.byCategory.map((cat, idx) => (
-                <div key={cat.name} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-800 flex items-center gap-2">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: COLORS[idx % COLORS.length] }}
-                      />
-                      {cat.name}
-                    </span>
-                    <span className="font-mono text-slate-600">
-                      <strong>{cat.count}</strong> เคส ({cat.percentage}%)
-                    </span>
-                  </div>
-                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${Math.max(cat.percentage, 4)}%`,
-                        backgroundColor: COLORS[idx % COLORS.length],
-                      }}
-                    />
-                  </div>
-                </div>
-              ))
+                data.byCategory.map((cat, idx) => {
+                  const barColor = cat.color || COLORS[idx % COLORS.length];
+                  return (
+                    <div key={cat.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs gap-2">
+                        <span className="font-semibold text-slate-800 flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: barColor }}
+                          />
+                          <span className="truncate">{cat.name}</span>
+                        </span>
+                        <span className="font-mono text-slate-600 shrink-0">
+                          <strong>{cat.count}</strong> เคส ({cat.percentage}%)
+                        </span>
+                      </div>
+                      <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${Math.max(cat.percentage, 4)}%`,
+                            backgroundColor: barColor,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -728,7 +797,58 @@ export default function AnalyticsDashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
-              {!data || !data.byRootCause || data.byRootCause.length === 0 ? (
+              {data?.byRootCauseGrouped && data.byRootCauseGrouped.length > 0 ? (
+                data.byRootCauseGrouped.map((group, idx) => {
+                  const barColor =
+                    group.parent === 'Unspecified' ? '#94a3b8' : COLORS[(idx + 3) % COLORS.length];
+                  return (
+                    <div key={group.parent} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <span className="font-bold text-slate-900 truncate">{group.parent}</span>
+                          <span className="font-mono text-indigo-700 font-bold shrink-0">
+                            {group.count} เคส ({group.percentage}%)
+                          </span>
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.max(group.percentage, 4)}%`,
+                              backgroundColor: barColor,
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {group.children.length > 0 && (
+                        <div className="pl-3 border-l-2 border-indigo-200 space-y-2 pt-0.5">
+                          {group.children.map((child) => (
+                            <div key={child.fullPath} className="space-y-1">
+                              <div className="flex items-center justify-between text-[11px] gap-2">
+                                <span className="font-medium text-slate-700 truncate">{child.name}</span>
+                                <span className="font-mono text-slate-600 shrink-0">
+                                  <strong>{child.count}</strong> ({child.percentage}%)
+                                </span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${child.count > 0 ? Math.max(child.percentage, 4) : 0}%`,
+                                    backgroundColor: barColor,
+                                    opacity: 0.78,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : !data || !data.byRootCause || data.byRootCause.length === 0 ? (
                 <div className="sm:col-span-2 lg:col-span-3 py-8 text-center text-xs text-slate-400">
                   ไม่มีข้อมูลในช่วงเวลานี้
                 </div>

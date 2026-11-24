@@ -39,6 +39,7 @@ export interface IncidentFilterQuery {
   status?: string;
   urgency?: string;
   category?: string;
+  rootCause?: string;
   department?: string;
   resolutionType?: string;
   resolvedByExternal?: string;
@@ -106,6 +107,10 @@ export class IncidentService {
       relatedIncidents,
       referencedBy,
     };
+  }
+
+  public static async getRootCauseTree() {
+    return RootCauseService.getRootCauseTree();
   }
 
   public static async getRootCauseOptions(): Promise<string[]> {
@@ -493,7 +498,16 @@ export class IncidentService {
     }
     if (data.title !== undefined) updatePayload.title = McpService.cleanText(data.title);
     if (data.description !== undefined) updatePayload.description = McpService.cleanText(data.description);
-    if (data.category !== undefined) updatePayload.category = data.category;
+    if (data.category !== undefined) {
+      updatePayload.category = data.category;
+      if (data.categoryId === undefined && data.category) {
+        const matchedCat = await prisma.category.findFirst({
+          where: { name: data.category },
+          select: { id: true },
+        });
+        if (matchedCat) updatePayload.categoryId = matchedCat.id;
+      }
+    }
     if (data.categoryId !== undefined) updatePayload.categoryId = data.categoryId;
     if (data.rootCause !== undefined) {
       updatePayload.rootCause = data.rootCause ? data.rootCause.trim() : null;
@@ -567,6 +581,13 @@ export class IncidentService {
             updatePayload.status === 'PENDING_CONFIRM'
               ? 'Category and Root Cause are required before requesting confirmation'
               : 'Category and Root Cause are required before closing an incident',
+            400
+          );
+        }
+        const rcParts = effRootCause.split(' > ').map((p: string) => p.trim()).filter(Boolean);
+        if (!effRootCause.includes(' > ') || rcParts.length !== 2) {
+          throw new IncidentServiceError(
+            'Sub-branch selection is required for Root Cause (e.g. Human > User Knowledge Gap)',
             400
           );
         }

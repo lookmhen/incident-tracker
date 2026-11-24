@@ -7,6 +7,7 @@ import { formatDuration, normStatus, statusPillClass } from './utils';
 
 interface IncidentHeaderCardProps {
   incident: IncidentDetail;
+  categoryColor?: string | null;
   isClosed: boolean;
   isManager: boolean;
   isMutatingStatus: boolean;
@@ -19,6 +20,7 @@ interface IncidentHeaderCardProps {
 
 export default function IncidentHeaderCard({
   incident,
+  categoryColor,
   isClosed,
   isManager,
   isMutatingStatus,
@@ -188,7 +190,22 @@ export default function IncidentHeaderCard({
               </span>
             )}
 
-            <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+            <span
+              style={
+                categoryColor
+                  ? {
+                      backgroundColor: `${categoryColor}18`,
+                      borderColor: `${categoryColor}55`,
+                    }
+                  : undefined
+              }
+              className={`px-2.5 py-1 rounded-full font-semibold border flex items-center gap-1.5 ${
+                categoryColor ? 'text-slate-800' : 'bg-slate-100 text-slate-700 border-slate-200'
+              }`}
+            >
+              {categoryColor && (
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: categoryColor }} />
+              )}
               {incident.category || 'Uncategorized'}
             </span>
 

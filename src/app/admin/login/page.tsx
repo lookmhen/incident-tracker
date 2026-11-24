@@ -76,7 +76,7 @@ function AdminLoginForm() {
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@company.com (เว้นว่างเพื่อใช้ Master Passcode)"
+                placeholder="name@company.com"
                 className="w-full px-4 py-2.5 pr-10 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600"
               />
               <span className="material-symbols-outlined text-[18px] text-slate-400 absolute right-3.5 top-2.5">
@@ -88,17 +88,17 @@ function AdminLoginForm() {
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-700">Password / Admin Passcode</label>
             <div className="relative">
+              <span className="material-symbols-outlined text-[18px] text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                key
+              </span>
               <input
                 type="password"
                 required
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600 font-mono"
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-600 font-mono"
               />
-              <span className="material-symbols-outlined text-[18px] text-slate-400 absolute right-3.5 top-2.5">
-                key
-              </span>
             </div>
           </div>
 

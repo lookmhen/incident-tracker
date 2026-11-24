@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CategoryService } from '@/lib/services/category.service';
+import { IncidentServiceError } from '@/lib/services/incident-errors';
 import { checkApiAccess } from '@/lib/api-guard';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -19,6 +20,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json(updated);
   } catch (error: any) {
+    if (error instanceof IncidentServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.json({ error: error.message || 'Failed to update category' }, { status: 500 });
   }
 }

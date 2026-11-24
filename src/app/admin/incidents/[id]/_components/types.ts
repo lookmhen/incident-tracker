@@ -1,3 +1,5 @@
+export type { RootCauseNode } from '@/components/ManageRootCausesModal';
+
 export interface RelatedIncidentSummary {
   id: string;
   ticketNo: string;
@@ -32,6 +34,7 @@ export interface IncidentDetail {
   urgency: string;
   category: string | null;
   categoryId: string | null;
+  categoryRel?: { id: string; name: string; color: string | null } | null;
   rootCause: string | null;
   status: string;
   assignedTo: string | null;

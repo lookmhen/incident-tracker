@@ -9,6 +9,7 @@ import {
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENT_MB,
 } from '@/lib/attachments';
+import { DEFAULT_ROOT_CAUSE_TREE, type RootCauseNode } from '@/components/ManageRootCausesModal';
 import AttachmentPreviewModal from './_components/AttachmentPreviewModal';
 import IncidentDetailsCard from './_components/IncidentDetailsCard';
 import IncidentHeaderCard from './_components/IncidentHeaderCard';
@@ -36,7 +37,7 @@ export default function IncidentDetailMcpHub({
 
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [rootCauses, setRootCauses] = useState<string[]>(['Human', 'System', 'Data']);
+  const [rootCauseTree, setRootCauseTree] = useState<RootCauseNode[]>(DEFAULT_ROOT_CAUSE_TREE);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentAdminUser | null>(null);
 
@@ -125,10 +126,10 @@ export default function IncidentDetailMcpHub({
 
     const loadRootCauses = async () => {
       try {
-        const res = await fetch('/api/root-causes', { cache: 'no-store' });
+        const res = await fetch('/api/root-causes?format=tree', { cache: 'no-store' });
         if (!cancelled && res.ok) {
           const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) setRootCauses(data);
+          if (Array.isArray(data) && data.length > 0) setRootCauseTree(data);
         }
       } catch {}
     };
@@ -154,13 +155,29 @@ export default function IncidentDetailMcpHub({
     toastTimerRef.current = setTimeout(() => setToast(null), inferredType === 'error' ? 6000 : 4500);
   };
 
+  const refreshIncident = async () => {
+    try {
+      const res = await fetch(`/api/incidents/${encodeURIComponent(id)}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setIncident(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const validateReadyToClose = (inc: IncidentDetail) => {
     const missing: string[] = [];
     if (!resolvedByExternal && (!inc.assignedTo?.trim() || normStatus(inc.status) === 'OPEN')) {
       missing.push('กด Claim Ticket (รับเคส)');
     }
     if (!inc.category?.trim()) missing.push('Category');
-    if (!inc.rootCause?.trim()) missing.push('Root Cause');
+    if (!inc.rootCause?.trim()) {
+      missing.push('Root Cause');
+    } else if (inc.rootCause.split(' > ').map((p) => p.trim()).filter(Boolean).length !== 2) {
+      missing.push('Root Cause (เลือก Branch ย่อย)');
+    }
     if (missing.length > 0) {
       const msg = `กรุณา ${missing.join(' และ ')} ก่อนส่งหรือปิดเคส`;
       setResolutionFeedback({ type: 'error', text: msg });
@@ -456,6 +473,12 @@ export default function IncidentDetailMcpHub({
   const isPendingConfirm = statusKey === 'PENDING_CONFIRM';
   const isClosed = statusKey === 'RESOLVED' || statusKey === 'CLOSED';
   const isManager = currentUser?.role === 'MANAGER';
+  const categoryColor =
+    categories.find(
+      (c) => c.id === incident.categoryId || c.name.toLowerCase() === (incident.category || '').toLowerCase()
+    )?.color ??
+    incident.categoryRel?.color ??
+    null;
   const reportAttachments = incident.attachments.filter((a) => (a.kind || 'REPORT') !== 'RESOLUTION');
   const resolutionAttachments = incident.attachments.filter((a) => a.kind === 'RESOLUTION');
 
@@ -464,7 +487,11 @@ export default function IncidentDetailMcpHub({
   const missingToClose: string[] = [];
   if (!canSubmitWithoutClaim) missingToClose.push('รับเคส (Claim Ticket)');
   if (!incident.category?.trim()) missingToClose.push('Category');
-  if (!incident.rootCause?.trim()) missingToClose.push('Root Cause');
+  if (!incident.rootCause?.trim()) {
+    missingToClose.push('Root Cause');
+  } else if (incident.rootCause.split(' > ').map((p) => p.trim()).filter(Boolean).length !== 2) {
+    missingToClose.push('Root Cause (เลือก Branch ย่อย)');
+  }
   if (resolutionType === 'WORKAROUND' && !workaroundNote.trim()) missingToClose.push('เงื่อนไข Workaround');
 
   return (
@@ -476,6 +503,7 @@ export default function IncidentDetailMcpHub({
 
         <IncidentHeaderCard
           incident={incident}
+          categoryColor={categoryColor}
           isClosed={isClosed}
           isManager={isManager}
           isMutatingStatus={isMutatingStatus}
@@ -548,11 +576,12 @@ export default function IncidentDetailMcpHub({
             <TriageSelectorsCard
               incident={incident}
               categories={categories}
-              rootCauses={rootCauses}
+              rootCauseTree={rootCauseTree}
               isClosed={isClosed}
               isManager={isManager}
               onIncidentUpdated={setIncident}
-              onRootCausesUpdated={setRootCauses}
+              onRootCauseTreeUpdated={setRootCauseTree}
+              onDataMutated={refreshIncident}
               onClearFeedback={() => setResolutionFeedback(null)}
               showToast={showToast}
             />

@@ -346,7 +346,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
       new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json', cookie: staffCookie },
-        body: JSON.stringify({ title: 'Refined Problem Title', rootCause: 'System' }),
+        body: JSON.stringify({ title: 'Refined Problem Title', rootCause: 'System > Program Defect' }),
       }),
       { params: Promise.resolve({ id: inc.ticketNo }) }
     );
@@ -595,7 +595,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
       const claimRes = await patch(staffCookie, {
         assignedTo: staffUser.name,
         status: 'IN_PROGRESS',
-        rootCause: 'System',
+        rootCause: 'System > Program Defect',
       });
       assert.equal(claimRes.status, 200);
       assert.equal((await claimRes.json()).status, 'IN_PROGRESS');

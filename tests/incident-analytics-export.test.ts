@@ -20,6 +20,21 @@ import { POST as attachmentsPostHandler, DELETE as attachmentsDeleteHandler } fr
 import { GET as analyticsGetHandler } from '../src/app/api/incidents/analytics/route';
 import { GET as departmentsGetHandler } from '../src/app/api/departments/route';
 import { GET as rootCausesGet, POST as rootCausesPost, DELETE as rootCausesDelete } from '../src/app/api/root-causes/route';
+import { PATCH as categoryPatchHandler } from '../src/app/api/categories/[id]/route';
+
+async function fetchCategoryPatch(id: string, token: string, body: Record<string, unknown>) {
+  return categoryPatchHandler(
+    new NextRequest(`http://localhost:3000/api/categories/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `${ADMIN_COOKIE_NAME}=${token}`,
+      },
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ id }) }
+  );
+}
 
 describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
   const testCategoryIds: string[] = [];
@@ -70,6 +85,68 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.ok(!activeList.some((c) => c.id === created.id), 'Inactive category should not appear in active list');
   });
 
+  it('edits category name/color retroactively, syncs existing incidents, and returns color in analytics', async () => {
+    const suffix = Date.now();
+    const oldName = `LegacyCat-${suffix}`;
+    const renamedName = `RenamedCat-${suffix}`;
+    const cat = await CategoryService.createCategory({
+      name: oldName,
+      description: 'Old desc',
+      color: '#10b981',
+    });
+    testCategoryIds.push(cat.id);
+
+    // Incident linked only by category string (categoryId = null) + another linked by categoryId
+    const incByName = await IncidentService.createIncident({
+      reporterName: 'Cat Tester 1',
+      contactInfo: 'cat1@test.local',
+      department: `CatDept-${suffix}`,
+      title: 'Unlinked legacy category row',
+      description: 'Matches by category text',
+      category: oldName,
+    });
+    const incById = await IncidentService.createIncident({
+      reporterName: 'Cat Tester 2',
+      contactInfo: 'cat2@test.local',
+      department: `CatDept-${suffix}`,
+      title: 'Linked category row',
+      description: 'Matches by categoryId',
+      category: oldName,
+      categoryId: cat.id,
+    });
+    testIncidentIds.push(incByName.id, incById.id);
+
+    // Rename & recolor via PATCH /api/categories/[id]
+    const adminToken = await createAdminSessionToken();
+    const patchRes = await fetchCategoryPatch(cat.id, adminToken, {
+      name: renamedName,
+      color: '#ec4899',
+      description: 'Updated desc',
+    });
+    assert.equal(patchRes.status, 200);
+    const patched = await patchRes.json();
+    assert.equal(patched.name, renamedName);
+    assert.equal(patched.color, '#ec4899');
+    assert.equal(patched.description, 'Updated desc');
+
+    // Empty name must fail with 400
+    const emptyRes = await fetchCategoryPatch(cat.id, adminToken, { name: '   ' });
+    assert.equal(emptyRes.status, 400);
+
+    // Both existing incidents must now carry renamedName & categoryId
+    const refreshed1 = await IncidentService.getIncidentById(incByName.id);
+    const refreshed2 = await IncidentService.getIncidentById(incById.id);
+    assert.equal(refreshed1?.category, renamedName);
+    assert.equal(refreshed1?.categoryId, cat.id);
+    assert.equal(refreshed2?.category, renamedName);
+
+    // Analytics byCategory includes the category's configured hex color
+    const analytics = await IncidentAnalyticsService.getAnalyticsData({ department: `CatDept-${suffix}` });
+    assert.equal(analytics.byCategory.length, 1);
+    assert.equal(analytics.byCategory[0].name, renamedName);
+    assert.equal((analytics.byCategory[0] as any).color, '#ec4899');
+  });
+
   it('creates, filters, updates, and resolves an incident with automatic closedAt timestamp', async () => {
     const created = await IncidentService.createIncident({
       reporterName: 'กิตติพงศ์ ทดสอบระบบ',
@@ -111,7 +188,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     // Resolve incident via ticketNo (same path used by PATCH /api/incidents/[id])
     const resolved = await IncidentService.updateIncident(created.ticketNo, {
       status: 'RESOLVED',
-      rootCause: 'System',
+      rootCause: 'System > Program Defect',
       assignedTo: 'Tier-2 Network Admin',
       resolution: '<p>รีเซ็ต BGP Session และอัปเดต Profile เรียบร้อย</p>',
     });
@@ -319,7 +396,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
         await IncidentService.updateIncident(inc.ticketNo, {
           status,
           category: 'Helpdesk',
-          rootCause: 'Human',
+          rootCause: 'Human > User Knowledge Gap',
         });
       }
       return inc.ticketNo;
@@ -437,7 +514,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     await IncidentService.updateIncident(fast.ticketNo, {
       status: 'RESOLVED',
       category: 'Helpdesk',
-      rootCause: 'Human',
+      rootCause: 'Human > User Knowledge Gap',
       closedAt: new Date(fast.createdAt.getTime() + 30 * 60 * 1000),
     });
 
@@ -462,7 +539,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     const resolvedAfterHold = await IncidentService.updateIncident(held.ticketNo, {
       status: 'RESOLVED',
       category: 'Interface',
-      rootCause: 'Data',
+      rootCause: 'Data > Master Data Quality',
       closedAt: new Date(held.createdAt.getTime() + 10 * 24 * 60 * 60 * 1000),
     });
     assert.equal(resolvedAfterHold.mttrExcluded, true);
@@ -502,7 +579,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
       name: 'QA Staff',
       role: 'STAFF',
     });
-    const customName = `Vendor-${Date.now()}`;
+    const customName = `System > Vendor-${Date.now()}`;
 
     // 1. Custom root cause options CRUD
     const addRes = await rootCausesPost(
@@ -515,7 +592,11 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     assert.equal(addRes.status, 201);
     const listRes = await rootCausesGet();
     const options = await listRes.json();
-    assert.ok(options.includes('Human') && options.includes('System') && options.includes('Data'));
+    assert.ok(
+      options.some((o: string) => o.startsWith('Human > ')) &&
+        options.some((o: string) => o.startsWith('System > ')) &&
+        options.some((o: string) => o.startsWith('Data > '))
+    );
     assert.ok(options.includes(customName));
 
     // 2. Reject submitting/closing without category and rootCause
@@ -1068,9 +1149,10 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
         (err: unknown) => err instanceof IncidentServiceError && err.status === 400
       );
 
-      for (const opt of added) {
-        if (opt !== tempOption) {
-          await RootCauseService.deleteRootCauseOption(opt);
+      const treeAfterAdd = await RootCauseService.getRootCauseTree();
+      for (const node of treeAfterAdd) {
+        if (node.name !== tempOption) {
+          await RootCauseService.deleteRootCauseParent(node.name);
         }
       }
 
@@ -1150,7 +1232,7 @@ describe('7. Category, Incident Lifecycle, Analytics & Excel Export', () => {
     await IncidentService.updateIncident(inc.ticketNo, {
       status: 'RESOLVED',
       category: 'Helpdesk',
-      rootCause: 'System',
+      rootCause: 'System > Program Defect',
     });
 
     await assert.rejects(

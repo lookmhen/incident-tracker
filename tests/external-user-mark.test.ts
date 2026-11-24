@@ -72,7 +72,7 @@ describe('13. External User Resolution Mark Workflow', () => {
       () =>
         IncidentService.updateIncident(inc.id, {
           status: 'PENDING_CONFIRM',
-          rootCause: 'Human',
+          rootCause: 'Human > User Knowledge Gap',
           resolvedByExternal: false,
         }),
       (err: any) => err instanceof IncidentServiceError && err.status === 400
@@ -98,7 +98,7 @@ describe('13. External User Resolution Mark Workflow', () => {
         role: 'STAFF',
         body: {
           status: 'PENDING_CONFIRM',
-          rootCause: 'System',
+          rootCause: 'System > Program Defect',
           resolution: 'Supervisor Prd restarted scanner cradle.',
           resolutionType: 'WORKAROUND',
           workaroundNote: 'Check cable during PM',
@@ -239,7 +239,7 @@ describe('13. External User Resolution Mark Workflow', () => {
     const baseCreated = new Date('2026-11-20T08:00:00.000Z');
     await IncidentService.updateIncident(extInc.id, {
       status: 'RESOLVED',
-      rootCause: 'System',
+      rootCause: 'System > Program Defect',
       resolvedByExternal: true,
       createdAt: baseCreated,
       closedAt: new Date(baseCreated.getTime() + 240 * 60000),
@@ -247,7 +247,7 @@ describe('13. External User Resolution Mark Workflow', () => {
     await IncidentService.updateIncident(itInc.id, {
       status: 'RESOLVED',
       assignedTo: 'IT Support',
-      rootCause: 'System',
+      rootCause: 'System > Program Defect',
       resolvedByExternal: false,
       createdAt: baseCreated,
       closedAt: new Date(baseCreated.getTime() + 30 * 60000),

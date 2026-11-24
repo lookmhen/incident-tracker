@@ -4,6 +4,7 @@ import { RootCauseNode, RootCauseService } from './root-cause.service';
 
 export class IncidentAnalyticsService {
   private static readonly MTTR_EXCLUDED_KEY = 'mttr_excluded_tickets';
+  private static readonly MIN_ANALYTICS_YEAR = 2020;
 
   public static groupDepartments(rows: Array<{ department: string | null }>, includeEmpty: boolean) {
     const buckets = new Map<string, { count: number; variants: Map<string, number> }>();
@@ -81,12 +82,14 @@ export class IncidentAnalyticsService {
     resolvedByExternal?: string;
   }) {
     const where = buildFilterWhere(query);
-    const [records, distinctFilterRows, excludedIds, configuredTree, allCategories] = await Promise.all([
+    const minValidDate = new Date(Date.UTC(this.MIN_ANALYTICS_YEAR, 0, 1));
+    const [rawRecords, distinctFilterRows, excludedIds, configuredTree, allCategories] = await Promise.all([
       prisma.incident.findMany({
         where,
         orderBy: { createdAt: 'asc' },
       }),
       prisma.incident.findMany({
+        where: { createdAt: { gte: minValidDate } },
         select: { category: true, department: true, rootCause: true },
       }),
       this.getMttrExcludedIds(),
@@ -95,6 +98,11 @@ export class IncidentAnalyticsService {
         select: { name: true, color: true },
       }),
     ]);
+    // Exclude epoch/corrupted pre-operational timestamps (e.g. 1969/1970) from charts & metrics
+    const records = rawRecords.filter((r) => {
+      const d = new Date(r.createdAt);
+      return !Number.isNaN(d.getTime()) && d.getUTCFullYear() >= this.MIN_ANALYTICS_YEAR;
+    });
     const configuredRootCauses = configuredTree.flatMap((n) =>
       n.children.length > 0 ? n.children.map((c) => `${n.name} > ${c}`) : [n.name]
     );
@@ -266,8 +274,9 @@ export class IncidentAnalyticsService {
       if (query.startDate && query.endDate) {
         const startYear = new Date(query.startDate).getUTCFullYear();
         const endYear = new Date(query.endDate).getUTCFullYear();
-        if (!Number.isNaN(startYear) && !Number.isNaN(endYear) && endYear >= startYear && endYear - startYear <= 20) {
-          for (let y = startYear; y <= endYear; y++) {
+        const clampedStart = Math.max(startYear, this.MIN_ANALYTICS_YEAR);
+        if (!Number.isNaN(startYear) && !Number.isNaN(endYear) && endYear >= clampedStart && endYear - clampedStart <= 20) {
+          for (let y = clampedStart; y <= endYear; y++) {
             const yKey = String(y);
             trendMap.set(yKey, { date: yKey, label: yKey, total: 0, high: 0, resolved: 0 });
           }
@@ -287,7 +296,7 @@ export class IncidentAnalyticsService {
       if (query.startDate && query.endDate) {
         const startYear = new Date(query.startDate).getUTCFullYear();
         const endYear = new Date(query.endDate).getUTCFullYear();
-        if (startYear === endYear) {
+        if (startYear === endYear && startYear >= this.MIN_ANALYTICS_YEAR) {
           for (let m = 0; m < 12; m++) {
             const mKey = `${startYear}-${String(m + 1).padStart(2, '0')}`;
             trendMap.set(mKey, {

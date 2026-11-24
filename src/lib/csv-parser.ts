@@ -61,7 +61,8 @@ export function parseThaiDate(dateStr?: string | null): Date | null {
 
   // If already standard ISO or date string with T separator
   if (str.includes('T') && !isNaN(Date.parse(str))) {
-    return new Date(str);
+    const d = new Date(str);
+    return d.getUTCFullYear() < 2000 ? null : d;
   }
 
   const parts = str.split(/\s+/);
@@ -72,7 +73,7 @@ export function parseThaiDate(dateStr?: string | null): Date | null {
   const separator = datePart.includes('/') ? '/' : datePart.includes('-') ? '-' : null;
   if (!separator) {
     const fallback = new Date(str);
-    return isNaN(fallback.getTime()) ? null : fallback;
+    return isNaN(fallback.getTime()) || fallback.getUTCFullYear() < 2000 ? null : fallback;
   }
 
   const segments = datePart.split(separator).map(Number);
@@ -87,8 +88,10 @@ export function parseThaiDate(dateStr?: string | null): Date | null {
     [d, m, y] = segments;
   }
 
-  // Convert Buddhist Era to Gregorian if year > 2400
-  const gregorianYear = y > 2400 ? y - 543 : y;
+  // Expand 2-digit Thai BE (43..99 -> 2543..2599) or AD (< 43 -> 20xx) before Date.UTC (which maps 0..99 to 1900+y)
+  const expandedYear = y >= 0 && y < 100 ? (y >= 43 ? 2500 + y : 2000 + y) : y;
+  const gregorianYear = expandedYear > 2400 ? expandedYear - 543 : expandedYear;
+  if (gregorianYear < 2000) return null;
   const [hh, mm, ss] = timePart.split(':').map(Number);
 
   return new Date(Date.UTC(gregorianYear, m - 1, d, hh || 0, mm || 0, ss || 0));

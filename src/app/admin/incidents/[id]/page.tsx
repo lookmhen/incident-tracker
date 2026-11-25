@@ -24,9 +24,10 @@ import type {
   CurrentAdminUser,
   IncidentAttachment,
   IncidentDetail,
+  RelatedIncidentSummary,
   ResolutionFeedback,
 } from './_components/types';
-import { attName, normStatus } from './_components/utils';
+import { applyRelatedResolutionCopy, attName, normStatus } from './_components/utils';
 
 export default function IncidentDetailMcpHub({
   params,
@@ -445,9 +446,22 @@ export default function IncidentDetailMcpHub({
     }
   };
 
-  const handleAppendResolution = (snippet: string, sourceTicketNo: string) => {
-    setResolutionText((prev) => (prev.trim() ? `${prev.trimEnd()}\n${snippet}` : snippet));
-    showToast(`คัดลอกวิธีแก้จาก ${sourceTicketNo} แล้ว`);
+  const handleCopyRelatedResolution = (source: RelatedIncidentSummary) => {
+    const next = applyRelatedResolutionCopy(
+      { resolutionText, resolutionType, workaroundNote },
+      source
+    );
+    if (!next.copiedResolution && !next.copiedWorkaround) return;
+    setResolutionText(next.resolutionText);
+    setResolutionType(next.resolutionType);
+    setWorkaroundNote(next.workaroundNote);
+    const label =
+      next.copiedResolution && next.copiedWorkaround
+        ? 'วิธีแก้และ Workaround'
+        : next.copiedWorkaround
+          ? 'Workaround'
+          : 'วิธีแก้';
+    showToast(`คัดลอก${label}จาก ${source.ticketNo} แล้ว`);
   };
 
   if (loading) {
@@ -531,7 +545,7 @@ export default function IncidentDetailMcpHub({
               isClosed={isClosed}
               isManager={isManager}
               onIncidentUpdated={setIncident}
-              onAppendResolution={handleAppendResolution}
+              onCopyResolution={handleCopyRelatedResolution}
               showToast={showToast}
             />
 

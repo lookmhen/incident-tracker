@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { IncidentDetail, RelatedSearchResult } from './types';
+import type { IncidentDetail, RelatedIncidentSummary, RelatedSearchResult } from './types';
 import { statusPillClass } from './utils';
 
 interface RelatedIncidentsCardProps {
@@ -10,7 +10,7 @@ interface RelatedIncidentsCardProps {
   isClosed: boolean;
   isManager: boolean;
   onIncidentUpdated: (updated: IncidentDetail) => void;
-  onAppendResolution: (snippet: string, sourceTicketNo: string) => void;
+  onCopyResolution: (source: RelatedIncidentSummary) => void;
   showToast: (msg: string, type?: 'success' | 'error') => void;
 }
 
@@ -19,7 +19,7 @@ export default function RelatedIncidentsCard({
   isClosed,
   isManager,
   onIncidentUpdated,
-  onAppendResolution,
+  onCopyResolution,
   showToast,
 }: RelatedIncidentsCardProps) {
   const [relatedQuery, setRelatedQuery] = useState('');
@@ -284,19 +284,21 @@ export default function RelatedIncidentsCard({
                 </button>
               </div>
 
-              {rel.resolution?.trim() && canEditRelated && (
+              {(rel.resolution?.trim() || rel.workaroundNote?.trim()) && canEditRelated && (
                 <div className="flex items-center justify-end">
                   <button
                     type="button"
-                    onClick={() => {
-                      const snippet = rel.resolution?.trim();
-                      if (!snippet) return;
-                      onAppendResolution(snippet, rel.ticketNo);
-                    }}
+                    onClick={() => onCopyResolution(rel)}
                     className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-600 text-sky-700 hover:text-white border border-sky-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[13px]">content_copy</span>
-                    <span>คัดลอกวิธีแก้</span>
+                    <span>
+                      {rel.resolutionType === 'WORKAROUND' || rel.workaroundNote?.trim()
+                        ? rel.resolution?.trim()
+                          ? 'คัดลอกวิธีแก้ & Workaround'
+                          : 'คัดลอก Workaround'
+                        : 'คัดลอกวิธีแก้'}
+                    </span>
                   </button>
                 </div>
               )}

@@ -8,6 +8,8 @@ import {
   attName,
   toLocalDateTimeInput,
   buildMcpPayload,
+  appendTextSnippet,
+  applyRelatedResolutionCopy,
 } from '../src/app/admin/incidents/[id]/_components/utils';
 import type { IncidentDetail } from '../src/app/admin/incidents/[id]/_components/types';
 
@@ -144,6 +146,62 @@ describe('Incident Detail Utils', () => {
       const payload = buildMcpPayload({ ...baseIncident, category: 'Network' }, 'Fixed');
       assert.equal(payload.category, 'Network');
       assert.equal(payload.clean_text_corpus, 'Fixed');
+    });
+  });
+
+  describe('appendTextSnippet', () => {
+    it('sets trimmed snippet when current is empty and appends with newline when non-empty', () => {
+      assert.equal(appendTextSnippet('', '  Restart service  '), 'Restart service');
+      assert.equal(appendTextSnippet('Step 1  \n', 'Step 2'), 'Step 1\nStep 2');
+      assert.equal(appendTextSnippet('Existing', '   '), 'Existing');
+    });
+  });
+
+  describe('applyRelatedResolutionCopy', () => {
+    it('copies resolution only without overwriting existing resolutionType when source is not WORKAROUND', () => {
+      const res = applyRelatedResolutionCopy(
+        { resolutionText: '', resolutionType: 'PERMANENT', workaroundNote: '' },
+        { resolution: 'Cleared cache', resolutionType: 'PERMANENT', workaroundNote: null }
+      );
+      assert.deepEqual(res, {
+        resolutionText: 'Cleared cache',
+        resolutionType: 'PERMANENT',
+        workaroundNote: '',
+        copiedResolution: true,
+        copiedWorkaround: false,
+      });
+    });
+
+    it('copies both resolution and workaround note and switches resolutionType to WORKAROUND', () => {
+      const res = applyRelatedResolutionCopy(
+        { resolutionText: 'Initial check', resolutionType: 'PERMANENT', workaroundNote: '' },
+        {
+          resolution: 'Restarted worker',
+          resolutionType: 'WORKAROUND',
+          workaroundNote: 'Monitor queue every 2 hours',
+        }
+      );
+      assert.deepEqual(res, {
+        resolutionText: 'Initial check\nRestarted worker',
+        resolutionType: 'WORKAROUND',
+        workaroundNote: 'Monitor queue every 2 hours',
+        copiedResolution: true,
+        copiedWorkaround: true,
+      });
+    });
+
+    it('appends workaround note when source has workaroundNote even if resolution is empty', () => {
+      const res = applyRelatedResolutionCopy(
+        { resolutionText: '', resolutionType: 'WORKAROUND', workaroundNote: 'Note 1' },
+        { resolution: null, resolutionType: 'WORKAROUND', workaroundNote: 'Note 2' }
+      );
+      assert.deepEqual(res, {
+        resolutionText: '',
+        resolutionType: 'WORKAROUND',
+        workaroundNote: 'Note 1\nNote 2',
+        copiedResolution: false,
+        copiedWorkaround: true,
+      });
     });
   });
 });

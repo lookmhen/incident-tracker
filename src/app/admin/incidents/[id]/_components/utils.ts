@@ -1,4 +1,4 @@
-import type { IncidentAttachment, IncidentDetail } from './types';
+import type { IncidentAttachment, IncidentDetail, RelatedIncidentSummary } from './types';
 
 export function normStatus(status?: string | null): string {
   return (status || '').trim().toUpperCase();
@@ -58,5 +58,30 @@ export function buildMcpPayload(inc: IncidentDetail, resolutionText: string) {
     urgency: inc.urgency,
     status: inc.status,
     clean_text_corpus: resolutionText,
+  };
+}
+
+export function appendTextSnippet(current: string, addition?: string | null): string {
+  const next = addition?.trim();
+  if (!next) return current;
+  return current.trim() ? `${current.trimEnd()}\n${next}` : next;
+}
+
+export function applyRelatedResolutionCopy(
+  current: {
+    resolutionText: string;
+    resolutionType: 'PERMANENT' | 'WORKAROUND';
+    workaroundNote: string;
+  },
+  source: Pick<RelatedIncidentSummary, 'resolution' | 'resolutionType' | 'workaroundNote'>
+) {
+  const waNote = source.workaroundNote?.trim() || '';
+  const hasWorkaround = source.resolutionType === 'WORKAROUND' || Boolean(waNote);
+  return {
+    resolutionText: appendTextSnippet(current.resolutionText, source.resolution),
+    resolutionType: hasWorkaround ? ('WORKAROUND' as const) : current.resolutionType,
+    workaroundNote: hasWorkaround ? appendTextSnippet(current.workaroundNote, waNote) : current.workaroundNote,
+    copiedResolution: Boolean(source.resolution?.trim()),
+    copiedWorkaround: hasWorkaround,
   };
 }

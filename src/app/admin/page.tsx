@@ -103,6 +103,8 @@ export default function AdminDashboardPage() {
   const [currentUserRole, setCurrentUserRole] = useState<'STAFF' | 'MANAGER' | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const fetchSeqRef = useRef(0);
+  const lastFetchAtRef = useRef(0);
 
   // Keyboard shortcut '/' to focus search
   useEffect(() => {
@@ -117,6 +119,8 @@ export default function AdminDashboardPage() {
   }, []);
 
   const fetchIncidents = async () => {
+    const seq = ++fetchSeqRef.current;
+    lastFetchAtRef.current = Date.now();
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
@@ -131,6 +135,7 @@ export default function AdminDashboardPage() {
       const res = await fetch(`/api/incidents?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
+        if (seq !== fetchSeqRef.current) return;
         setIncidents(data.incidents || []);
         setTotalPages(data.pagination?.totalPages || 1);
         setTotalRecords(data.pagination?.total || 0);
@@ -201,8 +206,24 @@ export default function AdminDashboardPage() {
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted) latestRefreshRef.current();
     };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastFetchAtRef.current >= 3000) {
+        latestRefreshRef.current();
+      }
+    };
+    const pollTimer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        latestRefreshRef.current();
+      }
+    }, 15_000);
+
     window.addEventListener('pageshow', handlePageShow);
-    return () => window.removeEventListener('pageshow', handlePageShow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      clearInterval(pollTimer);
+      window.removeEventListener('pageshow', handlePageShow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {

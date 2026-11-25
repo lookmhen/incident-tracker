@@ -6,7 +6,7 @@
 ---
 
 ## 1. Project Overview (ภาพรวมโครงการ)
-ระบบรับแจ้งและจัดการปัญหาด้าน IT ภายในองค์กร ที่เน้นความสะดวกรวดเร็วของฝั่งผู้ใช้งาน (Zero-Barrier UI: เปิดลิงก์แล้วพิมพ์แจ้ง/แนบรูปได้ทันที) พร้อมส่งแจ้งเตือนแบบ Interactive เข้า Microsoft Teams ทันที และถูกออกแบบสถาปัตยกรรมข้อมูลเบื้องหลังให้รองรับการเชื่อมต่อกับ **MCP (Model Context Protocol)** เพื่อใช้ AI (Local หรือ Global LLM) ในการวิเคราะห์ประวัติ สาเหตุปัญหา Insights, KPIs และ Recurring Cases ได้อย่างอิสระในอนาคต
+ระบบรับแจ้งและจัดการปัญหาด้าน IT ภายในองค์กร ที่เน้นความสะดวกรวดเร็วของฝั่งผู้ใช้งาน (Zero-Barrier UI: เปิดลิงก์แล้วพิมพ์แจ้ง/แนบรูปได้ทันที) พร้อมส่งแจ้งเตือนผ่าน Outbound Webhook (HTTP POST JSON) และอีเมลทันที และถูกออกแบบสถาปัตยกรรมข้อมูลเบื้องหลังให้รองรับการเชื่อมต่อกับ **MCP (Model Context Protocol)** เพื่อใช้ AI (Local หรือ Global LLM) ในการวิเคราะห์ประวัติ สาเหตุปัญหา Insights, KPIs และ Recurring Cases ได้อย่างอิสระในอนาคต
 
 ---
 
@@ -17,7 +17,7 @@
 * **UI Framework:** Tailwind CSS (Glacier Core Design System)
 * **Containerization:** Docker (Node.js 26 Alpine Base Image) Standalone Deployment (Pure Docker - ไม่ใช้ Apache)
 * **Web Server:** Next.js Built-in Standalone HTTP Server ภายใน Docker Container
-* **Integrations:** Microsoft Teams Webhook (Adaptive Cards)
+* **Integrations:** Outbound Webhook (Custom JSON Field Mapping), SMTP Email (Nodemailer), Inbound REST API
 * **Future Readiness:** MCP (Model Context Protocol Server Ready) รองรับการวิเคราะห์ Insights, KPI, Recurring Cases และ Root Cause Analysis
 
 ---
@@ -33,7 +33,7 @@
  └── Prisma ORM
        │
        ├─► [ SQLite File: ./data/incident.db ] (Docker Volume Mapping)
-       └─► [ Microsoft Teams Channel ] (Incoming Webhook)
+       └─► [ External Webhook Endpoint ] (HTTP POST JSON)
 
 -----------------------------------------------------------------------
 [ Future AI / MCP Phase ]
@@ -59,10 +59,10 @@
     * 🟡 Medium: ทำงานติดขัด / พอมีทางเลี่ยง
     * 🔴 High: ระบบหลักล่ม / งานหลักหยุดชะงัก
 * **Public Ticket Tracking:** ตรวจสอบสถานะผ่านหน้า `/track` ด้วย Ticket ID แสดง 3-step timeline (ใช้ไอคอนถูกเดี่ยวใน Step 3; กรณี `PENDING_CONFIRM` แสดงเป็น "เสร็จสิ้น" พร้อมบันทึกวิธีแก้/Workaround ให้ผู้ใช้ทำงานต่อได้ทันที ขณะที่ปิดบังข้อมูลส่วนบุคคลและคอมเมนต์ภายใน `managerComment` เสมอ, fallback หมวดหมู่เป็น `Uncategorized`)
-* **Output:** แสดง Ticket ID หลังบันทึกสำเร็จ (เช่น INC-202610-001) พร้อมปุ่มติดตามสถานะ และสถานะส่ง Teams/Email SLA Tracker
+* **Output:** แสดง Ticket ID หลังบันทึกสำเร็จ (เช่น INC-202610-001) พร้อมปุ่มติดตามสถานะ และส่งแจ้งเตือนผ่าน Outbound Webhook / Email
 
-### 4.2 ฝั่ง Teams / Email Integration & Admin Workflow
-* **Teams & Email Notification:** ยิง Adaptive Card / Power Automate JSON เข้า Microsoft Teams และส่งอีเมลผ่าน SMTP Relay (`nodemailer`) ทันทีที่มีเคสใหม่ พร้อมลิงก์ดูรูปแนบและปุ่มเปิดเคสตาม URL จริงของเซิร์ฟเวอร์ (`APP_URL` หรือ request host)
+### 4.2 ฝั่ง Outbound Webhook / Email Integration & Admin Workflow
+* **Webhook & Email Notification:** ยิง Outbound Webhook (HTTP POST JSON ที่ปรับแต่งคีย์และค่าได้จากหน้า UI พร้อม Live Preview) และส่งอีเมลผ่าน SMTP Relay (`nodemailer`) ทันทีที่มีเคสใหม่ พร้อมลิงก์ดูรูปแนบและปุ่มเปิดเคสตาม URL จริงของเซิร์ฟเวอร์ (`APP_URL` หรือ request host)
 * **Admin Dashboard (Web UI):**
   * จัดลำดับคิวอัตโนมัติ: `OPEN` ➔ `IN_PROGRESS` ➔ `PENDING_CONFIRM` ➔ `ON_HOLD` ➔ `RESOLVED`/`CLOSED` (เรียงตาม Urgency และเวลาล่าสุด)
   * แสดงตาราง Incident พร้อม Badge สีตาม Category (`Uncategorized` เมื่อยังไม่ระบุ, `-` เมื่อแผนกว่าง — ไม่มี fallback `General`), Filter (Status รวมถึง `ACTIVE` และ `ON_HOLD`, Category, Urgency, Department, Solver: `All / IT Team / External User`), Precision Search (`/` เพื่อ Focus), และ Dropdown เลือกจำนวนแถวต่อหน้า (`10 / 25 / 50 / 100`)
@@ -240,7 +240,7 @@ services:
       - ./public/uploads:/app/public/uploads
     environment:
       - DATABASE_URL=file:/app/data/incident.db
-      - TEAMS_WEBHOOK_URL=https://outlook.office.com/webhook/your-webhook-url
+      - WEBHOOK_URL=https://your-webhook-url
 ```
 
 ---
@@ -248,7 +248,7 @@ services:
 ## 8. Development Roadmap
 
 ### Phase 1 (MVP - Current):
-* พัฒนาหน้าเว็บรับแจ้งปัญหา (Next.js) + แนบรูป (Drag & Drop + Ctrl+V) + Teams Adaptive Card Webhook
+* พัฒนาหน้าเว็บรับแจ้งปัญหา (Next.js) + แนบรูป (Drag & Drop + Ctrl+V) + Outbound Webhook (Custom JSON Fields)
 * แผง Admin Operations Triage Dashboard พร้อมระบบ Filter, Search และสถิติ
 * หน้าจัดการเคส Incident Detail & MCP Hub
 * **Dynamic Category Management:** ให้ Admin เพิ่ม/ปรับหมวดหมู่เคสได้อิสระ

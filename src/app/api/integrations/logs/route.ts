@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActiveSession } from '@/lib/session';
 import { IntegrationService } from '@/lib/services/integration.service';
-import { TeamsService } from '@/lib/services/teams.service';
+import { WebhookService } from '@/lib/services/webhook.service';
 import { EmailService } from '@/lib/services/email.service';
 import prisma from '@/lib/prisma';
 
@@ -77,12 +77,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(res);
     }
 
-    // Teams or Custom API resend
-    const res = await TeamsService.dispatch(
+    // Webhook or Custom API resend: replay stored payload verbatim when incident record is absent
+    if (!incident && log.payload) {
+      try {
+        const parsed = JSON.parse(log.payload);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const res = await WebhookService.dispatchRawPayload(parsed, {
+            ticketNo: log.ticketNo,
+            channel: log.channel === 'CUSTOM_API' ? 'CUSTOM_API' : 'TEAMS',
+            forceSend: true,
+          });
+          return NextResponse.json(res);
+        }
+      } catch {}
+    }
+
+    const res = await WebhookService.dispatch(
       {
         ticketNo: incident?.ticketNo || log.ticketNo || 'RESEND-001',
         title: incident?.title || 'Resent Notification',
-        description: incident?.description || 'Resent from Delivery Logs',
+        description: incident?.description || log.payload || 'Resent from Delivery Logs',
         reporterName: incident?.reporterName || 'System Resend',
         department: incident?.department || '-',
         contactInfo: incident?.contactInfo || '-',

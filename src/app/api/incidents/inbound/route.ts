@@ -30,7 +30,7 @@ export async function GET() {
 
 /**
  * POST /api/incidents/inbound
- * Ingests external alerts/incidents with smart key mapping, stores in SQLite, and fires Teams/Email
+ * Ingests external alerts/incidents with smart key mapping, stores in SQLite, and fires Webhook/Email
  */
 export async function POST(req: NextRequest) {
   const denied = await checkApiAccess(req);

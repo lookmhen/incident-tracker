@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActiveSession } from '@/lib/session';
-import { IntegrationService } from '@/lib/services/integration.service';
-import { TeamsService } from '@/lib/services/teams.service';
+import { IntegrationService, IntegrationValidationError } from '@/lib/services/integration.service';
+import { WebhookService } from '@/lib/services/webhook.service';
 import { EmailService } from '@/lib/services/email.service';
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +41,9 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ error: 'Invalid configuration section' }, { status: 400 });
   } catch (err: any) {
+    if (err instanceof IntegrationValidationError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     return NextResponse.json({ error: err.message || 'Failed to save settings' }, { status: 500 });
   }
 }
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'test_teams') {
-      const result = await TeamsService.dispatch(
+      const result = await WebhookService.dispatch(
         {
           ticketNo: 'TEST-PING-001',
           title: 'IncidentHub Webhook Diagnostic Test',

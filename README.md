@@ -13,7 +13,7 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 * **Clipboard Diagnostic Capture:** Paste screenshots directly anywhere using `Ctrl+V` or drag-and-drop up to 5MB.
 * **Instant Ticket Generation:** Generates sequential IDs (`INC-YYYYMM-XXX`).
 * **Public Ticket Tracking (`/track`):** Dedicated privacy-preserving tracking page searching by Ticket ID only (e.g. `INC-202611-0001` or 4-digit sequence). Displays a crisp 3-step visual status stepper (`แจ้งเรื่องแล้ว` ➔ `กำลังดำเนินการ` ➔ `เสร็จสิ้น`) where `PENDING_CONFIRM` already shows as completed (`เสร็จสิ้น`) alongside public `resolution`/`Workaround` notes so end users can resume work without waiting on Manager sign-off, while strictly concealing internal comments (`managerComment`), reporter contact info, and internal triage details (`Uncategorized` fallback when unassigned).
-* **Multi-Channel Dispatch:** Emits Microsoft Teams Adaptive Cards v1.4 and SMTP Email notifications immediately upon submission.
+* **Multi-Channel Dispatch:** Dispatches Outbound Webhook JSON payloads (with customizable field mappings) and SMTP Email notifications immediately upon submission.
 
 ### 2. 📊 IT Operations Triage Matrix (`/admin`)
 * **Real-time Telemetry:** 3 core Glacier KPI cards (Active Incidents, Critical P1 Blockers, Avg Resolution Time / MTTR).
@@ -43,9 +43,9 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 
 ### 5. 🔌 Integration Hub (`/admin/integrations`)
 * **Inbound Incident API (`POST /api/incidents/inbound`):** Secure endpoint for external systems (monitoring, Nagios, Prometheus, third-party apps) with Smart Mapping and API Key authentication.
-* **Microsoft Teams / Power Automate Webhook:** Live channel connectivity with interactive payload testing and clear error/success feedback.
+* **Outbound Webhook (Custom Fields):** Configurable HTTP POST JSON key/value mapping with live preview, `{{variable}}` templates, and diagnostic testing.
 * **SMTP Email Notification Service:** Production-ready Nodemailer dispatch supporting `STARTTLS (587)`, `SSL (465)`, `NONE (25)` (`ignoreTLS`), separate Auth Username & Sender (`From`), AES-256-GCM encrypted credentials, HTML escaping, and automatic portal URL resolution (`APP_URL` or request host).
-* **Notification Audit Logs & Unresolved Failure Badges:** Filterable dispatch history by channel (`TEAMS`, `EMAIL`, `CUSTOM_API`) and delivery status with single-click Resend and unresolved failure acknowledgment.
+* **Notification Audit Logs & Unresolved Failure Badges:** Filterable dispatch history by channel (`WEBHOOK` / legacy `TEAMS`, `EMAIL`, `CUSTOM_API`) and delivery status with single-click Resend and unresolved failure acknowledgment.
 
 ### 6. 📈 Analytics & Operational Intelligence (`/admin/analytics`)
 * **Global Filtering & Synced Export:** Filter all KPIs and charts by Date Range (including "ปีนี้ (12 เดือน)" preset), `Urgency`, `Category`, 2-level **`Root Cause` (Parent ➔ Sub-branch)**, `Department` (case-insensitive normalization), and `Solver` (`All` / `IT Team` / `External User`, with `externalUserCount` summary) with matching CSV export.
@@ -66,7 +66,7 @@ A modern, high-reliability enterprise IT Incident Management System built with *
 * **Styling:** Tailwind CSS (Glacier Core palette: Sky 600, Ice Blue tints, JetBrains Mono, Google Material Symbols Outlined)
 * **Database & ORM:** SQLite + Prisma ORM (`./data/incident.db`) with runtime additive SQLite schema guard (`src/lib/prisma.ts`)
 * **Containerization:** Pure Docker (Node.js 26 Alpine Multi-stage Build)
-* **Integrations:** Microsoft Teams Incoming Webhook (Adaptive Cards v1.4), SMTP Email (Nodemailer), Inbound REST API
+* **Integrations:** Outbound Webhook (Customizable HTTP POST JSON), SMTP Email (Nodemailer), Inbound REST API
 * **AI Readiness:** Model Context Protocol (MCP) Endpoints
 
 ---

@@ -1,11 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  buildWebhookPayload,
+  DEFAULT_WEBHOOK_FIELDS,
+  isForbiddenWebhookKey,
+  SAMPLE_WEBHOOK_PAYLOAD,
+  sanitizeStoredWebhookFields,
+  validateWebhookFields,
+  WEBHOOK_SOURCE_OPTIONS,
+  WEBHOOK_TEMPLATE_TOKENS,
+  type WebhookFieldMapping,
+  type WebhookSourceKey,
+} from '@/lib/webhook-fields';
 
-interface TeamsSettings {
+interface WebhookSettings {
   isEnabled: boolean;
   webhookUrl: string;
-  payloadMode: 'power_automate' | 'adaptive_card';
+  customFields: WebhookFieldMapping[];
 }
 
 interface SmtpSettings {
@@ -44,11 +56,12 @@ export default function IntegrationsSecurityHubPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warn'; text: string } | null>(null);
 
   // Settings State
-  const [teams, setTeams] = useState<TeamsSettings>({
+  const [webhook, setWebhook] = useState<WebhookSettings>({
     isEnabled: true,
     webhookUrl: '',
-    payloadMode: 'power_automate',
+    customFields: DEFAULT_WEBHOOK_FIELDS.map((f) => ({ ...f })),
   });
+  const [savedWebhookSnapshot, setSavedWebhookSnapshot] = useState<string>('');
   const [smtp, setSmtp] = useState<SmtpSettings>({
     isEnabled: false,
     host: 'smtp.office365.com',
@@ -78,10 +91,50 @@ export default function IntegrationsSecurityHubPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [inspectLog, setInspectLog] = useState<LogEntry | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
-  const [testingTeams, setTestingTeams] = useState(false);
+  const [testingWebhook, setTestingWebhook] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
-  const [savingTeams, setSavingTeams] = useState(false);
+  const [savingWebhook, setSavingWebhook] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
+
+  const formatJsonSafe = (raw: string | null) => {
+    if (!raw) return '-';
+    try {
+      return JSON.stringify(JSON.parse(raw), null, 2);
+    } catch {
+      return raw;
+    }
+  };
+
+  const channelDisplayLabel = (channel: string) => (channel === 'TEAMS' ? 'WEBHOOK' : channel);
+
+  const normalizeWebhookSettings = (raw: any): WebhookSettings => ({
+    isEnabled: Boolean(raw?.isEnabled),
+    webhookUrl: typeof raw?.webhookUrl === 'string' ? raw.webhookUrl : '',
+    customFields: sanitizeStoredWebhookFields(raw?.customFields),
+  });
+
+  const webhookKeyErrors = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const f of webhook.customFields) {
+      const k = f.key.trim();
+      if (k) counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    return webhook.customFields.map((f) => {
+      const k = f.key.trim();
+      if (!k) return 'กรุณาระบุชื่อ Key';
+      if (isForbiddenWebhookKey(k)) return `ห้ามใช้ชื่อ Key "${k}"`;
+      if ((counts.get(k) || 0) > 1) return `Key "${k}" ซ้ำกัน`;
+      return null;
+    });
+  }, [webhook.customFields]);
+
+  const hasWebhookFieldErrors = webhook.customFields.length === 0 || webhookKeyErrors.some(Boolean);
+  const hasUnsavedWebhookChanges =
+    savedWebhookSnapshot !== '' && JSON.stringify(webhook) !== savedWebhookSnapshot;
+  const previewJsonText = useMemo(
+    () => JSON.stringify(buildWebhookPayload(SAMPLE_WEBHOOK_PAYLOAD, webhook.customFields), null, 2),
+    [webhook.customFields]
+  );
 
   const showToast = (msg: string, type: 'success' | 'error' | 'warn' = 'success') => {
     setToast({ type, text: msg });
@@ -117,7 +170,9 @@ export default function IntegrationsSecurityHubPage() {
       const res = await fetch('/api/integrations', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        setTeams(data.teams);
+        const nextWebhook = normalizeWebhookSettings(data.teams);
+        setWebhook(nextWebhook);
+        setSavedWebhookSnapshot(JSON.stringify(nextWebhook));
         setSmtp(data.smtp);
         setMcpSec(data.mcpSecurity);
       } else if (res.status === 401) {
@@ -158,18 +213,32 @@ export default function IntegrationsSecurityHubPage() {
     }
   }, [activeTab, channelFilter, statusFilter]);
 
-  const handleSaveTeams = async (e: React.FormEvent) => {
+  const handleSaveWebhook = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavingTeams(true);
+    const checked = validateWebhookFields(webhook.customFields);
+    if (!checked.valid) {
+      showToast(`ตรวจสอบฟิลด์ Webhook ไม่ผ่าน: ${checked.error}`, 'error');
+      return;
+    }
+    setSavingWebhook(true);
     try {
       const res = await fetch('/api/integrations', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section: 'teams', data: teams }),
+        body: JSON.stringify({
+          section: 'teams',
+          data: {
+            isEnabled: webhook.isEnabled,
+            webhookUrl: webhook.webhookUrl.trim(),
+            customFields: checked.fields,
+          },
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.teams) {
-        setTeams(data.teams);
+        const nextWebhook = normalizeWebhookSettings(data.teams);
+        setWebhook(nextWebhook);
+        setSavedWebhookSnapshot(JSON.stringify(nextWebhook));
         showToast('บันทึกการตั้งค่า Webhook เรียบร้อยแล้ว');
       } else {
         showToast(`บันทึกไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`, 'error');
@@ -177,7 +246,7 @@ export default function IntegrationsSecurityHubPage() {
     } catch (err: any) {
       showToast(`ข้อผิดพลาดเครือข่าย: ${err.message}`, 'error');
     } finally {
-      setSavingTeams(false);
+      setSavingWebhook(false);
     }
   };
 
@@ -205,17 +274,26 @@ export default function IntegrationsSecurityHubPage() {
   };
 
   const handleSaveMcpSec = async (next: Partial<McpSecuritySettings>) => {
+    const prev = mcpSec;
     const merged = { ...mcpSec, ...next };
     setMcpSec(merged);
-    const res = await fetch('/api/integrations', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ section: 'mcp_security', data: merged }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setMcpSec(data.mcpSecurity);
-      showToast('อัปเดตสถานะความปลอดภัย MCP & API เรียบร้อยแล้ว');
+    try {
+      const res = await fetch('/api/integrations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'mcp_security', data: merged }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.mcpSecurity) {
+        setMcpSec(data.mcpSecurity);
+        showToast('อัปเดตสถานะความปลอดภัย MCP & API เรียบร้อยแล้ว');
+      } else {
+        setMcpSec(prev);
+        showToast(`อัปเดตไม่สำเร็จ: ${data.error || `HTTP ${res.status}`}`, 'error');
+      }
+    } catch (err: any) {
+      setMcpSec(prev);
+      showToast(`ข้อผิดพลาดเครือข่าย: ${err.message}`, 'error');
     }
   };
 
@@ -233,8 +311,12 @@ export default function IntegrationsSecurityHubPage() {
     }
   };
 
-  const handleTestTeams = async () => {
-    setTestingTeams(true);
+  const handleTestWebhook = async () => {
+    if (hasUnsavedWebhookChanges) {
+      showToast('กรุณากด Save Webhook Config ก่อนทดสอบส่ง', 'warn');
+      return;
+    }
+    setTestingWebhook(true);
     try {
       const res = await fetch('/api/integrations', {
         method: 'POST',
@@ -247,15 +329,15 @@ export default function IntegrationsSecurityHubPage() {
       } else if (data.simulated) {
         showToast(`โหมดจำลอง: ${data.message}`, 'warn');
       } else if (data.success) {
-        showToast(`ส่งข้อความเข้า Teams สำเร็จ (HTTP ${data.statusCode || 200})`);
+        showToast(`ส่ง Webhook สำเร็จ (HTTP ${data.statusCode || 200})`);
       } else {
-        showToast(`Teams ปลายทางตอบกลับ: ${data.message || 'Failed'}`, 'error');
+        showToast(`Webhook ปลายทางตอบกลับ: ${data.message || 'Failed'}`, 'error');
       }
       fetchLogs();
     } catch (err: any) {
       showToast(`ข้อผิดพลาดเครือข่าย: ${err.message}`, 'error');
     } finally {
-      setTestingTeams(false);
+      setTestingWebhook(false);
     }
   };
 
@@ -296,6 +378,8 @@ export default function IntegrationsSecurityHubPage() {
         showToast(data.message || 'ส่งซ้ำเรียบร้อยแล้ว');
       }
       await fetchLogs();
+    } catch (err: any) {
+      showToast(`ข้อผิดพลาดเครือข่าย: ${err.message}`, 'error');
     } finally {
       setResendingId(null);
     }
@@ -390,7 +474,7 @@ export default function IntegrationsSecurityHubPage() {
               Integrations, API &amp; Security Hub
             </h1>
             <p className="text-xs sm:text-sm text-slate-600">
-              จัดการช่องทางแจ้งเตือนขาออก (Teams / Email SMTP), ตั้งค่าความปลอดภัย API Key และตรวจสอบประวัติการส่งย้อนหลัง
+              จัดการช่องทางแจ้งเตือนขาออก (Outbound Webhook / Email SMTP), ตั้งค่าความปลอดภัย API Key และตรวจสอบประวัติการส่งย้อนหลัง
               <span className="ml-2 text-xs text-slate-500 font-mono">• AES-256 config • Offline ready</span>
             </p>
           </div>
@@ -442,104 +526,250 @@ export default function IntegrationsSecurityHubPage() {
 
         {/* TAB 1: OUTBOUND WEBHOOK & EMAIL */}
         {activeTab === 'outbound' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Card 1: Teams / Power Automate */}
+          <div className="space-y-6">
+            {/* Card 1: Outbound Webhook + Custom Payload Fields */}
             <form
-              onSubmit={handleSaveTeams}
-              className="h-full flex flex-col bg-white rounded-2xl p-6 shadow-xs border border-sky-100 gap-5"
+              onSubmit={handleSaveWebhook}
+              className="flex flex-col bg-white rounded-2xl p-6 shadow-2xs border border-slate-200 gap-5"
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
+                  <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600">
                     <span className="material-symbols-outlined text-[22px]">webhook</span>
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900">Teams / Power Automate Webhook</h2>
-                    <p className="text-[11px] text-slate-500">ส่งแจ้งเตือนเข้ากลุ่มแชทอัตโนมัติทันทีที่มีการแจ้งเคส</p>
+                    <h2 className="text-sm font-semibold text-slate-900">Outbound Webhook</h2>
+                    <p className="text-[11px] text-slate-500">
+                      ส่ง HTTP POST JSON แจ้งเตือนไปยังระบบภายนอกทันทีที่มีการแจ้งเคส
+                    </p>
                   </div>
                 </div>
                 <label className="inline-flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={teams.isEnabled}
-                    onChange={(e) => setTeams({ ...teams, isEnabled: e.target.checked })}
+                    checked={webhook.isEnabled}
+                    onChange={(e) => setWebhook({ ...webhook, isEnabled: e.target.checked })}
                     className="rounded text-sky-600 focus:ring-sky-500 h-4 w-4"
                   />
                   <span className="text-xs font-semibold text-slate-700">
-                    {teams.isEnabled ? 'Enabled' : 'Disabled'}
+                    {webhook.isEnabled ? 'Enabled' : 'Disabled'}
                   </span>
                 </label>
               </div>
 
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-700">Webhook Endpoint URL</label>
-                  <input
-                    type="url"
-                    required
-                    value={teams.webhookUrl}
-                    onChange={(e) => setTeams({ ...teams, webhookUrl: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:outline-none focus:border-sky-600"
-                  />
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700" htmlFor="webhookUrl">
+                  Webhook Endpoint URL
+                </label>
+                <input
+                  id="webhookUrl"
+                  type="url"
+                  value={webhook.webhookUrl}
+                  onChange={(e) => setWebhook({ ...webhook, webhookUrl: e.target.value })}
+                  placeholder="https://... (เว้นว่างไว้ได้หากใช้ค่า env หรือปิดใช้งาน)"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
+                />
+              </div>
+
+              {/* Field Mapping Editor + Live JSON Preview */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                {/* Left: Field Mapping Table */}
+                <div className="lg:col-span-7 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="block text-xs font-semibold text-slate-800">
+                        Payload Fields (กำหนด Key และข้อมูลที่ส่ง)
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        ปรับชื่อ key หรือสลับค่าที่ส่งเข้า endpoint ปลายทางได้ทันที
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setWebhook((prev) => ({
+                            ...prev,
+                            customFields: DEFAULT_WEBHOOK_FIELDS.map((f) => ({ ...f })),
+                          }))
+                        }
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        Reset Default
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setWebhook((prev) => ({
+                            ...prev,
+                            customFields: [...prev.customFields, { key: '', source: 'department' }],
+                          }))
+                        }
+                        className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">add</span>
+                        <span>Add Field</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {webhook.customFields.map((field, idx) => {
+                      const keyErr = webhookKeyErrors[idx];
+                      return (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200 space-y-2"
+                        >
+                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                            <input
+                              type="text"
+                              value={field.key}
+                              onChange={(e) => {
+                                const next = [...webhook.customFields];
+                                next[idx] = { ...next[idx], key: e.target.value };
+                                setWebhook({ ...webhook, customFields: next });
+                              }}
+                              placeholder="JSON key (เช่น incident_type)"
+                              aria-label={`JSON key row ${idx + 1}`}
+                              className={`w-full px-3 py-1.5 rounded-lg border bg-white text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 transition-colors ${
+                                keyErr
+                                  ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-100'
+                                  : 'border-slate-200 focus:border-sky-500 focus:ring-sky-100'
+                              }`}
+                            />
+
+                            <div className="relative">
+                              <select
+                                value={field.source}
+                                onChange={(e) => {
+                                  const nextSource = e.target.value as WebhookSourceKey;
+                                  const next = [...webhook.customFields];
+                                  next[idx] =
+                                    nextSource === 'custom'
+                                      ? {
+                                          key: next[idx].key,
+                                          source: 'custom',
+                                          template: next[idx].template || '{{ticketNo}} - {{title}}',
+                                        }
+                                      : { key: next[idx].key, source: nextSource };
+                                  setWebhook({ ...webhook, customFields: next });
+                                }}
+                                aria-label={`Source value row ${idx + 1}`}
+                                className="w-full appearance-none bg-none px-3 py-1.5 pr-8 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 cursor-pointer focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
+                              >
+                                {WEBHOOK_SOURCE_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">
+                                expand_more
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={webhook.customFields.length <= 1}
+                              onClick={() =>
+                                setWebhook((prev) => ({
+                                  ...prev,
+                                  customFields: prev.customFields.filter((_, i) => i !== idx),
+                                }))
+                              }
+                              title="ลบฟิลด์นี้"
+                              aria-label={`Remove field row ${idx + 1}`}
+                              className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-400 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed justify-self-end sm:justify-self-auto"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+
+                          {keyErr && <p className="text-[11px] text-rose-600 font-medium">{keyErr}</p>}
+
+                          {field.source === 'custom' && (
+                            <div className="space-y-1.5 pt-1">
+                              <input
+                                type="text"
+                                value={field.template || ''}
+                                onChange={(e) => {
+                                  const next = [...webhook.customFields];
+                                  next[idx] = { ...next[idx], template: e.target.value };
+                                  setWebhook({ ...webhook, customFields: next });
+                                }}
+                                placeholder="เช่น {{reporterName}} ({{department}}) หรือข้อความคงที่"
+                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
+                              />
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span className="text-[10px] text-slate-500 mr-1">แทรกตัวแปร:</span>
+                                {WEBHOOK_TEMPLATE_TOKENS.map((tok) => (
+                                  <button
+                                    key={tok}
+                                    type="button"
+                                    onClick={() => {
+                                      const next = [...webhook.customFields];
+                                      const cur = next[idx].template || '';
+                                      next[idx] = {
+                                        ...next[idx],
+                                        template: cur ? `${cur}{{${tok}}}` : `{{${tok}}}`,
+                                      };
+                                      setWebhook({ ...webhook, customFields: next });
+                                    }}
+                                    className="px-1.5 py-0.5 rounded bg-white hover:bg-sky-50 border border-slate-200 text-[10px] font-mono text-slate-700 hover:text-sky-700 cursor-pointer transition-colors"
+                                  >
+                                    {`{{${tok}}}`}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-slate-700">Payload Schema Format</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setTeams({ ...teams, payloadMode: 'power_automate' })}
-                      className={`p-3 rounded-xl border text-left text-xs transition-all cursor-pointer ${
-                        teams.payloadMode === 'power_automate'
-                          ? 'bg-sky-50 border-sky-500 text-sky-900 font-semibold'
-                          : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      <div className="font-bold">Power Automate JSON</div>
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                        detail, urgency, incident_type
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setTeams({ ...teams, payloadMode: 'adaptive_card' })}
-                      className={`p-3 rounded-xl border text-left text-xs transition-all cursor-pointer ${
-                        teams.payloadMode === 'adaptive_card'
-                          ? 'bg-sky-50 border-sky-500 text-sky-900 font-semibold'
-                          : 'bg-slate-50 border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      <div className="font-bold">Teams Adaptive Card v1.4</div>
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                        Incoming Webhook Connector
-                      </div>
-                    </button>
+                {/* Right: Live JSON Preview */}
+                <div className="lg:col-span-5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-800">Live JSON Preview</span>
+                    <span className="text-[10px] font-mono text-slate-500">HTTP POST body</span>
                   </div>
+                  <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 font-mono text-[11px] leading-relaxed overflow-x-auto max-h-80 border border-slate-800">
+                    {previewJsonText}
+                  </pre>
                 </div>
               </div>
 
-              <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={handleTestTeams}
-                  disabled={testingTeams}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">send</span>
-                  <span>{testingTeams ? 'Sending...' : 'Send Test Ping'}</span>
-                </button>
+              <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleTestWebhook}
+                    disabled={testingWebhook || hasUnsavedWebhookChanges}
+                    title={hasUnsavedWebhookChanges ? 'กรุณากด Save Webhook Config ก่อนทดสอบส่ง' : undefined}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">send</span>
+                    <span>{testingWebhook ? 'Sending...' : 'Send Test Ping'}</span>
+                  </button>
+                  {hasUnsavedWebhookChanges && (
+                    <span className="text-[11px] text-amber-700 font-medium">
+                      มีการแก้ไขที่ยังไม่บันทึก (Save ก่อนทดสอบส่ง)
+                    </span>
+                  )}
+                </div>
 
                 <button
                   type="submit"
-                  disabled={savingTeams}
-                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  disabled={savingWebhook || hasWebhookFieldErrors}
+                  className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
-                  <span className={`material-symbols-outlined text-[16px] ${savingTeams ? 'animate-spin' : ''}`}>
-                    {savingTeams ? 'sync' : 'save'}
+                  <span className={`material-symbols-outlined text-[16px] ${savingWebhook ? 'animate-spin' : ''}`}>
+                    {savingWebhook ? 'sync' : 'save'}
                   </span>
-                  <span>{savingTeams ? 'Saving...' : 'Save Webhook Config'}</span>
+                  <span>{savingWebhook ? 'Saving...' : 'Save Webhook Config'}</span>
                 </button>
               </div>
             </form>
@@ -547,15 +777,15 @@ export default function IntegrationsSecurityHubPage() {
             {/* Card 2: Admin Email SMTP Relay */}
             <form
               onSubmit={handleSaveSmtp}
-              className="h-full flex flex-col bg-white rounded-2xl p-6 shadow-xs border border-sky-100 gap-5"
+              className="flex flex-col bg-white rounded-2xl p-6 shadow-2xs border border-slate-200 gap-5"
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
+                  <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600">
                     <span className="material-symbols-outlined text-[22px]">mail</span>
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900">Admin Email Alert (SMTP Relay)</h2>
+                    <h2 className="text-sm font-semibold text-slate-900">Admin Email Alert (SMTP Relay)</h2>
                     <p className="text-[11px] text-slate-500">
                       ส่งอีเมลแจ้งเตือนแอดมินพร้อมลิงก์เปิดดูรูปภาพและปุ่มจัดการเคส
                     </p>
@@ -583,7 +813,7 @@ export default function IntegrationsSecurityHubPage() {
                       value={smtp.host}
                       onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
                       placeholder="smtp.office365.com"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                     />
                   </div>
                   <div className="space-y-1">
@@ -593,7 +823,7 @@ export default function IntegrationsSecurityHubPage() {
                       value={smtp.port}
                       onChange={(e) => setSmtp({ ...smtp, port: Number(e.target.value) })}
                       placeholder="587"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                     />
                   </div>
                   <div className="space-y-1">
@@ -602,7 +832,7 @@ export default function IntegrationsSecurityHubPage() {
                       <select
                         value={smtp.encryption}
                         onChange={(e) => setSmtp({ ...smtp, encryption: e.target.value as any })}
-                        className="w-full appearance-none bg-none px-3 py-2 pr-8 rounded-xl border border-slate-300 text-xs bg-white text-slate-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        className="w-full appearance-none bg-none px-3 py-2 pr-8 rounded-xl border border-slate-200 text-xs bg-white text-slate-700 cursor-pointer focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                       >
                         <option value="STARTTLS">STARTTLS (587)</option>
                         <option value="SSL">SSL/TLS (465)</option>
@@ -625,7 +855,7 @@ export default function IntegrationsSecurityHubPage() {
                       value={smtp.username}
                       onChange={(e) => setSmtp({ ...smtp, username: e.target.value })}
                       placeholder="svc-smtp หรือ user@company.com"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                     />
                   </div>
                   <div className="space-y-1">
@@ -637,7 +867,7 @@ export default function IntegrationsSecurityHubPage() {
                       value={smtp.senderEmail}
                       onChange={(e) => setSmtp({ ...smtp, senderEmail: e.target.value })}
                       placeholder="it-alert@company.com"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                     />
                   </div>
                   <div className="space-y-1">
@@ -649,7 +879,7 @@ export default function IntegrationsSecurityHubPage() {
                       value={smtp.password}
                       onChange={(e) => setSmtp({ ...smtp, password: e.target.value })}
                       placeholder="••••••••"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                     />
                   </div>
                 </div>
@@ -663,7 +893,7 @@ export default function IntegrationsSecurityHubPage() {
                     value={smtp.recipientEmails}
                     onChange={(e) => setSmtp({ ...smtp, recipientEmails: e.target.value })}
                     placeholder="admin@company.com, helpdesk-lead@company.com"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
                   />
                 </div>
               </div>
@@ -673,7 +903,7 @@ export default function IntegrationsSecurityHubPage() {
                   type="button"
                   onClick={handleTestEmail}
                   disabled={testingEmail}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[16px]">forward_to_inbox</span>
                   <span>{testingEmail ? 'Sending...' : 'Send Test Email'}</span>
@@ -698,14 +928,14 @@ export default function IntegrationsSecurityHubPage() {
         {activeTab === 'mcp' && (
           <div className="space-y-6">
             {/* API Key Authentication Card */}
-            <div className="bg-white rounded-2xl p-6 shadow-xs border border-sky-100 space-y-5">
+            <div className="bg-white rounded-2xl p-6 shadow-2xs border border-slate-200 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
+                  <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600">
                     <span className="material-symbols-outlined text-[22px]">vpn_key</span>
                   </div>
                   <div>
-                    <h2 className="text-sm font-bold text-slate-900">API Key Security &amp; Access Control</h2>
+                    <h2 className="text-sm font-semibold text-slate-900">API Key Security &amp; Access Control</h2>
                     <p className="text-[11px] text-slate-500">
                       ป้องกันการเรียกใช้ MCP Endpoints, API ส่ง Event และ API ปิดเคสจากภายนอกด้วย Header{' '}
                       <code className="font-mono text-sky-700">x-api-key</code>
@@ -802,7 +1032,7 @@ export default function IntegrationsSecurityHubPage() {
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                   <div className="text-xs font-mono font-bold text-sky-700">POST /api/incidents/inbound</div>
                   <p className="text-[11px] text-slate-600">
-                    รับแจ้ง Incident จากระบบภายนอก (Zabbix, Grafana, ERP) บันทึกลง SQLite ออกเลข Ticket และยิง Teams/Email
+                    รับแจ้ง Incident จากระบบภายนอก (Zabbix, Grafana, ERP) บันทึกลง SQLite ออกเลข Ticket และยิง Webhook/Email
                   </p>
                 </div>
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
@@ -908,7 +1138,7 @@ export default function IntegrationsSecurityHubPage() {
                     className="w-full appearance-none bg-none bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-700 py-1.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-500 font-medium transition-colors shadow-2xs"
                   >
                     <option value="ALL">All Channels</option>
-                    <option value="TEAMS">TEAMS</option>
+                    <option value="TEAMS">WEBHOOK</option>
                     <option value="EMAIL">EMAIL</option>
                     <option value="CUSTOM_API">CUSTOM_API</option>
                   </select>
@@ -980,29 +1210,34 @@ export default function IntegrationsSecurityHubPage() {
                     </tr>
                   ) : (
                     logs.map((log) => (
-                      <tr key={log.id} className="hover:bg-sky-50/30">
-                        <td className="py-3 px-4 font-mono text-[11px] text-slate-600">
+                      <tr key={log.id} className="hover:bg-sky-50/30 transition-colors">
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-600 tabular-nums">
                           {new Date(log.createdAt).toLocaleString('th-TH')}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
-                            {log.channel}
+                          <span className="px-2 py-0.5 rounded font-mono text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            {channelDisplayLabel(log.channel)}
                           </span>
                         </td>
                         <td className="py-3 px-4 font-mono font-semibold text-slate-900">
                           {log.ticketNo || '-'}
                         </td>
-                        <td className="py-3 px-4 font-mono text-[11px] text-slate-500 max-w-xs truncate">
+                        <td
+                          title={log.destination}
+                          className="py-3 px-4 font-mono text-[11px] text-slate-500 max-w-xs truncate"
+                        >
                           {log.destination}
                         </td>
                         <td className="py-3 px-4">
                           {log.status === 'SUCCESS' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
-                              ● {log.statusCode || 200} SUCCESS
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tabular-nums">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                              <span>{log.statusCode || 200} SUCCESS</span>
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
-                              ▲ {log.statusCode || 500} FAILED
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-semibold tabular-nums">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                              <span>{log.statusCode || 500} FAILED</span>
                             </span>
                           )}
                         </td>
@@ -1011,7 +1246,7 @@ export default function IntegrationsSecurityHubPage() {
                             <button
                               type="button"
                               onClick={() => setInspectLog(log)}
-                              className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer"
                             >
                               Inspect
                             </button>
@@ -1019,7 +1254,7 @@ export default function IntegrationsSecurityHubPage() {
                               type="button"
                               disabled={resendingId === log.id}
                               onClick={() => handleResendLog(log.id)}
-                              className="px-2.5 py-1 rounded bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-700 border border-sky-200 text-[11px] font-semibold transition-colors cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-600 hover:text-white text-sky-700 border border-sky-200 text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {resendingId === log.id ? '...' : 'Resend'}
                             </button>
@@ -1040,7 +1275,8 @@ export default function IntegrationsSecurityHubPage() {
             <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-xl border border-slate-200 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-sm font-semibold text-slate-900 font-mono">
-                  Delivery Log Inspection ({inspectLog.channel} • {inspectLog.ticketNo})
+                  Delivery Log Inspection ({channelDisplayLabel(inspectLog.channel)}
+                  {inspectLog.ticketNo ? ` • ${inspectLog.ticketNo}` : ''})
                 </h3>
                 <button
                   onClick={() => setInspectLog(null)}
@@ -1066,8 +1302,8 @@ export default function IntegrationsSecurityHubPage() {
                 )}
                 <div>
                   <span className="text-slate-500 block text-[11px] font-sans font-medium mb-1">Payload sent</span>
-                  <pre className="p-3 rounded bg-slate-900 text-slate-100 overflow-x-auto max-h-48 text-[11px]">
-                    {inspectLog.payload || '-'}
+                  <pre className="p-3 rounded bg-slate-900 text-slate-100 overflow-x-auto max-h-60 text-[11px]">
+                    {formatJsonSafe(inspectLog.payload)}
                   </pre>
                 </div>
               </div>

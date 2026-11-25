@@ -1,11 +1,25 @@
 import { prisma } from '@/lib/prisma';
 import { constantTimeEqual } from '@/lib/auth';
 import { encryptSecret, decryptSecret, maskSecret, generateApiKey, SECRET_MASK } from '@/lib/crypto';
+import {
+  DEFAULT_WEBHOOK_FIELDS,
+  sanitizeStoredWebhookFields,
+  validateWebhookFields,
+  type WebhookFieldMapping,
+} from '@/lib/webhook-fields';
+
+export class IntegrationValidationError extends Error {
+  public readonly status = 400;
+  constructor(message: string) {
+    super(message);
+    this.name = 'IntegrationValidationError';
+  }
+}
 
 export interface TeamsIntegrationSettings {
   isEnabled: boolean;
   webhookUrl: string;
-  payloadMode: 'power_automate' | 'adaptive_card';
+  customFields: WebhookFieldMapping[];
 }
 
 export interface SmtpIntegrationSettings {
@@ -34,6 +48,15 @@ export interface AllIntegrationsConfig {
 const DEFAULT_TEAMS_URL = process.env.TEAMS_WEBHOOK_URL || '';
 
 export class IntegrationService {
+  public static isPlaceholderWebhookUrl(url?: string | null): boolean {
+    const u = (url || '').trim().toLowerCase();
+    return !u || u.includes('your-webhook-url') || u.includes('your-power-automate-or-teams-webhook-url');
+  }
+
+  public static getEnvWebhookUrl(): string {
+    return (process.env.WEBHOOK_URL || process.env.TEAMS_WEBHOOK_URL || '').trim();
+  }
+
   /**
    * Retrieves raw (decrypted) configuration for internal server services
    */
@@ -44,30 +67,33 @@ export class IntegrationService {
       map.set(r.key, { value: r.value, isEnabled: r.isEnabled });
     }
 
-    // 1. Teams Config
-    const envTeamsUrl = (process.env.TEAMS_WEBHOOK_URL || '').trim();
-    const isEnvConfigured = Boolean(envTeamsUrl && !envTeamsUrl.includes('your-webhook-url') && envTeamsUrl.startsWith('http'));
+    // 1. Outbound Webhook Config (stored under 'teams' key for backwards compatibility)
+    const envWebhookUrl = this.getEnvWebhookUrl();
+    const isEnvConfigured = Boolean(
+      envWebhookUrl && !this.isPlaceholderWebhookUrl(envWebhookUrl) && envWebhookUrl.startsWith('http')
+    );
 
     let teams: TeamsIntegrationSettings = {
       isEnabled: true,
-      webhookUrl: isEnvConfigured ? envTeamsUrl : '',
-      payloadMode: 'power_automate',
+      webhookUrl: isEnvConfigured ? envWebhookUrl : '',
+      customFields: DEFAULT_WEBHOOK_FIELDS.map((f) => ({ ...f })),
     };
     const teamsRecord = map.get('teams');
     if (teamsRecord) {
       try {
         const parsed = JSON.parse(teamsRecord.value);
         const decryptedUrl = parsed.webhookUrl ? decryptSecret(parsed.webhookUrl).trim() : '';
-        // If DB has a real URL (not dummy placeholder), use DB URL.
-        // If DB has a dummy placeholder or empty string, fallback to process.env if configured.
-        const effectiveUrl = (decryptedUrl && !decryptedUrl.includes('your-webhook-url'))
-          ? decryptedUrl
-          : (isEnvConfigured ? envTeamsUrl : decryptedUrl);
+        const effectiveUrl =
+          decryptedUrl && !this.isPlaceholderWebhookUrl(decryptedUrl)
+            ? decryptedUrl
+            : isEnvConfigured
+              ? envWebhookUrl
+              : decryptedUrl;
 
         teams = {
           isEnabled: teamsRecord.isEnabled,
           webhookUrl: effectiveUrl,
-          payloadMode: parsed.payloadMode || 'power_automate',
+          customFields: sanitizeStoredWebhookFields(parsed.customFields),
         };
       } catch {}
     }
@@ -166,17 +192,29 @@ export class IntegrationService {
   }
 
   /**
-   * Updates Teams configuration (encrypts Webhook URL at rest)
+   * Updates outbound webhook configuration (encrypts Webhook URL at rest)
    */
   public static async saveTeamsConfig(input: Partial<TeamsIntegrationSettings>) {
     const current = (await this.getRawConfig()).teams;
     const isEnabled = input.isEnabled !== undefined ? Boolean(input.isEnabled) : current.isEnabled;
     const webhookUrl = input.webhookUrl !== undefined ? input.webhookUrl.trim() : current.webhookUrl;
-    const payloadMode = input.payloadMode || current.payloadMode;
+
+    if (webhookUrl && !/^https?:\/\//i.test(webhookUrl)) {
+      throw new IntegrationValidationError('Webhook URL must start with http:// or https://');
+    }
+
+    let customFields = current.customFields;
+    if (input.customFields !== undefined) {
+      const checked = validateWebhookFields(input.customFields);
+      if (!checked.valid) {
+        throw new IntegrationValidationError(checked.error);
+      }
+      customFields = checked.fields;
+    }
 
     const valueJson = JSON.stringify({
       webhookUrl: encryptSecret(webhookUrl),
-      payloadMode,
+      customFields,
     });
 
     await prisma.integrationConfig.upsert({

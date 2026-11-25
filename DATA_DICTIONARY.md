@@ -187,7 +187,7 @@ erDiagram
 | Field Name | Type | Nullable | Default | Constraints | Description |
 | :--- | :--- | :---: | :---: | :--- | :--- |
 | `id` | String | NO | `cuid()` | Primary Key | รหัสเฉพาะของรายการตั้งค่า |
-| `key` | String | NO | - | Unique | ชื่อหมวดการตั้งค่า/ออบเจกต์ระบบ: `teams`, `smtp`, `mcp_security`, `mttr_excluded_tickets`, `root_cause_options` (เก็บโครงสร้าง Tree `[{ name, children[] }]` รองรับย้อนหลังแบบ flat string array) |
+| `key` | String | NO | - | Unique | ชื่อหมวดการตั้งค่า/ออบเจกต์ระบบ: `teams` (คอนฟิก Outbound Webhook เก็บ `webhookUrl` + `customFields`), `smtp`, `mcp_security`, `mttr_excluded_tickets`, `root_cause_options` (เก็บโครงสร้าง Tree `[{ name, children[] }]` รองรับย้อนหลังแบบ flat string array) |
 | `value` | String | NO | - | JSON String | ข้อมูลคอนฟิกแบบ JSON ที่เข้ารหัสฟิลด์ความลับด้วย AES-256-GCM |
 | `isEnabled` | Boolean| NO | `true` | - | สวิตช์เปิด/ปิดการทำงานของโมดูลนั้นๆ |
 | `updatedAt` | DateTime| NO | - | Auto-update | วันเวลาที่แก้ไขล่าสุด |
@@ -196,13 +196,13 @@ erDiagram
 ---
 
 ### 2.6 Table: `NotificationLog`
-ตารางบันทึกประวัติการส่งแจ้งเตือนขาออกทุกช่องทาง (Teams Webhook, SMTP Email, Custom Event API) พร้อมรองรับการกดส่งซ้ำ (Resend) — **Auto-prune ลบรายการที่เก่ากว่า 14 วันอัตโนมัติ** ทุกครั้งที่บันทึก log ใหม่ (`IntegrationService.LOG_RETENTION_DAYS = 14`)
+ตารางบันทึกประวัติการส่งแจ้งเตือนขาออกทุกช่องทาง (Outbound Webhook, SMTP Email, Custom Event API) พร้อมรองรับการกดส่งซ้ำ (Resend) — **Auto-prune ลบรายการที่เก่ากว่า 14 วันอัตโนมัติ** ทุกครั้งที่บันทึก log ใหม่ (`IntegrationService.LOG_RETENTION_DAYS = 14`)
 
 | Field Name | Type | Nullable | Default | Constraints | Description |
 | :--- | :--- | :---: | :---: | :--- | :--- |
 | `id` | String | NO | `cuid()` | Primary Key | รหัสเฉพาะของ Log |
 | `ticketNo` | String | YES | `NULL` | Indexed | หมายเลข Ticket อ้างอิง |
-| `channel` | String | NO | - | Indexed | ช่องทาง: `TEAMS`, `EMAIL`, `CUSTOM_API` |
+| `channel` | String | NO | - | Indexed | ช่องทาง: `TEAMS` (แสดงเป็น `WEBHOOK` ใน UI), `EMAIL`, `CUSTOM_API` |
 | `destination`| String | NO | - | - | ปลายทาง (Webhook URL หรือรายชื่ออีเมลผู้รับ) |
 | `status` | String | NO | - | Indexed | สถานะการส่ง: `SUCCESS`, `FAILED` |
 | `statusCode` | Int | YES | `NULL` | - | รหัสตอบกลับ HTTP/SMTP เช่น `200`, `202`, `250`, `500` |
@@ -233,7 +233,7 @@ stateDiagram-v2
 
 | From → To | UI Action | Role | Guards / Validation | Side Effects |
 | :--- | :--- | :--- | :--- | :--- |
-| `[*] → OPEN` | User Portal / Inbound API | Public / API Key | Required fields | ออกเลข `ticketNo` (retry P2002), ส่ง Teams + Email |
+| `[*] → OPEN` | User Portal / Inbound API | Public / API Key | Required fields | ออกเลข `ticketNo` (retry P2002), ส่ง Outbound Webhook + Email |
 | `OPEN → IN_PROGRESS` | `Claim Ticket (รับเคส)` | **Staff เท่านั้น** (`403` ถ้า Manager) | - | ตั้ง `assignedTo = currentUser`, เริ่มทำงาน |
 | `IN_PROGRESS → ON_HOLD` | `พักเคส (On Hold)` | **Staff เท่านั้น** (`403` ถ้า Manager) | - | Auto-set `mttrExcluded = true`, ยกเว้นจาก Backlog Aging |
 | `ON_HOLD → IN_PROGRESS` | `กลับมาทำต่อ (Resume)` | **Staff เท่านั้น** (`403` ถ้า Manager) | - | กลับเข้าคิว Active (`mttrExcluded` คงค่าเดิมจนกว่าจะสลับเอง) |
@@ -305,15 +305,15 @@ stateDiagram-v2
 | **GET** | `/api/mcp/v1/recurring`| รองรับ Header `x-api-key` | การจัดกลุ่มเคสที่เกิดซ้ำซ้อน (Clustering by Patterns) |
 | **POST** | `/api/events/notify` | JSON: `{ detail, urgency, incident_type, webhookUrl? }` (รองรับ `x-api-key`) | ส่งแจ้งเตือนไปยัง Webhook ปลายทางพร้อมบันทึก Log |
 | **GET** | `/api/incidents/inbound` | - | ข้อมูล Documentation และตัวอย่าง Payload สำหรับ Inbound Incident API |
-| **POST** | `/api/incidents/inbound` | JSON (Smart Mapping): `{ title/summary, description/detail, urgency/severity?, reporterName/sourceSystem?, department?, category? }` (รองรับ `x-api-key`) | รับแจ้ง Incident จากระบบภายนอก (Zabbix, Grafana, ERP) บันทึกลง SQLite ออกเลข Ticket อัตโนมัติ และยิง Teams/Email |
-| **GET/PUT/POST** | `/api/integrations` | Admin Session Cookie | ดึง/บันทึกการตั้งค่า Teams, SMTP, MCP Security และหมุนเปลี่ยน API Key |
+| **POST** | `/api/incidents/inbound` | JSON (Smart Mapping): `{ title/summary, description/detail, urgency/severity?, reporterName/sourceSystem?, department?, category? }` (รองรับ `x-api-key`) | รับแจ้ง Incident จากระบบภายนอก (Zabbix, Grafana, ERP) บันทึกลง SQLite ออกเลข Ticket อัตโนมัติ และยิง Outbound Webhook/Email |
+| **GET/PUT/POST** | `/api/integrations` | Admin Session Cookie | ดึง/บันทึกการตั้งค่า Outbound Webhook (`customFields`), SMTP, MCP Security และหมุนเปลี่ยน API Key |
 | **GET/POST** | `/api/integrations/logs` | Admin Session Cookie | ดึงประวัติการส่งแจ้งเตือนและสั่งส่งซ้ำ (Resend) |
 | **POST/DELETE/GET** | `/api/auth/admin` | JSON: `{ identifier/email/username, password }` หรือ `{ passcode }` | เข้าสู่ระบบ/ออกจากระบบ Admin Console ด้วย HTTP-Only Signed Cookie (ตรวจสิทธิ์ `AdminUser` สดทุก Request) |
 | **GET/POST** | `/api/users` | JSON: `{ email, name, role, password }` (เฉพาะ `MANAGER`) | รายชื่อและสร้างผู้ใช้ Admin ใหม่ |
 | **PATCH/DELETE** | `/api/users/[id]` | JSON: `{ name?, email?, role?, isActive?, password? }` (เฉพาะ `MANAGER`) | แก้ไขสิทธิ์/สถานะ/รหัสผ่าน หรือลบบัญชีผู้ใช้ |
 | **POST/GET** | `/api/users/invite` | JSON: `{ email, name, role, sendEmail? }` (POST, `MANAGER`) หรือ `?token=` (GET) | สร้างและตรวจสอบลิงก์เชิญลงทะเบียน HMAC อายุ 48 ชม. (ใช้ได้ครั้งเดียว) |
 | **POST** | `/api/users/invite/accept` | JSON: `{ token, password, name? }` | ยืนยันลิงก์ Invite ตั้งรหัสผ่านและสร้างบัญชี `AdminUser` |
-| **POST** | `/api/teams/ping` | - | ส่ง Test Ping ทดสอบ Webhook |
+| **POST** | `/api/webhook/ping` | - | ส่ง Test Ping ทดสอบ Outbound Webhook |
 
 ---
 

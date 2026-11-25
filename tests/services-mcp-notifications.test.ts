@@ -5,11 +5,18 @@ import prisma from '../src/lib/prisma';
 import { SECRET_MASK } from '../src/lib/crypto';
 import { ADMIN_COOKIE_NAME, createAdminSessionToken } from '../src/lib/auth';
 import { McpService } from '../src/lib/services/mcp.service';
-import { TeamsService } from '../src/lib/services/teams.service';
+import { WebhookService } from '../src/lib/services/webhook.service';
 import { EmailService } from '../src/lib/services/email.service';
-import { IntegrationService } from '../src/lib/services/integration.service';
+import { IntegrationService, IntegrationValidationError } from '../src/lib/services/integration.service';
+import {
+  buildWebhookPayload,
+  DEFAULT_WEBHOOK_FIELDS,
+  sanitizeStoredWebhookFields,
+  validateWebhookFields,
+} from '../src/lib/webhook-fields';
 import { GET as authAdminGet } from '../src/app/api/auth/admin/route';
-import { GET as logsGet, PATCH as logsPatch } from '../src/app/api/integrations/logs/route';
+import { PUT as integrationsPut } from '../src/app/api/integrations/route';
+import { GET as logsGet, PATCH as logsPatch, POST as logsPost } from '../src/app/api/integrations/logs/route';
 
 describe('4. MCP Text Sanitization, Telemetry & Context Schema (src/lib/services/mcp.service.ts)', () => {
   it('strips HTML tags, Markdown links, and formatting symbols cleanly', () => {
@@ -50,7 +57,7 @@ describe('4. MCP Text Sanitization, Telemetry & Context Schema (src/lib/services
   });
 });
 
-describe('5. Webhook & Email Payload Builders (TeamsService & EmailService)', () => {
+describe('5. Webhook & Email Payload Builders (WebhookService & EmailService)', () => {
   const samplePayload = {
     ticketNo: 'INC-202610-777',
     title: 'Database Connection Pool Exhausted',
@@ -63,8 +70,8 @@ describe('5. Webhook & Email Payload Builders (TeamsService & EmailService)', ()
     attachmentUrl: '/uploads/1730000_error.png',
   };
 
-  it('builds Power Automate JSON payload matching expected schema', () => {
-    const pa = TeamsService.buildPowerAutomatePayload(samplePayload);
+  it('builds default outbound webhook JSON payload matching expected schema', () => {
+    const pa = WebhookService.buildPowerAutomatePayload(samplePayload);
     assert.equal(pa.ticketNo, 'INC-202610-777');
     assert.equal(pa.urgency, 'HIGH');
     assert.equal(pa.incident_type, 'Database');
@@ -72,13 +79,67 @@ describe('5. Webhook & Email Payload Builders (TeamsService & EmailService)', ()
     assert.ok(pa.detail.includes('Somchai Jaidee'));
   });
 
-  it('builds Microsoft Teams Adaptive Card v1.4 payload with urgency color coding', () => {
-    const card = TeamsService.buildAdaptiveCard(samplePayload);
-    assert.equal(card.type, 'message');
-    const content = card.attachments[0].content;
-    assert.equal(content.type, 'AdaptiveCard');
-    assert.equal(content.version, '1.4');
-    assert.equal((content.body[0] as any).items[0].color, 'Attention');
+  it('builds custom outbound webhook JSON payload via WebhookService.buildWebhookPayload', () => {
+    const custom = WebhookService.buildWebhookPayload(samplePayload, [
+      { key: 'dept', source: 'department' },
+      { key: 'summary', source: 'custom', template: '{{ticketNo}} - {{title}}' },
+    ]);
+    assert.deepEqual(custom, {
+      dept: 'Finance',
+      summary: 'INC-202610-777 - Database Connection Pool Exhausted',
+    });
+  });
+
+  it('dispatches simulated webhook using configured customFields without Teams wording', async () => {
+    const prevRow = await prisma.integrationConfig.findUnique({
+      where: { key: 'teams' },
+      select: { value: true, isEnabled: true },
+    });
+    const prevEnvUrl = process.env.TEAMS_WEBHOOK_URL;
+    const prevWebhookUrl = process.env.WEBHOOK_URL;
+    try {
+      delete process.env.TEAMS_WEBHOOK_URL;
+      delete process.env.WEBHOOK_URL;
+      await IntegrationService.saveTeamsConfig({
+        isEnabled: true,
+        webhookUrl: '',
+        customFields: [
+          { key: 'incident_type', source: 'department' },
+          { key: 'urgency', source: 'urgency' },
+        ],
+      });
+      const res = await WebhookService.dispatch(samplePayload);
+      assert.equal(res.success, true);
+      assert.equal(res.simulated, true);
+      assert.equal(/teams/i.test(res.message), false);
+
+      const log = await prisma.notificationLog.findFirst({
+        where: { ticketNo: samplePayload.ticketNo, channel: 'TEAMS' },
+        orderBy: { createdAt: 'desc' },
+      });
+      assert.ok(log);
+      assert.deepEqual(JSON.parse(log.payload || '{}'), {
+        incident_type: 'Finance',
+        urgency: 'HIGH',
+      });
+      await prisma.notificationLog.deleteMany({
+        where: { ticketNo: samplePayload.ticketNo, channel: 'TEAMS' },
+      });
+    } finally {
+      if (prevEnvUrl === undefined) delete process.env.TEAMS_WEBHOOK_URL;
+      else process.env.TEAMS_WEBHOOK_URL = prevEnvUrl;
+      if (prevWebhookUrl === undefined) delete process.env.WEBHOOK_URL;
+      else process.env.WEBHOOK_URL = prevWebhookUrl;
+      if (prevRow) {
+        await prisma.integrationConfig.upsert({
+          where: { key: 'teams' },
+          update: { value: prevRow.value, isEnabled: prevRow.isEnabled },
+          create: { key: 'teams', value: prevRow.value, isEnabled: prevRow.isEnabled },
+        });
+      } else {
+        await prisma.integrationConfig.deleteMany({ where: { key: 'teams' } });
+      }
+    }
   });
 
   it('gracefully skips EmailService.dispatch when SMTP is disabled and logs FAILED when recipients are missing on forceSend', async () => {
@@ -319,5 +380,257 @@ describe('6. IntegrationService Encryption at Rest, Masking & Audit Logs', () =>
     const remainingFresh = await prisma.notificationLog.findUnique({ where: { id: freshLog.id } });
     assert.equal(remainingStale, null, 'logs older than 14 days must be pruned');
     assert.ok(remainingFresh, 'fresh logs within 14 days must be kept');
+  });
+});
+
+describe('7. Outbound Webhook Field Mapping & Payload Builder (src/lib/webhook-fields.ts)', () => {
+  const sampleInput = {
+    ticketNo: 'INC-202611-010',
+    title: 'Printer offline',
+    description: 'Warehouse zebra printer jammed',
+    reporterName: 'Niran',
+    department: 'Packing',
+    contactInfo: 'Ext. 412',
+    urgency: 'MEDIUM',
+    category: null,
+  };
+
+  it('builds default 10-field flat payload preserving legacy defaults', () => {
+    const out = buildWebhookPayload(sampleInput, DEFAULT_WEBHOOK_FIELDS);
+    assert.equal(out.ticketNo, 'INC-202611-010');
+    assert.equal(out.urgency, 'MEDIUM');
+    assert.equal(out.department, 'Packing');
+    assert.equal(out.category, 'General IT');
+    assert.equal(out.incident_type, 'General IT');
+    assert.ok(out.detail.includes('[INC-202611-010] Printer offline'));
+    assert.ok(out.detail.includes('แผนก: Packing'));
+  });
+
+  it('maps custom keys, {{var}} templates, {{detail}}, and null/unknown tokens safely', () => {
+    const out = buildWebhookPayload(
+      { ...sampleInput, department: null, urgency: undefined as any },
+      [
+        { key: 'incident_type', source: 'department' },
+        { key: 'summary', source: 'custom', template: '{{ticketNo}}: {{reporterName}} ({{department}}) - {{missing}}' },
+        { key: 'full_detail', source: 'custom', template: '{{detail}}' },
+      ]
+    );
+    assert.equal(out.incident_type, '');
+    assert.equal(out.summary, 'INC-202611-010: Niran () - ');
+    assert.ok(out.full_detail.includes('แผนก: -'));
+    assert.equal(Object.keys(out).length, 3);
+  });
+
+  it('validates custom fields and rejects empty arrays, blank/duplicate keys, invalid sources, and prototype keys', () => {
+    assert.equal(validateWebhookFields([]).valid, false);
+    assert.equal(validateWebhookFields([{ key: '   ', source: 'title' }]).valid, false);
+    assert.equal(
+      validateWebhookFields([
+        { key: 'dept', source: 'department' },
+        { key: ' dept ', source: 'title' },
+      ]).valid,
+      false
+    );
+    assert.equal(validateWebhookFields([{ key: 'x', source: 'unknown_src' }]).valid, false);
+    assert.equal(validateWebhookFields([{ key: '__proto__', source: 'title' }]).valid, false);
+    assert.equal(validateWebhookFields([{ key: 'constructor', source: 'title' }]).valid, false);
+    assert.equal(validateWebhookFields([{ key: 'prototype', source: 'title' }]).valid, false);
+
+    const ok = validateWebhookFields([
+      { key: ' dept ', source: 'department', template: 'ignored-when-not-custom' },
+      { key: 'msg', source: 'custom', template: '{{title}}' },
+    ]);
+    assert.equal(ok.valid, true);
+    if (ok.valid) {
+      assert.deepEqual(ok.fields, [
+        { key: 'dept', source: 'department' },
+        { key: 'msg', source: 'custom', template: '{{title}}' },
+      ]);
+    }
+  });
+
+  it('falls back to DEFAULT_WEBHOOK_FIELDS when stored fields are missing or invalid', () => {
+    assert.deepEqual(sanitizeStoredWebhookFields(undefined), DEFAULT_WEBHOOK_FIELDS);
+    assert.deepEqual(sanitizeStoredWebhookFields([]), DEFAULT_WEBHOOK_FIELDS);
+    assert.deepEqual(sanitizeStoredWebhookFields([{ key: '__proto__', source: 'title' }]), DEFAULT_WEBHOOK_FIELDS);
+  });
+});
+
+describe('8. IntegrationService Custom Webhook Fields & API Validation', () => {
+  let backupTeamsRow: { value: string; isEnabled: boolean } | null = null;
+
+  before(async () => {
+    backupTeamsRow = await prisma.integrationConfig.findUnique({
+      where: { key: 'teams' },
+      select: { value: true, isEnabled: true },
+    });
+  });
+
+  after(async () => {
+    if (backupTeamsRow) {
+      await prisma.integrationConfig.upsert({
+        where: { key: 'teams' },
+        update: { value: backupTeamsRow.value, isEnabled: backupTeamsRow.isEnabled },
+        create: { key: 'teams', value: backupTeamsRow.value, isEnabled: backupTeamsRow.isEnabled },
+      });
+    } else {
+      await prisma.integrationConfig.deleteMany({ where: { key: 'teams' } });
+    }
+  });
+
+  it('falls back to DEFAULT_WEBHOOK_FIELDS on legacy adaptive_card DB row and preserves customFields on partial updates', async () => {
+    await prisma.integrationConfig.upsert({
+      where: { key: 'teams' },
+      update: {
+        value: JSON.stringify({ webhookUrl: '', payloadMode: 'adaptive_card' }),
+        isEnabled: true,
+      },
+      create: {
+        key: 'teams',
+        value: JSON.stringify({ webhookUrl: '', payloadMode: 'adaptive_card' }),
+        isEnabled: true,
+      },
+    });
+
+    const legacy = await IntegrationService.getRawConfig();
+    assert.deepEqual(legacy.teams.customFields, DEFAULT_WEBHOOK_FIELDS);
+    assert.equal('payloadMode' in legacy.teams, false);
+
+    const custom = [
+      { key: 'incident_type', source: 'department' as const },
+      { key: 'detail', source: 'detail' as const },
+    ];
+    await IntegrationService.saveTeamsConfig({ customFields: custom });
+    await IntegrationService.saveTeamsConfig({ isEnabled: false });
+
+    const afterPartial = await IntegrationService.getRawConfig();
+    assert.equal(afterPartial.teams.isEnabled, false);
+    assert.deepEqual(afterPartial.teams.customFields, custom);
+  });
+
+  it('rejects invalid or duplicate customFields with IntegrationValidationError (400) and HTTP 400 on PUT /api/integrations', async () => {
+    await assert.rejects(
+      () =>
+        IntegrationService.saveTeamsConfig({
+          customFields: [
+            { key: 'dept', source: 'department' },
+            { key: 'dept', source: 'title' },
+          ],
+        }),
+      (err: unknown) => err instanceof IntegrationValidationError && err.status === 400
+    );
+
+    const adminCookie = `${ADMIN_COOKIE_NAME}=${await createAdminSessionToken()}`;
+    const resEmpty = await integrationsPut(
+      new NextRequest('http://localhost/api/integrations', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', cookie: adminCookie },
+        body: JSON.stringify({ section: 'teams', data: { customFields: [] } }),
+      })
+    );
+    assert.equal(resEmpty.status, 400);
+    const bodyEmpty = await resEmpty.json();
+    assert.ok(typeof bodyEmpty.error === 'string' && bodyEmpty.error.length > 0);
+
+    const resProto = await integrationsPut(
+      new NextRequest('http://localhost/api/integrations', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', cookie: adminCookie },
+        body: JSON.stringify({
+          section: 'teams',
+          data: { customFields: [{ key: '__proto__', source: 'title' }] },
+        }),
+      })
+    );
+    assert.equal(resProto.status, 400);
+  });
+
+  it('validates webhookUrl protocol, supports WEBHOOK_URL env, and allows disabled webhook with empty URL', async () => {
+    const prevEnvUrl = process.env.TEAMS_WEBHOOK_URL;
+    const prevWebhookUrl = process.env.WEBHOOK_URL;
+    try {
+      delete process.env.TEAMS_WEBHOOK_URL;
+      delete process.env.WEBHOOK_URL;
+      await assert.rejects(
+        () => IntegrationService.saveTeamsConfig({ webhookUrl: 'ftp://bad.local/hook' }),
+        (err: unknown) => err instanceof IntegrationValidationError && err.status === 400
+      );
+
+      const saved = await IntegrationService.saveTeamsConfig({
+        isEnabled: false,
+        webhookUrl: '',
+        customFields: [{ key: 'dept', source: 'department' }],
+      });
+      assert.equal(saved.teams.isEnabled, false);
+      assert.equal(saved.teams.webhookUrl, '');
+      assert.deepEqual(saved.teams.customFields, [{ key: 'dept', source: 'department' }]);
+
+      process.env.WEBHOOK_URL = 'https://webhook.example.local/hook';
+      const withEnv = await IntegrationService.getRawConfig();
+      assert.equal(withEnv.teams.webhookUrl, 'https://webhook.example.local/hook');
+    } finally {
+      if (prevEnvUrl === undefined) delete process.env.TEAMS_WEBHOOK_URL;
+      else process.env.TEAMS_WEBHOOK_URL = prevEnvUrl;
+      if (prevWebhookUrl === undefined) delete process.env.WEBHOOK_URL;
+      else process.env.WEBHOOK_URL = prevWebhookUrl;
+    }
+  });
+
+  it('replays stored log.payload verbatim on POST /api/integrations/logs when incident is absent', async () => {
+    const prevEnvUrl = process.env.TEAMS_WEBHOOK_URL;
+    const prevWebhookUrl = process.env.WEBHOOK_URL;
+    const createdIds: string[] = [];
+    try {
+      delete process.env.TEAMS_WEBHOOK_URL;
+      delete process.env.WEBHOOK_URL;
+      await IntegrationService.saveTeamsConfig({
+        isEnabled: false,
+        webhookUrl: '',
+        customFields: [{ key: 'detail', source: 'detail' }],
+      });
+
+      const originalPayload = { dept: 'Packing', customKey: 'ping-only' };
+      const seededLog = await IntegrationService.logNotification({
+        channel: 'CUSTOM_API',
+        ticketNo: 'MISSING-TICKET-999',
+        destination: 'https://example.invalid/custom-hook',
+        status: 'FAILED',
+        statusCode: 500,
+        payload: JSON.stringify(originalPayload),
+        errorMessage: 'Network error',
+      });
+      assert.ok(seededLog);
+      createdIds.push(seededLog.id);
+
+      const adminCookie = `${ADMIN_COOKIE_NAME}=${await createAdminSessionToken()}`;
+      const res = await logsPost(
+        new NextRequest('http://localhost/api/integrations/logs', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', cookie: adminCookie },
+          body: JSON.stringify({ logId: seededLog.id }),
+        })
+      );
+      assert.equal(res.status, 200);
+      const data = await res.json();
+      assert.equal(data.success, true);
+      assert.equal(data.simulated, true);
+
+      const replayedLog = await prisma.notificationLog.findFirst({
+        where: { ticketNo: 'MISSING-TICKET-999', status: 'SUCCESS' },
+        orderBy: { createdAt: 'desc' },
+      });
+      assert.ok(replayedLog);
+      createdIds.push(replayedLog.id);
+      assert.equal(replayedLog.channel, 'CUSTOM_API');
+      assert.deepEqual(JSON.parse(replayedLog.payload || '{}'), originalPayload);
+    } finally {
+      if (prevEnvUrl === undefined) delete process.env.TEAMS_WEBHOOK_URL;
+      else process.env.TEAMS_WEBHOOK_URL = prevEnvUrl;
+      if (prevWebhookUrl === undefined) delete process.env.WEBHOOK_URL;
+      else process.env.WEBHOOK_URL = prevWebhookUrl;
+      if (createdIds.length > 0) {
+        await prisma.notificationLog.deleteMany({ where: { id: { in: createdIds } } });
+      }
+    }
   });
 });

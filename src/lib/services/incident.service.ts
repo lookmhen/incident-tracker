@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { TeamsService } from './teams.service';
+import { WebhookService } from './webhook.service';
 import { EmailService } from './email.service';
 import { McpService } from './mcp.service';
 import { IncidentServiceError } from './incident-errors';
@@ -192,7 +192,7 @@ export class IncidentService {
   }
 
   /**
-   * Creates a new incident, persists attachment, and fires Teams Webhook
+   * Creates a new incident, persists attachment, and fires Outbound Webhook & Email
    */
   public static async createIncident(data: CreateIncidentDTO) {
     const cleanDesc = McpService.cleanText(data.description);
@@ -250,10 +250,10 @@ export class IncidentService {
       created.attachments = [attachment];
     }
 
-    // Asynchronously dispatch to Microsoft Teams & Admin Email in parallel (non-blocking)
+    // Asynchronously dispatch Outbound Webhook & Admin Email in parallel (non-blocking)
     const firstAttachmentUrl = created.attachments?.[0]?.fileUrl || null;
     Promise.allSettled([
-      TeamsService.dispatch({
+      WebhookService.dispatch({
         ticketNo: created.ticketNo,
         title: created.title,
         description: created.description,

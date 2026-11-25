@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TeamsService } from '@/lib/services/teams.service';
+import { WebhookService } from '@/lib/services/webhook.service';
 import { checkApiAccess } from '@/lib/api-guard';
 
 /**
@@ -10,7 +10,7 @@ export async function GET() {
   return NextResponse.json({
     endpoint: '/api/events/notify',
     method: 'POST',
-    description: 'Standalone API to dispatch incident events to Microsoft Teams, Power Automate, or custom Webhooks via HTTP POST.',
+    description: 'Standalone API to dispatch incident events to configured Outbound Webhooks via HTTP POST.',
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': '(Required when Enforce API Key is enabled in Integrations Hub)',
@@ -19,7 +19,7 @@ export async function GET() {
       detail: '[INC-202610-001] SAP Connection Failure\nรายละเอียด: เครื่องไคลเอนต์ไม่สามารถเชื่อมต่อ SAP Server ได้\nผู้แจ้ง: นายสมชาย (ฝ่ายการเงิน, 081-xxx-xxxx)',
       urgency: 'HIGH',
       incident_type: 'SAP Basis',
-      webhookUrl: '(Optional: specify custom webhook url, or omit to use server default TEAMS_WEBHOOK_URL)',
+      webhookUrl: '(Optional: specify custom webhook url, or omit to use server default WEBHOOK_URL)',
     },
     curlExample: `curl -X POST http://localhost:3000/api/events/notify -H "Content-Type: application/json" -H "x-api-key: <YOUR_API_KEY>" -d '{"detail":"ทดสอบแจ้งเตือน","urgency":"HIGH","incident_type":"Network"}'`,
   });
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await TeamsService.dispatchEvent(body);
+    const result = await WebhookService.dispatchEvent(body);
 
     if (!result.success) {
       return NextResponse.json(

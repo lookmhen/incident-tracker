@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { TeamsService } from '@/lib/services/teams.service';
+import { WebhookService } from '@/lib/services/webhook.service';
 import { checkApiAccess } from '@/lib/api-guard';
 
 export async function POST(req: NextRequest) {
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       : {
           ticketNo: 'PING-TEST-001',
           title: 'IncidentHub Test Diagnostic Pulse',
-          description: 'Test ping triggered from IncidentHub Operations Console to verify Teams incoming webhook connectivity.',
+          description: 'Test ping triggered from IncidentHub Operations Console to verify outbound webhook connectivity.',
           reporterName: 'SysAdmin Bot',
           department: 'IT Operations Core',
           contactInfo: 'ops@company.internal',
@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
           category: 'Diagnostic',
         };
 
-    const res = await TeamsService.dispatch(payload);
+    const res = await WebhookService.dispatch(payload);
 
     return NextResponse.json(res);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to dispatch card' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to dispatch webhook' }, { status: 500 });
   }
 }

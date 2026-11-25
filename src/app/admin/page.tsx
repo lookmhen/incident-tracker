@@ -97,8 +97,8 @@ export default function AdminDashboardPage() {
   const [rootCauseTree, setRootCauseTree] = useState<RootCauseNode[]>(DEFAULT_ROOT_CAUSE_TREE);
   const [showRootCauseModal, setShowRootCauseModal] = useState(false);
 
-  // Teams ping feedback
-  const [teamsPingStatus, setTeamsPingStatus] = useState<string | null>(null);
+  // Outbound webhook ping feedback
+  const [webhookPingStatus, setWebhookPingStatus] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>('Admin');
   const [currentUserRole, setCurrentUserRole] = useState<'STAFF' | 'MANAGER' | null>(null);
 
@@ -300,24 +300,31 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Send Teams Dispatch (specific incident or diagnostic ping)
-  const handleSendTeamsPing = async (targetIncident?: IncidentRecord) => {
-    setTeamsPingStatus(targetIncident ? `Sending ${targetIncident.ticketNo}...` : 'Sending ping...');
+  // Send Outbound Webhook Dispatch (specific incident or diagnostic ping)
+  const handleSendWebhookPing = async (targetIncident?: IncidentRecord) => {
+    setWebhookPingStatus(targetIncident ? `Sending ${targetIncident.ticketNo}...` : 'Sending ping...');
     try {
-      const res = await fetch('/api/teams/ping', {
+      const res = await fetch('/api/webhook/ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: targetIncident ? JSON.stringify(targetIncident) : undefined,
       });
-      const data = await res.json();
-      if (targetIncident) {
-        setTeamsPingStatus(data.simulated ? `Forwarded ${targetIncident.ticketNo} (Simulated)` : `Forwarded ${targetIncident.ticketNo}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        setWebhookPingStatus(data.message || data.error || 'Webhook forwarding failed');
+      } else if (targetIncident) {
+        setWebhookPingStatus(
+          data.simulated
+            ? `Forwarded ${targetIncident.ticketNo} (Simulated)`
+            : `Forwarded ${targetIncident.ticketNo} via Webhook`
+        );
       } else {
-        setTeamsPingStatus(data.simulated ? 'Ping Sent (Simulated Mode)' : 'Ping Sent (HTTP 200)');
+        setWebhookPingStatus(data.simulated ? 'Ping Sent (Simulated Mode)' : 'Ping Sent (HTTP 200)');
       }
-      setTimeout(() => setTeamsPingStatus(null), 4000);
-    } catch (e) {
-      setTeamsPingStatus('Forwarding failed');
+    } catch {
+      setWebhookPingStatus('Webhook forwarding failed');
+    } finally {
+      setTimeout(() => setWebhookPingStatus(null), 4000);
     }
   };
 
@@ -353,6 +360,11 @@ export default function AdminDashboardPage() {
             <h1 className="text-2xl font-headline font-semibold text-slate-900 tracking-tight whitespace-nowrap">
               IT Operations &amp; Incident Dashboard
             </h1>
+            {webhookPingStatus && (
+              <p role="status" className="text-xs font-medium text-sky-700">
+                {webhookPingStatus}
+              </p>
+            )}
           </div>
 
           {/* Quick Action Pipeline Controls */}
@@ -854,9 +866,9 @@ export default function AdminDashboardPage() {
                             )}
 
                             <button
-                              onClick={() => handleSendTeamsPing(inc)}
+                              onClick={() => handleSendWebhookPing(inc)}
                               className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors cursor-pointer"
-                              title={`Forward payload for ${inc.ticketNo} to Microsoft Teams channel`}
+                              title={`Forward payload for ${inc.ticketNo} via Outbound Webhook`}
                             >
                               <span className="material-symbols-outlined text-[15px]">send_to_mobile</span>
                             </button>

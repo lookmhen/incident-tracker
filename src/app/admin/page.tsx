@@ -106,13 +106,17 @@ export default function AdminDashboardPage() {
   const fetchSeqRef = useRef(0);
   const lastFetchAtRef = useRef(0);
 
-  // Keyboard shortcut '/' to focus search
+  // Keyboard shortcut '/' to focus search (skip when typing in any form field)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '/' && document.activeElement !== searchInputRef.current) {
-        e.preventDefault();
-        searchInputRef.current?.focus();
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const active = document.activeElement as HTMLElement | null;
+      const tag = active?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || active?.isContentEditable) {
+        return;
       }
+      e.preventDefault();
+      searchInputRef.current?.focus();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -533,7 +537,7 @@ export default function AdminDashboardPage() {
         {/* Filter & Precision Search Strip */}
         <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-2xs flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
           {/* Search Input */}
-          <div className="relative flex-1 min-w-[280px]">
+          <div className="relative flex-1 min-w-[200px]">
             <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] text-slate-400">
               search
             </span>
@@ -543,11 +547,13 @@ export default function AdminDashboardPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search ticket ID, reporter, or details"
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-xs rounded-lg focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
+              className="w-full pl-10 pr-4 md:pr-20 py-2.5 bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-xs rounded-lg focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 transition-colors"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 text-[10px] text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded font-mono">
-              <span>/</span> to focus
-            </div>
+            {!search && (
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-1 text-[10px] text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded font-mono">
+                <span>/</span> to focus
+              </div>
+            )}
           </div>
 
           {/* Filters Row */}
@@ -557,7 +563,7 @@ export default function AdminDashboardPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="max-w-[165px] truncate appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Status: All</option>
                 <option value="ACTIVE">Active (Open + In Progress + Pending Confirm)</option>
@@ -578,7 +584,7 @@ export default function AdminDashboardPage() {
               <select
                 value={urgencyFilter}
                 onChange={(e) => setUrgencyFilter(e.target.value)}
-                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="max-w-[155px] truncate appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Urgency: All</option>
                 <option value="HIGH">P1 - Blocker / High</option>
@@ -595,7 +601,7 @@ export default function AdminDashboardPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="max-w-[165px] truncate appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Domain: All Categories</option>
                 {categories.map((c) => (
@@ -617,7 +623,7 @@ export default function AdminDashboardPage() {
                   setDeptFilter(e.target.value);
                   setPage(1);
                 }}
-                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="max-w-[165px] truncate appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Dept: All Units</option>
                 {departments.map((dept) => (
@@ -640,7 +646,7 @@ export default function AdminDashboardPage() {
                   setPage(1);
                 }}
                 aria-label="Filter by solver"
-                className="appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
+                className="max-w-[135px] truncate appearance-none bg-none bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-xs text-slate-700 py-2.5 pl-3 pr-8 rounded-lg cursor-pointer focus:outline-none focus:border-sky-500 font-medium transition-colors"
               >
                 <option value="ALL">Solver: All</option>
                 <option value="false">IT Team</option>
@@ -653,8 +659,10 @@ export default function AdminDashboardPage() {
 
             {/* Reset Button */}
             <button
+              type="button"
               onClick={handleResetFilters}
-              className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors"
+              aria-label="Reset Filters"
+              className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 transition-colors cursor-pointer"
               title="Reset Filters"
             >
               <span className="material-symbols-outlined text-[17px]">restart_alt</span>

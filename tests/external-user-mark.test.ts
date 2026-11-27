@@ -132,6 +132,7 @@ describe('13. External User Resolution Mark Workflow', () => {
     assert.equal(resolvedJson.status, 'RESOLVED');
     assert.equal(resolvedJson.resolvedByExternal, true);
     assert.equal(resolvedJson.mttrExcluded, true);
+    assert.equal(resolvedJson.resolvedBy, 'QA Staff');
 
     // Closed lock blocks mutating resolvedByExternal (403 for Manager one-way, 400 at service level)
     const lockedRes = await incidentPatch(

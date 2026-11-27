@@ -110,6 +110,7 @@ export default function IncidentHeaderCard({
   const statusKey = normStatus(incident.status);
   const isOnHold = statusKey === 'ON_HOLD';
   const isPendingConfirm = statusKey === 'PENDING_CONFIRM';
+  const resolvedByDisplay = incident.assignedTo?.trim() || incident.resolvedBy;
 
   return (
     <section className="relative z-20 bg-white rounded-2xl p-6 shadow-2xs border border-slate-200">
@@ -345,12 +346,12 @@ export default function IncidentHeaderCard({
                   <span>แก้ไข</span>
                 </button>
               )}
-              {isClosed && incident.resolvedBy && (
+              {isClosed && resolvedByDisplay && (
                 <>
                   <span className="hidden sm:inline text-slate-300">•</span>
                   <div className="flex items-center gap-1 text-emerald-700 font-medium">
                     <span className="material-symbols-outlined text-[15px]">verified</span>
-                    <span>Resolved by: {incident.resolvedBy}</span>
+                    <span>Resolved by: {resolvedByDisplay}</span>
                   </div>
                 </>
               )}

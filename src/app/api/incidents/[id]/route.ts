@@ -38,6 +38,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const session = await getActiveSession(req);
     const nextStatus = (typeof body.status === 'string' ? body.status : '').trim().toUpperCase();
     const isClosing = ['RESOLVED', 'CLOSED'].includes(nextStatus);
+    const isSubmittingConfirm = nextStatus === 'PENDING_CONFIRM';
+    const existing =
+      session || isClosing || isSubmittingConfirm ? await IncidentService.getIncidentById(id) : null;
 
     if (session && session.role === 'MANAGER') {
       const sentKeys = Object.keys(body || {}).filter((k) => body[k] !== undefined);
@@ -49,7 +52,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         );
       }
 
-      const existing = await IncidentService.getIncidentById(id);
       if (!existing) {
         return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
       }
@@ -78,7 +80,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           { status: 403 }
         );
       }
-      const existing = await IncidentService.getIncidentById(id);
       if (existing && ['RESOLVED', 'CLOSED'].includes((existing.status || '').trim().toUpperCase())) {
         const reporterOnlyKeys = new Set(['reporterName', 'department', 'contactInfo']);
         const sentKeys = Object.keys(body || {}).filter((k) => body[k] !== undefined);
@@ -99,6 +100,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       );
     }
 
+    const explicitResolvedBy =
+      typeof body.resolvedBy === 'string' ? body.resolvedBy.trim() : body.resolvedBy;
+    const effAssignedTo =
+      (typeof body.assignedTo === 'string' ? body.assignedTo.trim() : existing?.assignedTo?.trim()) || '';
+    const resolvedBy =
+      explicitResolvedBy ||
+      (isClosing
+        ? effAssignedTo || existing?.resolvedBy?.trim() || (session ? session.name : undefined)
+        : isSubmittingConfirm
+          ? effAssignedTo || (session ? session.name : undefined)
+          : undefined);
+
     const updated = await IncidentService.updateIncident(id, {
       reporterName: body.reporterName,
       department: body.department,
@@ -114,9 +127,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       resolution: body.resolution,
       resolutionType: body.resolutionType,
       workaroundNote: body.workaroundNote,
-      resolvedBy:
-        (typeof body.resolvedBy === 'string' ? body.resolvedBy.trim() : body.resolvedBy) ||
-        (isClosing && session ? session.name : body.resolvedBy),
+      resolvedBy,
       resolvedByExternal: body.resolvedByExternal,
       managerComment: session?.role === 'MANAGER' ? body.managerComment : undefined,
       portalBaseUrl: EmailService.resolvePortalUrl(req),

@@ -633,6 +633,9 @@ export class IncidentService {
         }
       } else {
         updatePayload.closedAt = null;
+        if (!['PENDING_CONFIRM'].includes(updatePayload.status) && data.resolvedBy === undefined) {
+          updatePayload.resolvedBy = null;
+        }
       }
     }
 

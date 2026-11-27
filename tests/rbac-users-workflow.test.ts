@@ -471,7 +471,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     );
     assert.equal(resubmitRes.status, 200);
 
-    // 4. MANAGER confirms RESOLVED (Approve only) -> stops MTTR and records resolvedBy
+    // 4. MANAGER confirms RESOLVED (Approve only) -> stops MTTR and records Staff as resolvedBy
     const confirmRes = await incidentPatch(
       new NextRequest(`http://localhost/api/incidents/${inc.ticketNo}`, {
         method: 'PATCH',
@@ -489,7 +489,7 @@ describe('12. User Management, Role-Based Access, Invite Link & Workaround Workf
     assert.ok(confirmed.closedAt, 'closedAt must be set so MTTR clock stops');
     assert.equal(confirmed.resolutionType, 'WORKAROUND');
     assert.equal(confirmed.workaroundNote, 'Monitor memory daily until patch applied');
-    assert.equal(confirmed.resolvedBy, 'Manager Approver');
+    assert.equal(confirmed.resolvedBy, staffUser.name);
     assert.equal(confirmed.managerComment, 'Good fix, follow up with vendor');
 
     // Internal managerComment must never leak into MCP or KM outputs

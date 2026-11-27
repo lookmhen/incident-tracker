@@ -76,6 +76,7 @@ export default function ResolutionEditorCard({
   const statusKey = normStatus(incident.status);
   const isReadOnlyFields = isClosed || isManager;
   const canSubmitConfirm = isClaimed || resolvedByExternal;
+  const resolvedByDisplay = incident.assignedTo?.trim() || incident.resolvedBy;
   const charCount = resolutionText.length;
   const wordCount = resolutionText.trim() ? resolutionText.trim().split(/\s+/).length : 0;
 
@@ -379,7 +380,7 @@ export default function ResolutionEditorCard({
               {isClosed && (
                 <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[15px]">check_circle</span>
-                  <span>ปิดเคสแล้ว{incident.resolvedBy ? ` โดย ${incident.resolvedBy}` : ''}</span>
+                  <span>ปิดเคสแล้ว{resolvedByDisplay ? ` • แก้ไขโดย ${resolvedByDisplay}` : ''}</span>
                 </span>
               )}
               <button
@@ -412,7 +413,7 @@ export default function ResolutionEditorCard({
               {isClosed && (
                 <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[15px]">check_circle</span>
-                  <span>ปิดเคสแล้ว{incident.resolvedBy ? ` โดย ${incident.resolvedBy}` : ''}</span>
+                  <span>ปิดเคสแล้ว{resolvedByDisplay ? ` • แก้ไขโดย ${resolvedByDisplay}` : ''}</span>
                 </span>
               )}
               <button

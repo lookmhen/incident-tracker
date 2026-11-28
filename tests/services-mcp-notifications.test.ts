@@ -161,6 +161,55 @@ describe('5. Webhook & Email Payload Builders (WebhookService & EmailService)', 
     });
   });
 
+  it('omits Category section from EmailService.dispatch incident alert emails', async () => {
+    const prevSmtpRow = await prisma.integrationConfig.findUnique({ where: { key: 'smtp' } });
+    const origCreateTransporter = (EmailService as any).createTransporter;
+    const sentEmails: Array<{ text?: string; html?: string }> = [];
+
+    try {
+      await IntegrationService.saveSmtpConfig({
+        isEnabled: true,
+        host: 'smtp.example.internal',
+        port: 587,
+        encryption: 'STARTTLS',
+        recipientEmails: 'oncall@example.internal',
+      });
+
+      (EmailService as any).createTransporter = () => ({
+        sendMail: async (mail: { text?: string; html?: string }) => {
+          sentEmails.push(mail);
+          return { messageId: `msg-${sentEmails.length}` };
+        },
+      });
+
+      const alertRes = await EmailService.dispatch({
+        ...samplePayload,
+        ticketNo: 'TEST-EMAIL-CAT-1',
+        category: null,
+      });
+      assert.equal(alertRes.success, true);
+      assert.equal(sentEmails.length, 1);
+      assert.equal(sentEmails[0].html?.includes('หมวดหมู่ (Category)'), false);
+      assert.equal(sentEmails[0].html?.includes('General IT'), false);
+      assert.equal(sentEmails[0].html?.includes('GeneralIT'), false);
+      assert.equal(sentEmails[0].text?.includes('หมวดหมู่:'), false);
+    } finally {
+      (EmailService as any).createTransporter = origCreateTransporter;
+      await prisma.notificationLog.deleteMany({
+        where: { ticketNo: 'TEST-EMAIL-CAT-1', channel: 'EMAIL' },
+      });
+      if (prevSmtpRow) {
+        await prisma.integrationConfig.upsert({
+          where: { key: 'smtp' },
+          update: { value: prevSmtpRow.value, isEnabled: prevSmtpRow.isEnabled },
+          create: { key: 'smtp', value: prevSmtpRow.value, isEnabled: prevSmtpRow.isEnabled },
+        });
+      } else {
+        await prisma.integrationConfig.deleteMany({ where: { key: 'smtp' } });
+      }
+    }
+  });
+
   it('resolves portalBaseUrl from request headers and APP_URL env safely', () => {
     const prevAppUrl = process.env.APP_URL;
     try {

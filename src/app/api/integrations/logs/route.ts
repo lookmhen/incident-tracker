@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
           department: incident?.department || '-',
           contactInfo: incident?.contactInfo || '-',
           urgency: incident?.urgency || 'MEDIUM',
-          category: incident?.category || 'General IT',
+          category: incident?.category,
           attachmentUrl: incident?.attachments?.[0]?.fileUrl || null,
           portalBaseUrl: EmailService.resolvePortalUrl(req),
         },

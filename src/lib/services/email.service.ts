@@ -143,10 +143,6 @@ export class EmailService {
               <td style="padding: 8px 12px; color: #64748b; font-size: 12px;"><strong>ติดต่อ (Contact):</strong></td>
               <td style="padding: 8px 12px; color: #0f172a;">${escapeHtml(payload.contactInfo)}</td>
             </tr>
-            <tr>
-              <td style="padding: 8px 12px; color: #64748b; font-size: 12px;"><strong>หมวดหมู่ (Category):</strong></td>
-              <td style="padding: 8px 12px; color: #0f172a;">${escapeHtml(payload.category || 'General IT')}</td>
-            </tr>
           </table>
 
           <div style="margin-bottom: 16px;">
